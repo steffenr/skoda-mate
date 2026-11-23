@@ -1,0 +1,81 @@
+/* Pages: Control, Battery, Statistics, Events, Settings, System. Classes are prefixed b-. Colours only via the tokens in style.css. */
+
+/* (page rhythm and the [hidden] rule live in style.css) */
+
+/* ---- shared form pieces */
+.b-stepper { display: flex; align-items: center; gap: 10px; }
+.b-stepper input[type="range"] { flex: 1; min-width: 0; }
+.b-stepper input[type="number"] { max-width: 110px; text-align: center; }
+.b-big { font-size: 20px; font-weight: 700; min-width: 3.4ch; text-align: right; font-variant-numeric: tabular-nums; }
+.b-check { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 14px; color: var(--fg); min-height: 38px; cursor: pointer; }
+.b-check input { width: 18px; height: 18px; accent-color: var(--accent); flex: none; }
+.b-line { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px 14px; align-items: end; }
+.b-line > .btn { justify-self: start; }
+.b-sep { border: 0; border-top: 1px solid var(--line); margin: 16px 0; }
+.b-label { font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 4px; }
+.b-reason { display: flex; align-items: center; gap: 6px; }
+.b-has-info { position: relative; }
+.b-info { position: absolute; top: -6px; right: -8px; padding: 4px 6px; min-height: 0; color: var(--muted); }  /* the (i) beside a figure */
+.card > header .b-info { position: static; }
+.b-notes { margin: 0; padding-left: 18px; }
+.b-notes li + li { margin-top: 6px; }
+.b-errtext { color: var(--bad); margin-top: 6px; word-break: break-word; }
+.page h3 { margin-top: 2px; }
+
+/* ---- control */
+.b-cards { align-items: stretch; }
+.b-profile { border-top: 1px solid var(--line); }  /* a divider, not a card inside the card */
+.b-profile:first-child { border-top: 0; }
+.b-profile > summary { cursor: pointer; padding: 12px 14px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; list-style: none; }
+.b-profile > summary::-webkit-details-marker { display: none; }
+.b-profile > summary::before { content: ""; width: 7px; height: 7px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(-45deg); transition: transform .15s; }
+.b-profile[open] > summary::before { transform: rotate(45deg); }
+.b-profile > div { padding: 4px 14px 16px; }
+.b-timer { padding: 10px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); }
+.b-days { border: 0; padding: 0; margin: 0; min-width: 0; display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; }
+.b-days legend { font-size: 12px; font-weight: 600; color: var(--muted); padding: 0; width: 100%; margin-bottom: 2px; }
+.b-day { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 600; cursor: pointer; padding: 4px 6px; border-radius: 8px; background: var(--surface-2); }
+.b-day input { width: 16px; height: 16px; accent-color: var(--accent); }
+@media (prefers-reduced-motion: reduce) { .b-profile > summary::before { transition: none; } }
+
+/* ---- battery */
+.b-prof { padding: 10px 0; border-top: 1px solid var(--line); }
+.b-prof:first-child { padding-top: 0; border-top: 0; }
+
+/* ---- events */
+.b-chip { border: 1px solid transparent; cursor: pointer; font-family: inherit; min-height: 30px; }
+.b-chip:hover { background: var(--surface-3); }
+.b-chip[aria-pressed="true"] { border-color: var(--accent); }
+.b-day-group h3 { position: sticky; top: var(--header); background: var(--bg); padding: 6px 0; z-index: 2; }
+.b-events { list-style: none; margin: 0; padding: 0; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+.b-event { display: flex; align-items: center; gap: 12px; padding: 10px 14px; }
+.b-event + .b-event { border-top: 1px solid var(--line); }
+.b-event-ic { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: var(--surface-2); color: var(--muted); flex: none; }
+.b-event-ic.good { background: var(--accent-soft); color: var(--good); } .b-event-ic.warn { background: var(--warn-soft); color: var(--warn); }
+.b-event-ic.info { background: var(--info-soft); color: var(--info); } .b-event-ic.bad { background: var(--bad-soft); color: var(--bad); }
+.b-event-main { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; gap: 2px 10px; align-items: center; }
+.b-event-detail { color: var(--muted); font-size: 13px; word-break: break-word; }
+
+/* ---- settings */
+.b-vehicle { padding: 12px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface-2); }
+.b-vehicle .kv { margin-top: 8px; }
+.b-settings > * { max-width: none; }
+
+/* ---- system */
+.b-unavail { padding: 12px 14px; border: 1px dashed var(--line); border-radius: var(--radius-sm); background: var(--surface-2); }
+.b-unavail strong { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; color: var(--fg); }
+.b-rawbox > summary { cursor: pointer; font-weight: 600; padding: 4px 0; }
+.b-rawbox[open] > summary { margin-bottom: 10px; }
+.b-raw { margin: 0; max-height: 420px; overflow: auto; padding: 12px; background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--radius-sm);
+  font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; white-space: pre-wrap; word-break: break-all; }
+.page code { font: 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background: var(--surface-2); padding: 1px 5px; border-radius: 5px; }
+.b-dayh { font-size: 14px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }  /* day heading: h2 for the outline, h3 look */
+
+/* System: section tabs (real links, so each has its own URL) and the API-calls pager */
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin: 4px 0 16px; overflow-x: auto; scrollbar-width: none; }
+.tabs::-webkit-scrollbar { display: none; }
+.tabs a { padding: 10px 14px; font-weight: 600; font-size: 14px; color: var(--muted); text-decoration: none; white-space: nowrap; border-bottom: 2px solid transparent; margin-bottom: -1px; border-radius: 8px 8px 0 0; transition: color .15s, border-color .15s, background .15s; }
+.tabs a:hover { color: var(--fg); background: var(--surface-2); }
+.tabs a[aria-current="page"] { color: var(--fg); border-bottom-color: var(--accent); }
+@media (max-width: 480px) { .tabs { gap: 2px; } .tabs a { padding: 10px 9px; } }  /* all tabs visible on a phone, none cut off */
+.pager { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
