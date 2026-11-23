@@ -1,0 +1,14 @@
+services:
+  skoda-mate:
+    build: .
+    restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]  # the app runs as uid 10001 and can never regain root
+    ports: ["8080:8080"]
+    volumes: ["./data:/data"]   # database + secret.key (encrypts your Skoda password): back up and protect both
+    environment:
+      # No logins here: open http://localhost:8080 and the setup form asks for them.
+      COOKIE_SECURE: ${COOKIE_SECURE:-} # "true" when served over HTTPS
+      API_TOKEN: ${API_TOKEN:-}         # optional bearer token for scripts
+      MQTT_HOST: ${MQTT_HOST:-}         # optional: Home Assistant via MQTT Discovery
+      MQTT_USER: ${MQTT_USER:-}
+      MQTT_PASSWORD: ${MQTT_PASSWORD:-}

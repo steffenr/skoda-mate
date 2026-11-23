@@ -1,0 +1,8 @@
+# Keep secrets and local clutter out of the build context (the database and secret.key live in data/).
+data
+.venv
+.git
+.ddev
+**/__pycache__
+*.db
+*.key
