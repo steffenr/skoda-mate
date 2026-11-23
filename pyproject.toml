@@ -1,0 +1,19 @@
+[project]
+name = "skoda-mate"
+version = "0.1.0"
+description = "Trip tracking, charge logging and remote control for Škoda vehicles (official MyŠkoda Public API)"
+requires-python = ">=3.12"
+dependencies = ["httpx>=0.27", "fastapi>=0.115", "uvicorn>=0.30", "paho-mqtt>=2.0", "cryptography>=44"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.setuptools]
+packages = ["skoda_mate"]
+
+[tool.setuptools.package-data]
+skoda_mate = ["index.html", "login.html", "setup.html", "static/*", "static/lib/*", "static/pages/*"]

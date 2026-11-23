@@ -1,0 +1,7 @@
+#!/bin/bash
+
+## Description: Run the Skoda Mate test suite inside the web container
+## Usage: test [pytest args]
+## Example: ddev test -k recorder
+
+uv run --python 3.13 --extra dev pytest "$@"

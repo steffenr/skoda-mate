@@ -1,0 +1,21 @@
+# Skoda Mate: the app runs as a daemon in DDEV's web container and is served by ddev-router
+# at https://skoda-mate.ddev.site (no host ports to manage). No database container is needed (SQLite).
+# Logins are NOT configured here: the setup form in the browser asks for them.
+omit_containers: [db]
+
+web_extra_daemons:
+  - name: skoda-mate
+    # --reload: the app restarts by itself when a Python file changes (a stale server answers 404 for new features).
+    command: "uv run --python 3.13 uvicorn --factory skoda_mate.web:app --host 0.0.0.0 --port 8000 --reload --reload-dir skoda_mate"
+    directory: /var/www/html
+
+web_extra_exposed_ports:
+  - name: skoda-mate
+    container_port: 8000
+    http_port: 80
+    https_port: 443
+
+web_environment:
+  - DB_PATH=/var/www/html/data/skoda_mate.db
+  # The session cookie is Secure automatically when the request came in over HTTPS (X-Forwarded-Proto), so both
+  # http:// and https:// ddev URLs can log in. Do not force COOKIE_SECURE here: http:// would then lose the cookie.
