@@ -134,6 +134,8 @@ def seed(conn, days: int = 60, now: datetime | None = None, rng_seed: int = 7, v
     start = (now - timedelta(days=days)).replace(hour=6, minute=0, second=0, microsecond=0)
 
     def snap(t, **kw):
+        if t > now:  # a day's schedule can run past midnight: that is not history yet, the live demo continues
+            return
         base = {"ts": t.isoformat(), "soc": round(soc, 1), "charging": False, "mileage_km": round(odo, 1), "in_motion": False,
                 "lat": HOME[0], "lon": HOME[1], "address": HOME[2], "locked": True, "plug_connected": False, "charge_state": None,
                 "climate_state": "OFF", "climate_target": 21.0}
@@ -142,7 +144,7 @@ def seed(conn, days: int = 60, now: datetime | None = None, rng_seed: int = 7, v
 
     day = start
     here = HOME
-    while day < now - timedelta(hours=2):
+    while day < now:
         wk = day.weekday() < 5
         t = day
         snap(t, lat=here[0], lon=here[1], address=here[2])

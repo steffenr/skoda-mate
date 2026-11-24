@@ -1,3 +1,5 @@
+from datetime import UTC, datetime
+
 from skoda_mate import demo, schema
 from skoda_mate.config import Config
 from skoda_mate.web import create_app
@@ -37,3 +39,13 @@ def test_demo_commands_change_the_demo_car_and_setup_is_refused():
         assert r["ok"]
         assert c.get(f"/api/vehicles/{vid}/overview").json()["snapshot"]["target_soc"] == 90
         assert c.post("/api/setup/skoda", json={"api_key": "x" * 20, "vins": demo.DEMO_VIN}).status_code == 400
+
+
+def test_demo_history_never_runs_ahead_of_the_clock():
+    # A day's schedule in seed() can run past midnight. Those samples must not be written: they would sort after
+    # every live poll (last_snapshot orders by recorded_at), so the dashboard would show stale data forever.
+    conn = schema.connect(":memory:")
+    now = datetime(2026, 5, 20, 8, 30, tzinfo=UTC)
+    vid = demo.seed(conn, now=now)
+    newest = conn.execute("SELECT MAX(recorded_at) FROM snapshots WHERE vehicle_id=?", (vid,)).fetchone()[0]
+    assert datetime.fromisoformat(newest) <= now
