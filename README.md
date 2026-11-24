@@ -93,6 +93,18 @@ allowed (some NAS/NFS shares), run `sudo chown -R 10001:10001 ./data` once on th
 `docker-compose.yml`. For commands inside the container, add `-u 10001`
 (e.g. `docker compose exec -u 10001 skoda-mate python -m skoda_mate reset-password`) so no root-owned files end up in `data/`.
 
+### On Unraid
+Unraid has no Docker Compose support of its own, so the repository ships two files for it: `unraid/skoda-mate.xml` (an
+Unraid template for the **Docker** tab) and `unraid/docker-compose.yml` (for the **Docker Compose Manager** plugin).
+There is no image on a registry, so build it once on the server and open the WebUI:
+```bash
+mkdir -p /mnt/user/appdata/skoda-mate-build && cd /mnt/user/appdata/skoda-mate-build
+curl -L https://github.com/steffenr/skoda-mate/archive/refs/heads/main.tar.gz | tar -xz --strip-components=1
+docker build -t skoda-mate:latest .
+```
+Data lives in `/mnt/user/appdata/skoda-mate`, the port is `8080`. Step by step, including reverse proxies, backups and
+the uid 10001 note: [docs/UNRAID.md](docs/UNRAID.md).
+
 ### With DDEV (local testing)
 The repository ships its DDEV config (nothing to create by hand): `.ddev/config.yaml` (generic project),
 `.ddev/config.skoda-mate.yaml` (the app as a daemon in the web container, routed by ddev-router),
@@ -165,8 +177,9 @@ The sign-in e-mail stays as it is. Add `--email you@example.com` to change it, o
 | `MQTT_HOST`, `MQTT_PORT`, `MQTT_USER`, `MQTT_PASSWORD` | unset, `1883`, empty, empty | Home Assistant via MQTT Discovery. Dashboard settings replace these; they are a fallback for older installs. |
 | `MQTT_PREFIX` | `skoda_mate` | Discovery/topic prefix. |
 
-In Docker, set these in `.env` next to `docker-compose.yml` (all except `DB_PATH` are forwarded). In DDEV, `DB_PATH` lives
-in `.ddev/config.skoda-mate.yaml`. Logins and Škoda keys are never read from the environment.
+In Docker, set these in `.env` next to `docker-compose.yml` (all except `DB_PATH` are forwarded). On Unraid, use the
+template fields or `unraid/docker-compose.yml` (see [docs/UNRAID.md](docs/UNRAID.md)). In DDEV, `DB_PATH` lives in
+`.ddev/config.skoda-mate.yaml`. Logins and Škoda keys are never read from the environment.
 
 ### Security
 - **First run / setup code.** Before a login exists, only the setup form and its two API calls are reachable. From

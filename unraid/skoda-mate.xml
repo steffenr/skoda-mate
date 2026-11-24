@@ -1,0 +1,48 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>skoda-mate</Name>
+  <!-- A locally built image: there is no published one. Run `docker build -t skoda-mate:latest .` first, see
+       docs/UNRAID.md. Unraid's update check will therefore report "not available" - rebuild to update. -->
+  <Repository>skoda-mate:latest</Repository>
+  <Registry/>
+  <Network>bridge</Network>
+  <MyIP/>
+  <Shell>sh</Shell>
+  <Privileged>false</Privileged>
+  <Support>https://github.com/steffenr/skoda-mate/issues</Support>
+  <Project>https://github.com/steffenr/skoda-mate</Project>
+  <Overview>Trip tracking, charge logging and remote control for Skoda cars via the official MySkoda Public API.</Overview>
+  <Category>HomeAutomation: Tools:Utilities</Category>
+  <WebUI>http://[IP]:[PORT:8080]/</WebUI>
+  <TemplateURL>https://raw.githubusercontent.com/steffenr/skoda-mate/main/unraid/skoda-mate.xml</TemplateURL>
+  <Icon>https://raw.githubusercontent.com/steffenr/skoda-mate/main/skoda_mate/static/icon.svg</Icon>
+  <ExtraParams>--restart=unless-stopped --security-opt=no-new-privileges:true</ExtraParams>
+  <PostArgs/>
+  <CPUset/>
+  <DateInstalled></DateInstalled>
+  <DonateText>Buy me a coffee</DonateText>
+  <DonateLink>https://buymeacoffee.com/steffenr</DonateLink>
+  <Description>Self-hosted dashboard for your Skoda: trips, charging sessions, costs, battery and remote control
+(charging, climate, charging profiles), based on the official MySkoda Public API and a local SQLite database.
+Optionally publishes about 40 entities to Home Assistant via MQTT discovery. No cloud account beyond the API key
+you create in the MySkoda app; the key, the S-PIN and the database stay in this path.
+
+First start: open the WebUI and finish the setup form (dashboard login, API key, VINs). Nothing is configured
+through environment variables. The Skoda API allows about 20 requests per hour per car, so a reading is taken every
+20 minutes while parked and every 5 minutes while charging or driving.
+
+There is intentionally no PUID/PGID: the app always runs as uid 10001, and the container hands the data path to that
+user itself. Set the data path to a private folder (not exported over SMB) - it holds the key that decrypts your
+Skoda API key.
+
+Image: built locally from https://github.com/steffenr/skoda-mate - see docs/UNRAID.md.
+Against a reverse proxy, add --proxy-headers --forwarded-allow-ips=172.16.0.0/12 to the extra parameters, with your
+proxy's network instead of the example range.</Description>
+  <Config Name="WebUI port" Target="8080" Default="8080" Mode="tcp" Description="Container port 8080; change the host side if 8080 is taken." Type="Port" Display="always" Required="true" Mask="false">8080</Config>
+  <Config Name="Data" Target="/data" Default="/mnt/user/appdata/skoda-mate" Mode="rw" Description="SQLite database, secret.key and (first run) setup-code.txt. Back it up, keep it private, never delete it." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/skoda-mate</Config>
+  <Config Name="Cookie Secure" Target="COOKIE_SECURE" Default="" Mode="" Description="'true' forces the Secure session cookie. Leave empty: Mate sets it by itself when a proxy sends X-Forwarded-Proto: https." Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+  <Config Name="API token" Target="API_TOKEN" Default="" Mode="" Description="Optional bearer token for scripts calling the JSON API. Empty = off." Type="Variable" Display="advanced" Required="false" Mask="true"></Config>
+  <Config Name="Setup code" Target="SETUP_CODE" Default="" Mode="" Description="Optional: your own one-time first-run setup code. Empty = generated and written to setup-code.txt in the data path." Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+  <Config Name="Demo mode" Target="DEMO" Default="" Mode="" Description="'1' runs a fictional car with 60 days of history - no account, no network. Handy for a first look." Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+  <Config Name="Demo cars" Target="DEMO_CARS" Default="1" Mode="" Description="Number of fictional cars in demo mode (2 tries the car switcher)." Type="Variable" Display="advanced" Required="false" Mask="false">1</Config>
+</Container>

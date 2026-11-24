@@ -36,7 +36,8 @@
 - **Translations.** Every visible frontend string is `t('English')` with a German entry; backend messages shown to users
   get their German entry in `static/de_backend.js`, keyed by the exact English text.
 - **Docs in sync.** README for env vars, setup and security; `docs/HOME-ASSISTANT.md` for entities and topics;
-  `docs/FEATURE-PARITY.md` when a feature lands or is ruled out.
+  `docs/FEATURE-PARITY.md` when a feature lands or is ruled out; `docs/UNRAID.md` plus `unraid/` when the port, the data
+  path or an environment variable changes (template and compose file mirror the image).
 - **Real data.** `data/` holds the live database and `secret.key`. Run demos and experiments on a scratch database.
 - **License.** AGPL-3.0-only, copyright Steffen Rühlmann. Keep `LICENSE` verbatim and the leapmotor-mate / Silvio Bressani
   attribution in the README (inspiration only, no shared code).

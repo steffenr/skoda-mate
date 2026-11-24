@@ -1,0 +1,36 @@
+# Škoda Mate on Unraid — for Unraid's Docker Compose Manager plugin (or `docker compose up -d` over SSH).
+#
+# Build the image once from this repository first (`docker build -t skoda-mate:latest .`, see docs/UNRAID.md);
+# there is no published image, so this file references a local tag instead of building on every start.
+#
+# Paths default to Unraid's appdata share. To change them, put `APPDATA=/mnt/user/myshare/skoda-mate` and/or
+# `PORT=8099` in a `.env` file next to this file (Compose Manager has a `.env` editor), or edit the two lines below.
+services:
+  skoda-mate:
+    image: skoda-mate:latest        # built from this repo; `docker compose build` works after cloning it here
+    container_name: skoda-mate
+    restart: unless-stopped
+    # The app runs as uid 10001 (the entrypoint drops root) and can never regain root this way.
+    security_opt: ["no-new-privileges:true"]
+    ports: ["${PORT:-8080}:8080"]
+    # SQLite database + secret.key (encrypts your Škoda API key and S-PIN): back this up and keep it private.
+    volumes: ["${APPDATA:-/mnt/user/appdata/skoda-mate}:/data"]
+    # Reverse proxy in front of Mate (SWAG, Nginx Proxy Manager, Traefik)? Then let Mate see the real client
+    # address, otherwise the brute-force limit counts every visitor as the proxy. Use your proxy's network only,
+    # never 0.0.0.0/0 or '*'. Uncomment when needed:
+    # command: ["uvicorn", "--factory", "skoda_mate.web:app", "--host", "0.0.0.0", "--port", "8080",
+    #           "--proxy-headers", "--forwarded-allow-ips=172.16.0.0/12"]
+    environment:
+      # No logins here: open the WebUI and the setup form asks for them (stored in /data, API key encrypted).
+      # Empty values mean "off"; the dashboard under Settings is the normal place for MQTT and polling.
+      COOKIE_SECURE: ""             # "true" forces the Secure session cookie; not needed behind a proxy that sends X-Forwarded-Proto
+      API_TOKEN: ""                 # optional bearer token, so scripts can use the JSON API without a session
+      SETUP_CODE: ""                # optional: your own first-run setup code (then no setup-code.txt is written)
+      DEMO: ""                      # "1": fictional car with 60 days of history, no account, no network
+      DEMO_CARS: "1"                # "2": a second fictional car, to try the car switcher
+      # MQTT (Home Assistant) is set up in the dashboard, which replaces these. Only uncomment to preset a broker:
+      # MQTT_HOST: "192.168.1.10"
+      # MQTT_PORT: "1883"           # never leave this empty: the app needs a number here
+      # MQTT_USER: "skoda_mate"
+      # MQTT_PASSWORD: ""
+      # MQTT_PREFIX: "skoda_mate"
