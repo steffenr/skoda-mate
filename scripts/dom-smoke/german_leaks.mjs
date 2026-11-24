@@ -29,10 +29,10 @@ for (const r of ROUTES) {
     for (const el of document.querySelectorAll('[title],[aria-label],[placeholder]')) for (const a of ['title', 'aria-label', 'placeholder']) { const s = (el.getAttribute(a) || '').trim(); if (s && english.has(s)) out.push(['attr-untranslated', `${a}: ${s}`]); }
     return out;
   });
-  for (const [kind, s] of leaks) { const key = `${kind}|${s}`; if (!seen.has(key)) seen.set(key, r); }
+  for (const [kind, s] of leaks) { const key = JSON.stringify([kind, s]); if (!seen.has(key)) seen.set(key, r); }
 }
 await p.evaluate(() => fetch('/api/settings', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ language: 'en' }) }));
 await b.close();
-for (const [k, r] of seen) console.log(`#/${r.padEnd(12)} ${k.replace('|', '  ')}`);
+for (const [k, r] of seen) console.log(`#/${r.padEnd(12)} ${JSON.parse(k).join('  ')}`);
 console.log(seen.size ? `\n${seen.size} possible leak(s)` : '\nno English text found in German mode');
 process.exit(seen.size ? 1 : 0);
