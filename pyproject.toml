@@ -1,6 +1,6 @@
 [project]
 name = "skoda-mate"
-version = "0.1.0"
+version = "0.1.2"
 description = "Trip tracking, charge logging and remote control for Škoda vehicles (official MyŠkoda Public API)"
 license = "AGPL-3.0-only"
 license-files = ["LICENSE"]
