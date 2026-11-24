@@ -3,6 +3,6 @@
   "private": true,
   "type": "module",
   "description": "Headless smoke test for the dashboard (jsdom). Dev tool only.",
-  "dependencies": { "jsdom": "^24.0.0" },
+  "dependencies": { "jsdom": "^31.0.1" },
   "devDependencies": { "axe-core": "^4.10.2", "puppeteer-core": "^25.18.1" }
 }
