@@ -4,4 +4,4 @@
 ## Usage: test [pytest args]
 ## Example: ddev test -k recorder
 
-uv run --python 3.13 --extra dev pytest "$@"
+uv run --python 3.15 --extra dev pytest "$@"

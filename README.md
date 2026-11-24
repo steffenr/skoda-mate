@@ -123,10 +123,10 @@ Then *Docker → Add Container → Template: skoda-mate → Apply*. Data lives i
 ### With DDEV (local testing)
 The repository ships its DDEV config (nothing to create by hand): `.ddev/config.yaml` (generic project),
 `.ddev/config.skoda-mate.yaml` (the app as a daemon in the web container, routed by ddev-router),
-`.ddev/web-build/Dockerfile.uv` (installs `uv` and Python 3.13 in the image) and `.ddev/commands/web/test` (`ddev test`).
+`.ddev/web-build/Dockerfile.uv` (installs `uv` and Python 3.15 in the image) and `.ddev/commands/web/test` (`ddev test`).
 No host Python is needed, and SQLite means no database container.
 ```bash
-ddev start                # first start builds the image (uv + Python 3.13), ~1 min
+ddev start                # first start builds the image (uv + Python 3.15), ~1 min
 ddev launch               # https://skoda-mate.ddev.site -> the setup form opens
 ddev logs -f              # app log (also where the first-run setup code appears)
 ddev test                 # pytest inside the container (pass pytest args: ddev test -k recorder)
@@ -140,7 +140,7 @@ needed after changing `.ddev` config.
 
 ### Try it first (no account needed)
 ```bash
-uv venv --python 3.13 && uv pip install -e '.[dev]'
+uv venv --python 3.15 && uv pip install -e '.[dev]'
 DEMO=1 DB_PATH=/tmp/demo.db .venv/bin/uvicorn --factory skoda_mate.web:app
 ```
 Open http://localhost:8000: a fictional Enyaq with 60 days of history.
@@ -153,7 +153,7 @@ install is for development and experiments (the demo command above is the quicke
 
 If you still want it, `DB_PATH` must point at a folder you own — the default `/data/skoda_mate.db` is the container path:
 ```bash
-uv venv --python 3.13 && uv pip install -e '.[dev]'
+uv venv --python 3.15 && uv pip install -e '.[dev]'
 mkdir -p data && DB_PATH=./data/skoda_mate.db .venv/bin/uvicorn --factory skoda_mate.web:app --port 8000
 ```
 Then open http://localhost:8000/setup and finish the setup below.
@@ -173,7 +173,7 @@ from outside your home network it also asks for a one-time **setup code** (see [
 Reset it on the command line, where the data lives. The password is asked for twice at a hidden prompt (never as an argument, so it stays out of your shell history). The running app notices at once and signs every old session out; no restart.
 
 ```
-ddev exec uv run --python 3.13 python -m skoda_mate reset-password          # DDEV
+ddev exec uv run --python 3.15 python -m skoda_mate reset-password          # DDEV
 docker compose exec -u 10001 skoda-mate python -m skoda_mate reset-password # Docker
 .venv/bin/python -m skoda_mate reset-password                               # host install: same DB_PATH as the app
 ```
