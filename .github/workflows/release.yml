@@ -2,7 +2,8 @@ name: Release
 
 # One-click release. Actions -> "Release" -> "Run workflow", pick patch/minor/major. It:
 #   1. runs the full CI (ci.yml); nothing is bumped or tagged unless it passes
-#   2. reads the current version from pyproject.toml, bumps it and writes it to the three places
+#   2. takes the current version (the highest of pyproject.toml and the release tags, see
+#      scripts/next-version.sh), bumps it and writes it to the three places
 #      that carry it: pyproject.toml, uv.lock (via `uv lock`) and skoda_mate/__init__.py (the
 #      version /health reports)
 #   3. commits "chore(release): X", creates an annotated tag vX and pushes branch + tag in one
@@ -67,29 +68,9 @@ jobs:
         shell: bash
         env:
           BUMP: ${{ inputs.bump }}
-        run: |
-          # -m1: first `version = "X.Y.Z"` line only (grep stops, so no SIGPIPE under pipefail)
-          CURRENT=$(grep -m1 -E '^version = "[0-9]+\.[0-9]+\.[0-9]+"' pyproject.toml | cut -d'"' -f2)
-          if [ -z "$CURRENT" ]; then
-            echo "::error::No version found in pyproject.toml"
-            exit 1
-          fi
-          IFS=. read -r MAJ MIN PAT <<< "$CURRENT"
-          case "$BUMP" in
-            major) NEXT="$((MAJ + 1)).0.0" ;;
-            minor) NEXT="${MAJ}.$((MIN + 1)).0" ;;
-            *)     NEXT="${MAJ}.${MIN}.$((PAT + 1))" ;;
-          esac
-          TAG="v${NEXT}"
-          if git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null; then
-            echo "::error::Tag ${TAG} already exists. Bump manually or choose a different increment."
-            exit 1
-          fi
-          {
-            echo "next=${NEXT}"
-            echo "tag=${TAG}"
-          } >> "$GITHUB_OUTPUT"
-          echo "Releasing ${CURRENT} -> ${NEXT} (tag ${TAG})"
+        # Starts from the highest of pyproject.toml and the existing release tags, so a release made in the GitHub UI
+        # (tag only, files not bumped) doesn't make this run pick the same version again. Tested in tests/test_version.py.
+        run: scripts/next-version.sh "$BUMP" >> "$GITHUB_OUTPUT"
 
       - name: Write version
         shell: bash

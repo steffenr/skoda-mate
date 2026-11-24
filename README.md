@@ -254,7 +254,12 @@ The published release then builds and pushes the image to Docker Hub (`.github/w
 `latest`, for `linux/amd64` and `linux/arm64`. Building it yourself with `docker compose up -d --build` keeps working and
 needs no secrets.
 
-Two repository secrets are required. `RELEASE_PAT`: a fine-grained token with **Contents: Read & write** on this
+The image always reports its release's version (sidebar, System page, `/health`): the build stamps the tag's version
+into it. A release created by hand in the GitHub UI therefore still gets a correctly versioned image, but it doesn't
+bump the version in the code, so source and DDEV installs keep showing the old one until the next workflow release. The
+workflow starts from the highest existing release tag, so such a release doesn't get its version picked twice.
+
+Three repository secrets are required. `RELEASE_PAT`: a fine-grained token with **Contents: Read & write** on this
 repository (classic: `repo` scope) — the built-in `GITHUB_TOKEN` cannot be used, because a push or release made with it
 does not trigger further workflows, so neither CI nor the image build would start. `DOCKERHUB_USERNAME` and
 `DOCKERHUB_TOKEN`: the Docker Hub account name and an access token with read/write permission.

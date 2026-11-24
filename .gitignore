@@ -9,3 +9,6 @@ __pycache__/
 node_modules/
 build/
 *.egg-info/
+
+# Version stamp written by the Docker build (see Dockerfile); never part of the source.
+skoda_mate/BUILD_VERSION

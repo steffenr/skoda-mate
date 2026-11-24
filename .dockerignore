@@ -6,3 +6,4 @@ data
 **/__pycache__
 *.db
 *.key
+skoda_mate/BUILD_VERSION
