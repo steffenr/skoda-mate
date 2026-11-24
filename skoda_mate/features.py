@@ -49,7 +49,7 @@ CONTRACT_VERSION = "1.1.0"
 OPERATIONS_CATALOGUE = [
     {"id": "getVehicle", "method": "GET", "path": "/api/v1/vehicles/{vin}", "label": "Read the vehicle", "group": "read",
      "what": "One request returns every data part below, in one go. Mate asks for all of them each time, because the request limit is per request, not per part.",
-     "mate": "Overview and every page; polled every 5 to 20 minutes", "page": "overview", "params": "include = which parts (Mate always asks for all)"},
+     "mate": "Overview and every page; polled on the intervals set under Settings → Polling", "page": "overview", "params": "include = which parts (Mate always asks for all)"},
     {"id": "startCharging", "method": "POST", "path": "/api/v1/vehicles/{vin}/charging/start", "label": "Start charging", "group": "charging",
      "what": "Starts a charging session on the connected cable.", "mate": "Control → Charging, Overview quick control", "page": "control", "command": "start_charging", "params": "none"},
     {"id": "stopCharging", "method": "POST", "path": "/api/v1/vehicles/{vin}/charging/stop", "label": "Stop charging", "group": "charging",

@@ -30,7 +30,10 @@ extendDE({
   'the car has driven in total (odometer).': 'das Auto insgesamt gefahren ist (Kilometerstand).',
   'Why it can be incomplete': 'Warum sie unvollständig sein kann',
   'Škoda provides no trip history, so nothing from before Mate started is known unless you import it.': 'Škoda liefert keinen Fahrtenverlauf, daher ist nichts aus der Zeit vor Mates Start bekannt, außer du importierst es.',
-  'Mate reads the car only about every 20 minutes (every 5 while driving) because Škoda allows around 20 requests per hour. A very short trip between two readings can be missed, or is only noticed from the odometer (marked ≈).': 'Mate liest das Auto nur etwa alle 20 Minuten aus (alle 5 während der Fahrt), weil Škoda rund 20 Anfragen pro Stunde erlaubt. Eine sehr kurze Fahrt zwischen zwei Messungen kann verpasst oder nur am Kilometerstand bemerkt werden (mit ≈ markiert).',
+  'Mate reads a parked car about every {idle} minutes and a driving or charging car about every {active} minutes, because Škoda allows around 20 requests per hour.': 'Mate liest ein geparktes Auto etwa alle {idle} Minuten aus und ein fahrendes oder ladendes etwa alle {active} Minuten, weil Škoda rund 20 Anfragen pro Stunde erlaubt.',
+  'Mate reads the car only every few minutes, because Škoda allows around 20 requests per hour.': 'Mate liest das Auto nur alle paar Minuten aus, weil Škoda rund 20 Anfragen pro Stunde erlaubt.',
+  'A very short trip between two readings can be missed, or is only noticed from the odometer (marked ≈). Shorter intervals catch more, but use more of the request budget.': 'Eine sehr kurze Fahrt zwischen zwei Messungen kann verpasst oder nur am Kilometerstand bemerkt werden (mit ≈ markiert). Kürzere Intervalle erkennen mehr, verbrauchen aber mehr vom Anfragebudget.',
+  'Change the polling interval': 'Abfrageintervall ändern',
   'Times when Mate was not running, or the API key had expired, leave gaps too.': 'Auch Zeiten, in denen Mate nicht lief oder der API-Schlüssel abgelaufen war, hinterlassen Lücken.',
   'It gets more complete over time': 'Mit der Zeit wird sie vollständiger',
   'Everything is saved in Mate’s own database (the data folder), so the history keeps growing the longer Mate runs. Keep that folder, or its backups, to keep your history.': 'Alles wird in Mates eigener Datenbank gespeichert (Ordner „data“), die Historie wächst also, je länger Mate läuft. Behalte diesen Ordner oder seine Backups, um deine Historie zu behalten.',
@@ -58,6 +61,18 @@ export default async function stats(root, ctx) {
     h('div', { style: { marginTop: '12px' } }, button(t('Try again'), { ic: 'refresh', onClick: load }))));
 
   // The small (i) next to the distance figures: what the number really is, and why it can be incomplete.
+  // The intervals are settings: say the ones in use, and where to change them.
+  function pollingLine() {
+    const iv = ctx.overview?.poller?.interval || {};
+    const idle = iv.idle ?? ctx.settings?.poll_idle_s, active = iv.active ?? ctx.settings?.poll_active_s;
+    const min = (s) => Math.max(1, Math.round(s / 60));
+    return h('span', null,
+      idle && active ? t('Mate reads a parked car about every {idle} minutes and a driving or charging car about every {active} minutes, because Škoda allows around 20 requests per hour.').replace('{idle}', min(idle)).replace('{active}', min(active))
+        : t('Mate reads the car only every few minutes, because Škoda allows around 20 requests per hour.'), ' ',
+      t('A very short trip between two readings can be missed, or is only noticed from the odometer (marked ≈). Shorter intervals catch more, but use more of the request budget.'), ' ',
+      h('a', { href: '#/settings' }, t('Change the polling interval')));
+  }
+
   function distanceInfo() {
     const tt = data?.totals || {};
     const para = (head, ...body) => h('div', null, h('strong', null, head), ...body.map((b) => h('p', { class: 'small', style: { margin: '4px 0 0' } }, b)));
@@ -65,7 +80,7 @@ export default async function stats(root, ctx) {
       para(t('A sum of tracked trips'), `${t('The distance is the sum of the trips Mate has recorded')}${tt.since ? ` ${t('since')} ${f.date(tt.since)}` : ''}: ${f.km(tt.km || 0)}${tt.odometer_km ? ` ${t('of the')} ${f.km(tt.odometer_km)} ${t('the car has driven in total (odometer).')}` : '.'}`),
       para(t('Why it can be incomplete'),
         t('Škoda provides no trip history, so nothing from before Mate started is known unless you import it.'),
-        t('Mate reads the car only about every 20 minutes (every 5 while driving) because Škoda allows around 20 requests per hour. A very short trip between two readings can be missed, or is only noticed from the odometer (marked ≈).'),
+        pollingLine(),
         t('Times when Mate was not running, or the API key had expired, leave gaps too.')),
       para(t('It gets more complete over time'),
         t('Everything is saved in Mate’s own database (the data folder), so the history keeps growing the longer Mate runs. Keep that folder, or its backups, to keep your history.')),

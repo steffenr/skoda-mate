@@ -12,7 +12,11 @@ extendDE({
   'Distance and energy are added up. You can undo this.': 'Strecke und Energie werden addiert. Du kannst das rückgängig machen.', 'Trips merged': 'Fahrten zusammengeführt',
   'Undo merge': 'Zusammenführen rückgängig', 'Merge undone': 'Zusammenführen rückgängig gemacht',
   'Trip': 'Fahrt', 'Back to trips': 'Zurück zu den Fahrten', 'Average speed': 'Ø Geschwindigkeit', 'Battery start → end': 'Batterie Start → Ende', 'Newer trip': 'Neuere Fahrt', 'Older trip': 'Ältere Fahrt',
-  'May be two trips': 'Möglicherweise zwei Fahrten', 'Mate only reads the car every 20–33 minutes. A drive to a place and back that fits between two readings is recorded as one trip, with its start estimated from the odometer. The real trip may be two shorter ones, each about half the distance.': 'Mate liest das Auto nur alle 20–33 Minuten aus. Eine Hin- und Rückfahrt, die zwischen zwei Abfragen passt, wird als eine Fahrt gespeichert, der Start wird aus dem Kilometerstand geschätzt. Tatsächlich können es zwei kürzere Fahrten mit je etwa der halben Strecke sein.',
+  'May be two trips': 'Möglicherweise zwei Fahrten', 'Mate reads a parked car about every {n} minutes.': 'Mate liest ein geparktes Auto etwa alle {n} Minuten aus.',
+  'Mate reads a parked car only every few minutes.': 'Mate liest ein geparktes Auto nur alle paar Minuten aus.',
+  'A drive to a place and back that fits between two readings is recorded as one trip, with its start estimated from the odometer. The real trip may be two shorter ones, each about half the distance.': 'Eine Hin- und Rückfahrt, die zwischen zwei Abfragen passt, wird als eine Fahrt gespeichert, der Start wird aus dem Kilometerstand geschätzt. Tatsächlich können es zwei kürzere Fahrten mit je etwa der halben Strecke sein.',
+  'A shorter idle interval catches more of these drives, but every reading uses one of the about 20 requests per hour per car.': 'Ein kürzeres Intervall im Ruhezustand erkennt mehr solcher Fahrten, aber jede Abfrage verbraucht eine der etwa 20 Anfragen pro Stunde und Auto.',
+  'Change the polling interval': 'Abfrageintervall ändern',
   'Round trip': 'Rundfahrt', 'The trip ended where it started, so the line between start and end is just a point. Škoda only tells Mate where the car is parked, not which roads it took, so the route and any stops on the way cannot be shown. Distance and duration come from the odometer and the parked readings, energy from the change in battery level.': 'Die Fahrt endete dort, wo sie begonnen hat, deshalb ist die Linie zwischen Start und Ende nur ein Punkt. Škoda meldet Mate nur, wo das Auto parkt, nicht welche Straßen es gefahren ist. Route und Zwischenstopps lassen sich daher nicht anzeigen. Strecke und Dauer stammen vom Kilometerstand und den Parkmeldungen, die Energie aus der Änderung des Batteriestands.',
   'Straight line, the car’s route is not available': 'Luftlinie, die gefahrene Route ist nicht verfügbar', 'Start': 'Start', 'End': 'Ende',
   'No coordinates were recorded for this trip.': 'Für diese Fahrt wurden keine Koordinaten aufgezeichnet.', 'Note': 'Notiz', 'Save note': 'Notiz speichern', 'Note saved': 'Notiz gespeichert',
@@ -118,7 +122,14 @@ export default async function trip(root, ctx) {
   // ---- explanations
   const why = [];
   if (approx) why.push(banner('warn', h('b', null, t('Estimated trip')), ': ', t('Mate did not see this trip start or end. It noticed that the odometer had grown between two parked readings, so the start and end times are estimated, and the distance is the odometer difference.')));
-  if (roundTrip && (x.distance_km ?? 0) >= 2) why.push(banner('warn', h('b', null, t('May be two trips')), ': ', t('Mate only reads the car every 20–33 minutes. A drive to a place and back that fits between two readings is recorded as one trip, with its start estimated from the odometer. The real trip may be two shorter ones, each about half the distance.')));
+  // The idle interval is a setting: say the one in use, and where to change it.
+  const idleS = ctx.overview?.poller?.interval?.idle ?? ctx.settings?.poll_idle_s;
+  const idleMin = idleS ? Math.max(1, Math.round(idleS / 60)) : null;
+  if (roundTrip && (x.distance_km ?? 0) >= 2) why.push(banner('warn', h('b', null, t('May be two trips')), ': ',
+    idleMin ? t('Mate reads a parked car about every {n} minutes.').replace('{n}', idleMin) : t('Mate reads a parked car only every few minutes.'), ' ',
+    t('A drive to a place and back that fits between two readings is recorded as one trip, with its start estimated from the odometer. The real trip may be two shorter ones, each about half the distance.'), ' ',
+    t('A shorter idle interval catches more of these drives, but every reading uses one of the about 20 requests per hour per car.'), ' ',
+    h('a', { href: '#/settings' }, t('Change the polling interval'))));
   if (speedBad || (approx && x.distance_km > 1500)) why.push(banner('warn', t('This value looks implausible. Several drives may have been merged, or the odometer jumped.')));
   if (x.energy_kwh == null) {
     why.push(cap ? banner('info', t('Energy is unknown because Škoda does not report the battery size. Enter it in Settings to get energy, consumption and costs.'), ' ', h('a', { href: '#/settings' }, t('Set battery capacity')))
