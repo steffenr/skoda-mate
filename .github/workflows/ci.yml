@@ -1,0 +1,37 @@
+name: CI
+
+# The check gate: every push to main and every pull request (Dependabot's included) runs the pytest
+# suite against the frozen lock file. release.yml calls this workflow before it bumps a version, so
+# nothing is ever tagged that hasn't passed here.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  # release.yml runs the same checks before it tags
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: pytest
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10
+        with:
+          python-version: "3.13"
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      # --frozen: the lock file is the source of truth. A stale uv.lock (e.g. a hand-edited
+      # pyproject.toml) fails here instead of silently resolving something else.
+      - name: Install dependencies
+        run: uv sync --frozen --extra dev
+
+      - name: Tests
+        run: uv run --frozen pytest -q

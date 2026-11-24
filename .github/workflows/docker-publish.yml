@@ -1,0 +1,139 @@
+name: Docker image
+
+# Publishes the image whenever a release is published (release.yml bumps, tags and creates the
+# release). Manual runs can republish an existing tag, e.g. after a base-image fix.
+#
+# Image name: <Docker Hub user>/skoda-mate. Tags per release: the version (0.2.0), major.minor
+# (0.2) and, for full releases only, latest.
+#
+# Requires the repository secrets DOCKERHUB_USERNAME and DOCKERHUB_TOKEN (Docker Hub -> Account
+# settings -> Personal access tokens, read/write). Without them the build fails at the login step;
+# nothing else in the repo depends on this workflow.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing tag to publish (e.g. v0.2.0)'
+        required: true
+
+permissions:
+  contents: read
+
+# A second run for the same tag waits instead of pushing the same tags in parallel.
+concurrency:
+  group: docker-${{ github.event.release.tag_name || inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  push:
+    name: Build and push
+    runs-on: ubuntu-24.04
+    env:
+      IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/skoda-mate
+      TAG: ${{ github.event.release.tag_name || inputs.tag }}
+      PRERELEASE: ${{ github.event.release.prerelease || 'false' }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.release.tag_name || inputs.tag }}
+
+      # amd64 for NAS/desktop, arm64 for Docker on a Raspberry Pi; add or drop a platform here.
+      - uses: docker/setup-qemu-action@v4
+
+      - uses: docker/setup-buildx-action@v4
+
+      # Fail with a readable message instead of "unauthorized" from the login step: without both
+      # secrets nothing can be published, and that is the first thing to check when a release
+      # lands but Docker Hub never sees it.
+      - name: Check Docker Hub credentials
+        shell: bash
+        env:
+          HUB_USER: ${{ secrets.DOCKERHUB_USERNAME }}
+          HUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          missing=0
+          for name in HUB_USER HUB_TOKEN; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Repository secret ${name} is not set (see the header of this workflow)."
+              missing=1
+            fi
+          done
+          exit "$missing"
+
+      - uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Compute image tags
+        id: tags
+        shell: bash
+        run: |
+          VERSION="${TAG#v}"
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-+].*)?$ ]]; then
+            echo "::error::Tag ${TAG} is not a version tag like v0.2.0"
+            exit 1
+          fi
+          MINOR="$(echo "$VERSION" | cut -d. -f1,2)"
+          echo "VERSION=${VERSION}" >> "$GITHUB_ENV"
+          {
+            echo "tags<<EOF"
+            echo "${IMAGE_NAME}:${VERSION}"
+            # a prerelease (0.2.0-rc1) must move neither the 0.2 line nor latest
+            if [ "$PRERELEASE" != "true" ]; then
+              echo "${IMAGE_NAME}:${MINOR}"
+              echo "${IMAGE_NAME}:latest"
+            fi
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+          echo "Publishing ${IMAGE_NAME} ${VERSION} (prerelease: ${PRERELEASE})"
+
+      # context "." builds the repo's Dockerfile: uv.lock is pinned, the app runs as uid 10001.
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.tags.outputs.tags }}
+          labels: |
+            org.opencontainers.image.title=Škoda Mate
+            org.opencontainers.image.description=Trip, charge and remote-control dashboard for Škoda cars (official MyŠkoda API)
+            org.opencontainers.image.version=${{ env.VERSION }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.licenses=AGPL-3.0-only
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # A push that quietly produced a single-architecture image is the failure this guards
+      # against (0.1.0 went out arm64-only, so amd64 NAS/Unraid hosts could not pull it at all).
+      # The manifest list has to name every platform in `platforms:` above.
+      - name: Verify the published manifest
+        shell: bash
+        env:
+          PLATFORMS: linux/amd64,linux/arm64
+        run: |
+          PUBLISHED=$(docker buildx imagetools inspect "${IMAGE_NAME}:${VERSION}" --format '{{json .Manifest}}' \
+            | jq -r '.manifests[]? | "\(.platform.os)/\(.platform.architecture)"' | sort -u)
+          echo "Published platforms:"; echo "$PUBLISHED"
+          missing=0
+          for p in ${PLATFORMS//,/ }; do
+            if ! grep -qx "$p" <<< "$PUBLISHED"; then
+              echo "::error::${IMAGE_NAME}:${VERSION} has no ${p} image (single-arch manifest list?)"
+              missing=1
+            fi
+          done
+          exit "$missing"
+
+      - name: Summary
+        shell: bash
+        run: |
+          {
+            echo "### Published ${{ env.IMAGE_NAME }}"
+            echo '```'
+            echo "${{ steps.tags.outputs.tags }}"
+            echo '```'
+            echo "Platforms: linux/amd64, linux/arm64"
+          } >> "$GITHUB_STEP_SUMMARY"

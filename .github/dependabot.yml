@@ -1,0 +1,68 @@
+# Dependabot version updates for skoda-mate.
+# Manifests covered: pyproject.toml + uv.lock (uv), Dockerfile (docker),
+# scripts/dom-smoke/package.json (npm) and .github/workflows (github-actions).
+# https://docs.github.com/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+
+version: 2
+updates:
+  # Python dependencies (FastAPI, uvicorn, httpx, paho-mqtt, cryptography) plus the dev extra.
+  # uv.lock and pyproject.toml are updated together, so `uv sync --frozen` in the Dockerfile keeps working.
+  - package-ecosystem: "uv"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+    labels: ["dependencies", "python"]
+    groups:
+      # One PR for routine bumps; majors stay individual so they can be reviewed one by one.
+      python-minor-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  # Base images in the Dockerfile: python:3.13.x-slim-trixie and ghcr.io/astral-sh/uv.
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+    labels: ["dependencies", "docker"]
+    groups:
+      docker-minor-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  # Frontend check tooling (jsdom, axe-core, puppeteer-core); dev-only, no lockfile checked in.
+  - package-ecosystem: "npm"
+    directory: "/scripts/dom-smoke"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+    labels: ["dependencies", "javascript"]
+    groups:
+      dom-smoke-minor-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  # GitHub Actions used by this repo's workflows (ci.yml, release.yml, docker-publish.yml).
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+    labels: ["dependencies", "github-actions"]
+    groups:
+      actions-minor-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]

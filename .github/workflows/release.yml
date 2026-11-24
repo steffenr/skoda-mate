@@ -1,0 +1,137 @@
+name: Release
+
+# One-click release. Actions -> "Release" -> "Run workflow", pick patch/minor/major. It:
+#   1. runs the full CI (ci.yml); nothing is bumped or tagged unless it passes
+#   2. reads the current version from pyproject.toml, bumps it and writes it to the three places
+#      that carry it: pyproject.toml, uv.lock (via `uv lock`) and skoda_mate/__init__.py (the
+#      version /health reports)
+#   3. commits "chore(release): X", creates an annotated tag vX and pushes branch + tag in one
+#      atomic push (both land, or neither does)
+#   4. publishes the GitHub release with generated notes, using the PAT, so the `release:
+#      published` event also reaches docker-publish.yml (the built-in GITHUB_TOKEN never starts
+#      another workflow)
+#
+# Requires the repository secret RELEASE_PAT: a fine-grained PAT with Contents: Read & write on
+# this repository (classic: `repo` scope). The default GITHUB_TOKEN can't be used: pushes and
+# releases it makes don't trigger further workflows.
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: 'Semantic version bump'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+permissions:
+  contents: write
+
+# One release at a time: a second run waits instead of racing for the same version.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  checks:
+    name: Checks
+    # Releases are cut from main only.
+    if: github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+
+  release:
+    name: Bump version, tag and publish
+    needs: checks
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # full history + tags so an existing tag is detected
+          fetch-depth: 0
+          token: ${{ secrets.RELEASE_PAT }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10
+        with:
+          python-version: "3.13"
+
+      - name: Compute next version
+        id: version
+        shell: bash
+        env:
+          BUMP: ${{ inputs.bump }}
+        run: |
+          # -m1: first `version = "X.Y.Z"` line only (grep stops, so no SIGPIPE under pipefail)
+          CURRENT=$(grep -m1 -E '^version = "[0-9]+\.[0-9]+\.[0-9]+"' pyproject.toml | cut -d'"' -f2)
+          if [ -z "$CURRENT" ]; then
+            echo "::error::No version found in pyproject.toml"
+            exit 1
+          fi
+          IFS=. read -r MAJ MIN PAT <<< "$CURRENT"
+          case "$BUMP" in
+            major) NEXT="$((MAJ + 1)).0.0" ;;
+            minor) NEXT="${MAJ}.$((MIN + 1)).0" ;;
+            *)     NEXT="${MAJ}.${MIN}.$((PAT + 1))" ;;
+          esac
+          TAG="v${NEXT}"
+          if git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null; then
+            echo "::error::Tag ${TAG} already exists. Bump manually or choose a different increment."
+            exit 1
+          fi
+          {
+            echo "next=${NEXT}"
+            echo "tag=${TAG}"
+          } >> "$GITHUB_OUTPUT"
+          echo "Releasing ${CURRENT} -> ${NEXT} (tag ${TAG})"
+
+      - name: Write version
+        shell: bash
+        env:
+          NEXT: ${{ steps.version.outputs.next }}
+        run: |
+          # GNU sed (the runner is Ubuntu). pyproject.toml: package metadata (line starts at
+          # column 0, unlike dependency pins)
+          sed -i -E "s/^version = \"[0-9.]+\"/version = \"${NEXT}\"/" pyproject.toml
+          # skoda_mate/__init__.py: the string /health and the backup bundle report
+          sed -i -E "s/^__version__ = \"[0-9.]+\"/__version__ = \"${NEXT}\"/" skoda_mate/__init__.py
+          # Fail loudly instead of tagging a version the rewrite missed (BSD sed, for one, parses
+          # `-i -E` as a backup suffix and silently changes nothing).
+          grep -qx "version = \"${NEXT}\"" pyproject.toml
+          grep -qx "__version__ = \"${NEXT}\"" skoda_mate/__init__.py
+          # uv.lock: the `skoda-mate` entry pins the project version, so refresh the lock or
+          # `uv sync --frozen` in the Dockerfile (and CI) would reject the build
+          uv lock
+          git diff --stat
+
+      - name: Commit, tag and push
+        shell: bash
+        env:
+          GIT_TOKEN: ${{ secrets.RELEASE_PAT }}
+          NEXT: ${{ steps.version.outputs.next }}
+          TAG: ${{ steps.version.outputs.tag }}
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add pyproject.toml uv.lock skoda_mate/__init__.py
+          git commit -m "chore(release): ${NEXT}"
+          git tag -a "$TAG" -m "Release ${NEXT}"
+          REMOTE="https://x-access-token:${GIT_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          # Atomic: if either ref is rejected, neither is updated, so a failed push can't leave
+          # the version bump on main without its tag.
+          git push --atomic "$REMOTE" "HEAD:refs/heads/${BRANCH}" "refs/tags/${TAG}"
+
+      - name: Publish GitHub release
+        shell: bash
+        env:
+          # the PAT again: a release created with GITHUB_TOKEN would not trigger docker-publish.yml
+          GH_TOKEN: ${{ secrets.RELEASE_PAT }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: gh release create "$TAG" --title "$TAG" --generate-notes --verify-tag
