@@ -1,9 +1,9 @@
 # Škoda Mate
 
 Self-hosted trip tracking, charge logging and remote control for Škoda cars: *TeslaMate for Škoda*, inspired by
-[leapmotor-mate](../leapmotor-mate). It runs on Škoda's **official public API** (`public.api.connect.skoda-auto.cz`),
-signs in with an **API key** you create in the MyŠkoda app (no e-mail or password of your Škoda account), and keeps the
-history in a local SQLite database.
+[leapmotor-mate](https://github.com/ProtossBlaster/leapmotor-mate), maintained by Silvio Bressani. It runs on Škoda's
+**official public API** (`public.api.connect.skoda-auto.cz`), signs in with an **API key** you create in the MyŠkoda app
+(no e-mail or password of your Škoda account), and keeps the history in a local SQLite database.
 
 > **Personal use only.** Škoda licenses the public API for private use; it must not be used for commercial services.
 
@@ -192,3 +192,13 @@ The `MQTT_*` environment variables still work as a fallback for existing install
 - `scripts/dom-smoke/a11y_axe.mjs` and `a11y_contrast.mjs` are the accessibility checks (WCAG 2.2 AA with axe-core, and the real contrast ratio of every text element, light and dark). Run them against a demo server after UI changes.
 - Feature comparison with leapmotor-mate: [docs/FEATURE-PARITY.md](docs/FEATURE-PARITY.md)
 - Design notes: [docs/superpowers/specs](docs/superpowers/specs).
+
+## License
+
+Copyright (C) 2026 Steffen Rühlmann. The code is licensed under the **[GNU Affero General Public License v3.0](LICENSE)**
+(`AGPL-3.0-only`): modified versions that are distributed or offered over a network must publish their source under the
+same license.
+
+The project was inspired by [leapmotor-mate](https://github.com/ProtossBlaster/leapmotor-mate), maintained by
+**Silvio Bressani**; its structure and feature set shaped this one. The two are independent projects, with no shared code
+and no affiliation.

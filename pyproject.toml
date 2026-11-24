@@ -2,6 +2,9 @@
 name = "skoda-mate"
 version = "0.1.0"
 description = "Trip tracking, charge logging and remote control for Škoda vehicles (official MyŠkoda Public API)"
+license = "AGPL-3.0-only"
+license-files = ["LICENSE"]
+authors = [{ name = "Steffen Rühlmann" }]
 requires-python = ">=3.12"
 dependencies = ["httpx>=0.27", "fastapi>=0.115", "uvicorn>=0.30", "paho-mqtt>=2.0", "cryptography>=44"]
 

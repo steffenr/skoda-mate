@@ -38,3 +38,5 @@
 - **Docs in sync.** README for env vars, setup and security; `docs/HOME-ASSISTANT.md` for entities and topics;
   `docs/FEATURE-PARITY.md` when a feature lands or is ruled out.
 - **Real data.** `data/` holds the live database and `secret.key`. Run demos and experiments on a scratch database.
+- **License.** AGPL-3.0-only, copyright Steffen Rühlmann. Keep `LICENSE` verbatim and the leapmotor-mate / Silvio Bressani
+  attribution in the README (inspiration only, no shared code).
