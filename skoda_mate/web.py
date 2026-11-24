@@ -620,8 +620,8 @@ def create_app(cfg: Config | None = None, conn=None, poller: Poller | None = Non
         else:
             try:
                 password = mqtt_config.stored_password_for(stored, clean)
-            except mqtt_config.MqttConfigError as e:
-                return {"ok": False, "message": str(e)}
+            except mqtt_config.MqttConfigError:  # the only reason: the broker changed; answer with the fixed text, not the exception
+                return {"ok": False, "message": mqtt_config.PASSWORD_AGAIN}
         res = await asyncio.to_thread(ha_mqtt.probe, clean["host"], clean["port"], clean["user"], password, clean["tls"], clean["tls_insecure"])
         return res
 

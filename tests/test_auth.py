@@ -279,6 +279,19 @@ def test_email_with_separator_or_space_is_rejected():
             a.set_credentials(conn, bad, "pw-12345")
 
 
+def test_email_check_is_linear_and_accepts_subdomains():
+    """The domain part must not backtrack polynomially on long runs without a dot (CodeQL py/polynomial-redos)."""
+    from skoda_mate.auth import EMAIL_RE
+
+    for good in ("me@x.io", "first.last+tag@mail.example.co.uk"):
+        assert EMAIL_RE.fullmatch(good), good
+    for bad in ("a@x..io", "a@.x.io", "a@x.io.", "a@b"):
+        assert not EMAIL_RE.fullmatch(bad), bad
+    start = time.monotonic()
+    assert not EMAIL_RE.fullmatch("!@" + "!" * 20000)
+    assert time.monotonic() - start < 0.5
+
+
 def test_health_details_only_when_signed_in():
     app, _ = make_app(api_token="tok-123")
     with client_for(app) as c:
@@ -298,20 +311,45 @@ def test_security_headers_and_csp():
             assert h["x-content-type-options"] == "nosniff" and h["x-frame-options"] == "DENY" and h["referrer-policy"] == "strict-origin-when-cross-origin"  # OSM tiles need a Referer
             csp = h["content-security-policy"]
             assert "script-src 'self' https://cdnjs.cloudflare.com;" in csp and "frame-ancestors 'none'" in csp
-            img = next(d for d in csp.split(";") if d.strip().startswith("img-src"))
-            assert "https://tile.openstreetmap.org" in img and "https://iprenders.blob.core.windows.net" in img  # map, car picture
+            img = next(d for d in csp.split(";") if d.strip().startswith("img-src")).split()  # exact sources, not substrings
+            assert {"https://tile.openstreetmap.org", "https://iprenders.blob.core.windows.net"} <= set(img)  # map, car picture
 
 
 def test_pages_have_no_inline_scripts():
     """The CSP allows no inline script, so every page must load its code from /static."""
-    import re
+    from html.parser import HTMLParser
     from pathlib import Path
 
+    class Scan(HTMLParser):  # a real parser: tag and attribute names come lower-cased, whatever the source's case
+        def __init__(self):
+            super().__init__()
+            self.inline, self.handlers, self.in_script = [], [], False
+
+        def handle_starttag(self, tag, attrs):
+            names = [n for n, _ in attrs]
+            if tag == "script":
+                self.in_script = True
+                if "src" not in names:
+                    self.inline.append(self.get_starttag_text())
+            self.handlers += [f"{tag} {n}" for n in names if n.startswith("on")]
+
+        def handle_endtag(self, tag):
+            if tag == "script":
+                self.in_script = False
+
+        def handle_data(self, data):
+            if self.in_script and data.strip():
+                self.inline.append(data.strip()[:60])
+
     for page in ("index.html", "login.html", "setup.html"):
-        html = (Path(__file__).parent.parent / "skoda_mate" / page).read_text()
-        for tag in re.findall(r"<script\b[^>]*>", html):
-            assert "src=" in tag, (page, tag)
-        assert not re.search(r"\son\w+=", html), page  # no inline event handlers either
+        scan = Scan()
+        scan.feed((Path(__file__).parent.parent / "skoda_mate" / page).read_text())
+        assert not scan.inline, (page, scan.inline)
+        assert not scan.handlers, (page, scan.handlers)  # no inline event handlers either
+
+    caught = Scan()
+    caught.feed('<SCRIPT>alert(1)</SCRIPT><div OnClick="x()"></div>')
+    assert caught.inline and caught.handlers == ["div onclick"]  # the check itself catches upper-case markup
 
 
 def test_oversized_bodies_are_refused_before_parsing():

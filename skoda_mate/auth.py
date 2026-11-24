@@ -20,7 +20,8 @@ MAX_FAILS, WINDOW_S = 5, 300
 # addresses stops both and bounds the memory (worst case: everyone waits five minutes).
 GLOBAL_MAX_FAILS, MAX_TRACKED_IPS = 30, 1000
 MIN_PASSWORD = 8
-EMAIL_RE = re.compile(r"[^\s@|]+@[^\s@|]+\.[^\s@|]+")  # no "|": it separates the fields of a session token
+# No "|": it separates the fields of a session token. Domain labels exclude "." so the match cannot backtrack (ReDoS).
+EMAIL_RE = re.compile(r"[^\s@|]+@[^\s@|.]+(?:\.[^\s@|.]+)+")
 SETUP_CODE_ALPHABET, SETUP_CODE_LEN = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789", 10  # no 0/O or 1/I: read off a log, typed by hand
 ITERATIONS = 200_000  # tests lower this
 
