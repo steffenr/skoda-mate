@@ -13,6 +13,14 @@ RUN useradd --system --uid 10001 --user-group --home-dir /nonexistent --no-creat
 WORKDIR /app
 COPY --from=build /app/.venv /app/.venv
 COPY skoda_mate ./skoda_mate
+# The release this image is built for (docker-publish.yml passes the tag's version): /health and the dashboard report it,
+# even when the release didn't bump skoda_mate/__init__.py. A local build without it reports the source version.
+ARG VERSION=""
+RUN case "$VERSION" in \
+      "") ;; \
+      *[!0-9A-Za-z.+-]*) echo "VERSION must look like 1.2.3 (got: $VERSION)" >&2; exit 1 ;; \
+      *) printf '%s\n' "$VERSION" > skoda_mate/BUILD_VERSION ;; \
+    esac
 COPY --chmod=755 docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 ENV PATH=/app/.venv/bin:$PATH PYTHONPATH=/app DB_PATH=/data/skoda_mate.db PYTHONUNBUFFERED=1
 VOLUME /data

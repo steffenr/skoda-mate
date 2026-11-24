@@ -4,7 +4,9 @@ name: Docker image
 # release). Manual runs can republish an existing tag, e.g. after a base-image fix.
 #
 # Image name: <Docker Hub user>/skoda-mate. Tags per release: the version (0.2.0), major.minor
-# (0.2) and, for full releases only, latest.
+# (0.2) and, for full releases only, latest. The image reports the tag's version (build arg VERSION,
+# stamped into skoda_mate/BUILD_VERSION), even for a release made in the GitHub UI that never bumped
+# the version in the code.
 #
 # Requires the repository secrets DOCKERHUB_USERNAME and DOCKERHUB_TOKEN (Docker Hub -> Account
 # settings -> Personal access tokens, read/write). A run without them stops at the credentials
@@ -98,6 +100,9 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.tags.outputs.tags }}
+          # the version /health and the sidebar show (see the Dockerfile)
+          build-args: |
+            VERSION=${{ env.VERSION }}
           labels: |
             org.opencontainers.image.title=Škoda Mate
             org.opencontainers.image.description=Trip, charge and remote-control dashboard for Škoda cars (official MyŠkoda API)
