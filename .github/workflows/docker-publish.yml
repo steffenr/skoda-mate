@@ -51,11 +51,11 @@ jobs:
       - name: Check Docker Hub credentials
         shell: bash
         env:
-          HUB_USER: ${{ secrets.DOCKERHUB_USERNAME }}
-          HUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
         run: |
           missing=0
-          for name in HUB_USER HUB_TOKEN; do
+          for name in DOCKERHUB_USERNAME DOCKERHUB_TOKEN; do
             if [ -z "${!name}" ]; then
               echo "::error::Repository secret ${name} is not set (see the header of this workflow)."
               missing=1
