@@ -42,6 +42,53 @@ The API offers **one live reading per request** and a short list of commands. Th
 
 ## Run
 
+Pick one: **Docker** with the Compose plugin (recommended), **DDEV** for local testing, or a host `uv` install (not
+recommended, see below). Everything after that happens in the browser: no secrets in environment variables, no edits to
+the database.
+
+### With Docker (recommended)
+```bash
+docker compose up -d     # http://localhost:8080 -> the setup form opens
+docker compose logs -f skoda-mate
+```
+Optional settings are environment variables in a **`.env` file next to `docker-compose.yml`** (compose reads it
+automatically) or exported in your shell before `docker compose up -d`. Compose forwards only the variables in its
+`environment:` block — `COOKIE_SECURE`, `API_TOKEN`, `SETUP_CODE`, `MQTT_HOST`, `MQTT_PORT`, `MQTT_USER`,
+`MQTT_PASSWORD`, `MQTT_PREFIX`, `DEMO`, `DEMO_CARS` — see [Optional environment variables](#optional-environment-variables).
+Anything else in `.env` does not reach the container.
+
+To serve it on another host port, change the left side of `ports: ["8080:8080"]` in `docker-compose.yml` (for example
+`"9000:8080"`).
+
+**Updating:** `git pull && docker compose up -d --build`. `./data` survives the rebuild and the database schema is
+migrated automatically on start. **Backing up:** stop the container (`docker compose stop`) and copy `./data`; never
+delete it, it holds the database, `secret.key` and, on a first run, `setup-code.txt`.
+
+The app in the container runs as an unprivileged user (uid 10001), with dependency versions pinned by `uv.lock`. On start
+the container makes `./data` writable for that user (`chown` to 10001), so a `./data` folder from an older, root-run
+version keeps working without manual steps; new database files are created mode 0600. On a volume where `chown` is not
+allowed (some NAS/NFS shares), run `sudo chown -R 10001:10001 ./data` once on the host, or set `user: "10001:10001"` in
+`docker-compose.yml`. For commands inside the container, add `-u 10001`
+(e.g. `docker compose exec -u 10001 skoda-mate python -m skoda_mate reset-password`) so no root-owned files end up in `data/`.
+
+### With DDEV (local testing)
+The repository ships its DDEV config (nothing to create by hand): `.ddev/config.yaml` (generic project),
+`.ddev/config.skoda-mate.yaml` (the app as a daemon in the web container, routed by ddev-router),
+`.ddev/web-build/Dockerfile.uv` (installs `uv` and Python 3.13 in the image) and `.ddev/commands/web/test` (`ddev test`).
+No host Python is needed, and SQLite means no database container.
+```bash
+ddev start                # first start builds the image (uv + Python 3.13), ~1 min
+ddev launch               # https://skoda-mate.ddev.site -> the setup form opens
+ddev logs -f              # app log (also where the first-run setup code appears)
+ddev test                 # pytest inside the container (pass pytest args: ddev test -k recorder)
+ddev ssh                  # shell in the web container, project at /var/www/html
+```
+uvicorn runs with `--reload` inside the container, so Python changes restart the app; static files are served directly.
+Data lives in `./data/` on the host (SQLite database, `secret.key`, `setup-code.txt` during the first run), so it is the
+same folder Docker uses — **the DDEV site is not a throwaway sandbox**, it opens the real data of this checkout. For demo
+data, run the demo command below against a scratch database instead. `ddev stop` stops the containers, `ddev restart` is
+needed after changing `.ddev` config.
+
 ### Try it first (no account needed)
 ```bash
 uv venv --python 3.13 && uv pip install -e '.[dev]'
@@ -49,23 +96,18 @@ DEMO=1 DB_PATH=/tmp/demo.db .venv/bin/uvicorn --factory skoda_mate.web:app
 ```
 Open http://localhost:8000: a fictional Enyaq with 60 days of history.
 
-### With DDEV (recommended)
-```bash
-ddev start      # first start builds uv + Python 3.13, ~1 min
-ddev launch     # https://skoda-mate.ddev.site -> the setup form opens
-```
-`ddev test` runs the tests, `ddev logs` shows the app log. Data lives in `./data/` (SQLite + `secret.key`).
+### Without Docker or DDEV (not recommended)
+Installing with `uv` on the host works, but it is **a lot of manual work** for a permanent installation: you create and
+update the virtualenv yourself, start and supervise uvicorn, keep the data folder writable and backed up, and arrange
+HTTPS plus a restart on boot if Mate should stay reachable. Use Docker or DDEV for anything long-running; the host
+install is for development and experiments (the demo command above is the quickest variant).
 
-### With Docker
+If you still want it, `DB_PATH` must point at a folder you own — the default `/data/skoda_mate.db` is the container path:
 ```bash
-docker compose up -d     # http://localhost:8080 -> the setup form opens
+uv venv --python 3.13 && uv pip install -e '.[dev]'
+mkdir -p data && DB_PATH=./data/skoda_mate.db .venv/bin/uvicorn --factory skoda_mate.web:app --port 8000
 ```
-The app in the container runs as an unprivileged user (uid 10001), with dependency versions pinned by `uv.lock`. On start
-the container makes `./data` writable for that user (`chown` to 10001), so a `./data` folder from an older, root-run
-version keeps working without manual steps; new database files are created mode 0600. On a volume where `chown` is not
-allowed (some NAS/NFS shares), run `sudo chown -R 10001:10001 ./data` once on the host, or set `user: "10001:10001"` in
-`docker-compose.yml`. For commands inside the container, add `-u 10001`
-(e.g. `docker compose exec -u 10001 skoda-mate python -m skoda_mate reset-password`) so no root-owned files end up in `data/`.
+Then open http://localhost:8000/setup and finish the setup below.
 
 ### First-run setup (in the browser, no secrets in environment variables)
 1. **Dashboard login:** choose an e-mail and password (8+ characters). Stored as a salted PBKDF2 hash.
@@ -84,14 +126,25 @@ Reset it on the command line, where the data lives. The password is asked for tw
 ```
 ddev exec uv run --python 3.13 python -m skoda_mate reset-password          # DDEV
 docker compose exec -u 10001 skoda-mate python -m skoda_mate reset-password # Docker
-.venv/bin/python -m skoda_mate reset-password                               # local (set DB_PATH like the app)
+.venv/bin/python -m skoda_mate reset-password                               # host install: same DB_PATH as the app
 ```
 
 The sign-in e-mail stays as it is. Add `--email you@example.com` to change it, or to create the login if there is none yet. The Škoda API key is not affected.
 
 ### Optional environment variables
-`DB_PATH`, `COOKIE_SECURE`, `API_TOKEN`, `SETUP_CODE`, `DEMO`, and for Home Assistant `MQTT_HOST`, `MQTT_PORT`, `MQTT_USER`,
-`MQTT_PASSWORD`, `MQTT_PREFIX`. Logins and keys are never read from the environment.
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `DB_PATH` | `/data/skoda_mate.db` | SQLite database. The Docker image sets `/data/...`; host installs must set a writable path. |
+| `COOKIE_SECURE` | off | `true` forces the `Secure` flag on the session cookie (HTTPS). |
+| `API_TOKEN` | unset | Bearer token so scripts can call the JSON API without a session. |
+| `SETUP_CODE` | generated | Your own first-run setup code. Then no `setup-code.txt` is written. |
+| `DEMO` / `DEMO_CARS` | off / `1` | Fictional car(s) with 60 days of history, no account, no network. `DEMO_CARS=2` adds a second car. |
+| `MQTT_HOST`, `MQTT_PORT`, `MQTT_USER`, `MQTT_PASSWORD` | unset, `1883`, empty, empty | Home Assistant via MQTT Discovery. Dashboard settings replace these; they are a fallback for older installs. |
+| `MQTT_PREFIX` | `skoda_mate` | Discovery/topic prefix. |
+
+In Docker, set these in `.env` next to `docker-compose.yml` (all except `DB_PATH` are forwarded). In DDEV, `DB_PATH` lives
+in `.ddev/config.skoda-mate.yaml`. Logins and Škoda keys are never read from the environment.
 
 ### Security
 - **First run / setup code.** Before a login exists, only the setup form and its two API calls are reachable. From
