@@ -7,6 +7,12 @@ Self-hosted trip tracking, charge logging and remote control for Škoda cars: *T
 
 > **Personal use only.** Škoda licenses the public API for private use; it must not be used for commercial services.
 
+## Support
+
+Škoda Mate is a spare-time project and stays free software (AGPL). If it is useful to you, you can buy me a coffee:
+
+[![Buy Me a Coffee](https://camo.githubusercontent.com/c28781810ec561314c0480f2a773391df0006ce9f6fc92c1e36dee408ab2869e/68747470733a2f2f63646e2e6275796d6561636f666665652e636f6d2f627574746f6e732f76322f64656661756c742d79656c6c6f772e706e67)](https://buymeacoffee.com/steffenr)
+
 ## What it does
 
 | Page | Content |
