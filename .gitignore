@@ -7,3 +7,5 @@ __pycache__/
 .ddev/.env.web
 .impeccable/
 node_modules/
+build/
+*.egg-info/
