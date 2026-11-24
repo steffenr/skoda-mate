@@ -20,14 +20,22 @@ MAX_FAILS, WINDOW_S = 5, 300
 # addresses stops both and bounds the memory (worst case: everyone waits five minutes).
 GLOBAL_MAX_FAILS, MAX_TRACKED_IPS = 30, 1000
 MIN_PASSWORD = 8
-# No "|": it separates the fields of a session token. Domain labels exclude "." so the match cannot backtrack (ReDoS).
-EMAIL_RE = re.compile(r"[^\s@|]+@[^\s@|.]+(?:\.[^\s@|.]+)+")
 SETUP_CODE_ALPHABET, SETUP_CODE_LEN = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789", 10  # no 0/O or 1/I: read off a log, typed by hand
 ITERATIONS = 200_000  # tests lower this
 
 
 class SetupError(ValueError):
     pass
+
+
+def valid_email(email: str) -> bool:
+    """name@domain.tld: one "@", a domain of two or more non-empty dot-separated labels, no whitespace and no "|" (it
+    separates the fields of a session token). Plain string checks, linear in the length: a regex here was a ReDoS risk."""
+    if "|" in email or any(ch.isspace() for ch in email):
+        return False
+    local, at, domain = email.partition("@")
+    labels = domain.split(".")
+    return bool(local) and bool(at) and "@" not in domain and len(labels) >= 2 and all(labels)
 
 
 def hash_password(password: str, iterations: int | None = None) -> str:
@@ -111,7 +119,7 @@ class Auth:
 
     def set_credentials(self, conn, email: str, password: str) -> None:
         email = email.strip().lower()
-        if len(email) > 254 or not EMAIL_RE.fullmatch(email):
+        if len(email) > 254 or not valid_email(email):
             raise SetupError("Enter a valid e-mail address.")
         if len(password) < MIN_PASSWORD:
             raise SetupError(f"The password needs at least {MIN_PASSWORD} characters.")
