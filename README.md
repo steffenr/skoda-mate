@@ -52,7 +52,11 @@ The API offers **one live reading per request** and a short list of commands. Th
 - **Trips and charges are derived by Mate** from its own readings: a trip from the odometer and the *parked/driving* state,
   a charge from the charging state and the reported power. Times are accurate to the poll interval, very short trips can
   only be found through an odometer jump (marked **≈**), and there is no route line, because the position is not reported
-  while driving.
+  while driving. When Mate took no readings for a while during a charge (it was not running, or could not reach Škoda), the
+  curve leaves that stretch open, the energy for it comes from the rise in battery level, and an end Mate did not see is
+  estimated from the last reading before it (marked **≈**).
+- **Restarts do not poll early.** After a restart, Mate waits the usual interval since its last request before it reads
+  the car again, so restarting several times in a row does not use up the quota.
 - **Quota: about 20 requests per hour per car.** Mate reads the car every 20 minutes when parked and every 5 minutes while
   charging, climatising or driving (tunable in Settings, never faster than Škoda allows) and keeps 4 requests free for
   commands and the *Refresh now* button. The server's `RateLimit-*` headers are authoritative.

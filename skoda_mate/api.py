@@ -25,6 +25,16 @@ HIDDEN_SECTIONS = {"raw", "operations", "part_state", "api_errors"}
 FORMULA_START = ("=", "+", "-", "@", "\t", "\r")
 
 
+def curve_gaps(curve: list[dict], estimated_end: str | None) -> list[dict]:
+    """Stretches of a charge without readings, which the curve leaves open instead of drawing a line across: holes
+    longer than recorder.MAX_GAP_H between two readings, and the time from the last reading to an estimated end."""
+    gaps = [{"from": a["t"], "to": b["t"]} for a, b in zip(curve, curve[1:])
+            if recorder._hours(a["t"], b["t"]) > recorder.MAX_GAP_H]
+    if estimated_end and curve and curve[-1]["t"] < estimated_end:
+        gaps.append({"from": curve[-1]["t"], "to": estimated_end})
+    return gaps
+
+
 def csv_cell(v):
     """A CSV export value. Text that a spreadsheet would run as a formula (a note or place name starting with "=",
     "+", "-", "@", tab or CR) gets a leading apostrophe; numbers, including negative ones, are left as they are."""
@@ -360,6 +370,7 @@ def register(app, ctx) -> None:
         c["curve"] = rows(ctx.conn().execute(
             "SELECT recorded_at t, soc, charge_power_kw p, remaining_min rem FROM snapshots WHERE vehicle_id=? "
             "AND recorded_at BETWEEN ? AND ? ORDER BY recorded_at", (vid, c["started_at"], end)))
+        c["curve_gaps"] = curve_gaps(c["curve"], c["ended_at"] if c.get("end_estimated") else None)
         # A charge imported from a trip export has no position of its own: it happened somewhere on that trip.
         c["trip_route"] = None
         if c.get("source") == "import-trip":

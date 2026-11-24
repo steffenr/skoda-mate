@@ -34,6 +34,7 @@ def test_charge_session_integrates_power():
     c = c[0]
     assert c["ended_at"] == t(11, 30) and c["start_soc"] == 18 and c["end_soc"] == 45  # SoC from just before the start
     assert abs(c["energy_kwh"] - 12.5) < 1e-6 and c["max_power_kw"] == 10.0 and c["duration_min"] == 90
+    assert c["end_estimated"] == 0  # readings at most an hour apart: the end is when Mate saw it
     assert abs(c["energy_battery_kwh"] - (45 - 18) * 77 / 100) < 1e-6  # what reached the pack
 
 
@@ -50,9 +51,17 @@ def test_unknown_charge_state_does_not_end_a_session():
 def test_stale_open_charge_is_closed_at_last_known_time():
     conn, vid = make()
     recorder.ingest(conn, vid, charging(t(1), 20, 10.0))
-    recorder.ingest(conn, vid, snap(t(8), 60))  # silent for 7 h, state still unknown
+    recorder.ingest(conn, vid, snap(t(8), 20))  # silent for 7 h, state still unknown, nothing charged after the last reading
     c = conn.execute("SELECT * FROM charges").fetchone()
     assert c["ended_at"] == t(1)
+
+
+def test_stale_open_charge_with_a_rise_ends_when_that_rise_was_charged():
+    conn, vid = make()
+    recorder.ingest(conn, vid, charging(t(1), 20, 10.0))
+    recorder.ingest(conn, vid, snap(t(8), 60))  # silent for 7 h, but the battery rose 40 points: 3.4 h more at 10 kW
+    c = conn.execute("SELECT * FROM charges").fetchone()
+    assert c["end_estimated"] == 1 and c["ended_at"] == "2026-01-01T04:25:20+00:00"
 
 
 def test_energy_estimated_from_soc_without_power():
@@ -63,11 +72,83 @@ def test_energy_estimated_from_soc_without_power():
     assert abs(c["energy_kwh"] - 7.7) < 1e-6
 
 
-def test_gap_is_capped():
+def test_energy_over_a_gap_comes_from_the_battery_level():
+    """Power readings say nothing about a long hole (the charge may have stopped in it); the rise in level does."""
     conn, vid = make()
     recorder.ingest(conn, vid, charging(t(0), 20, 10.0))
     recorder.ingest(conn, vid, charging(t(10), 80, 10.0))
+    assert abs(conn.execute("SELECT energy_kwh FROM charges").fetchone()[0] - 60 * 77 / 100 / 0.9) < 1e-6
+
+
+def test_gap_is_capped_without_a_battery_capacity():
+    conn, vid = make(kwh=None)
+    recorder.ingest(conn, vid, charging(t(0), 20, 10.0))
+    recorder.ingest(conn, vid, charging(t(10), 80, 10.0))
     assert conn.execute("SELECT energy_kwh FROM charges").fetchone()[0] == 10.0
+
+
+def _charge_with_a_night_gap(conn, vid):
+    """Issue #8: readings stop at 22:30 with 50 min left, the next one (06:27) finds the charge over."""
+    recorder.ingest(conn, vid, charging("2026-01-01T21:26:00+00:00", 68, 10.5, remaining_min=54))
+    recorder.ingest(conn, vid, charging("2026-01-01T21:30:00+00:00", 69, 10.5, remaining_min=50))
+    recorder.ingest(conn, vid, snap("2026-01-02T05:27:00+00:00", 80, charge_state="READY_FOR_CHARGING", plug_connected=True))
+    return conn.execute("SELECT * FROM charges").fetchone()
+
+
+def test_end_after_a_long_gap_is_estimated_from_the_rise_in_battery_level():
+    conn, vid = make()
+    c = _charge_with_a_night_gap(conn, vid)
+    # 11 points of 77 kWh at 90 % efficiency is 9.41 kWh from the wall: 53.8 min at 10.5 kW after 21:30
+    assert c["end_estimated"] == 1 and c["ended_at"] == "2026-01-01T22:23:47+00:00" and c["duration_min"] == 58
+    assert abs(c["energy_kwh"] - (4 / 60 * 10.5 + 11 * 77 / 100 / 0.9)) < 1e-6
+    assert conn.execute("SELECT at FROM events WHERE kind='charge_end'").fetchone()[0] == c["ended_at"]
+
+
+def test_end_after_a_long_gap_falls_back_to_the_cars_remaining_time():
+    conn, vid = make(kwh=None)
+    c = _charge_with_a_night_gap(conn, vid)
+    assert c["end_estimated"] == 1 and c["ended_at"] == "2026-01-01T22:20:00+00:00"
+
+
+def test_estimated_end_is_never_after_the_reading_that_saw_the_charge_over():
+    conn, vid = make()
+    recorder.ingest(conn, vid, charging(t(1), 20, 10.0))
+    recorder.ingest(conn, vid, snap(t(2, 30), 80, charge_state="READY_FOR_CHARGING"))  # 60 points cannot fit in 1.5 h at 10 kW
+    assert conn.execute("SELECT ended_at FROM charges").fetchone()[0] == t(2, 30)
+
+
+def _old_charge_with_a_night_gap(conn, vid):
+    """The rows a charge like issue #8's got before gaps were handled: closed at 06:27, energy capped at 1 h per gap."""
+    for ts, soc, on, p, rem, state in (("2026-01-01T21:26:00+00:00", 68, 1, 10.5, 54, "CHARGING"),
+                                       ("2026-01-01T21:30:00+00:00", 69, 1, 10.5, 50, "CHARGING"),
+                                       ("2026-01-02T05:27:00+00:00", 80, 0, 0.0, 0, "READY_FOR_CHARGING")):
+        conn.execute("INSERT INTO snapshots(vehicle_id,recorded_at,soc,charging,charge_power_kw,remaining_min,charge_state) "
+                     "VALUES(?,?,?,?,?,?,?)", (vid, ts, soc, on, p, rem, state))
+    conn.execute("INSERT INTO charges(vehicle_id,started_at,ended_at,start_soc,end_soc,energy_kwh,energy_battery_kwh,duration_min,source) "
+                 "VALUES(?,?,?,?,?,?,?,?,'detected')", (vid, "2026-01-01T21:26:00+00:00", "2026-01-02T05:27:00+00:00", 68, 80, 5.95, 9.24, 481))
+    conn.execute("INSERT INTO events(vehicle_id,at,kind,detail) VALUES(?,?,'charge_end','5.9 kWh')", (vid, "2026-01-02T05:27:00+00:00"))
+
+
+def test_charges_recorded_before_gaps_were_handled_are_repaired_once():
+    conn, vid = make()
+    _old_charge_with_a_night_gap(conn, vid)
+    assert recorder.repair_charge_gaps(conn) == 1
+    c = conn.execute("SELECT * FROM charges").fetchone()
+    assert c["end_estimated"] == 1 and c["ended_at"] == "2026-01-01T22:23:47+00:00" and c["duration_min"] == 58
+    assert abs(c["energy_kwh"] - (4 / 60 * 10.5 + 11 * 77 / 100 / 0.9)) < 1e-6
+    assert tuple(conn.execute("SELECT at, detail FROM events WHERE kind='charge_end'").fetchone()) == (c["ended_at"], "10.1 kWh")
+    conn.execute("UPDATE charges SET ended_at='2026-01-02T05:27:00+00:00', end_estimated=0")
+    assert recorder.repair_charge_gaps(conn) == 0  # once per database: a second start changes nothing
+    assert conn.execute("SELECT ended_at FROM charges").fetchone()[0] == "2026-01-02T05:27:00+00:00"
+
+
+def test_repair_leaves_charges_without_gaps_alone():
+    conn, vid = make()
+    recorder.ingest(conn, vid, charging(t(10), 20, 10.0))
+    recorder.ingest(conn, vid, snap(t(10, 30), 26, charge_state="READY_FOR_CHARGING"))
+    before = dict(conn.execute("SELECT * FROM charges").fetchone())
+    assert recorder.repair_charge_gaps(conn) == 0
+    assert dict(conn.execute("SELECT * FROM charges").fetchone()) == before
 
 
 # ------------------------------------------------------------------ events

@@ -45,14 +45,24 @@ function legend(series) {
 }
 
 /**
- * lineChart({series:[{name, data:[{x,y}], color?, axis?:'left'|'right', area?, step?, fmt?}], height?, yLeft?:{min,max,fmt}, yRight?, empty?})
+ * lineChart({series:[{name, data:[{x,y}], color?, axis?:'left'|'right', area?, step?, fmt?}], height?, yLeft?:{min,max,fmt}, yRight?, empty?,
+ *   gaps?:[{from, to}]})
+ * `gaps` are stretches without data: they are shaded, and no line or area is drawn across them.
  */
-export function lineChart({ series, height = 220, yLeft = {}, yRight = {}, xFmt, emptyText = 'No data yet' }) {
+export function lineChart({ series, height = 220, yLeft = {}, yRight = {}, xFmt, emptyText = 'No data yet', gaps = [] }) {
   const root = h('div', { class: 'chart' });
   const pts = series.map((s) => ({ ...s, data: (s.data || []).filter((p) => p.y != null && !Number.isNaN(p.y)).map((p) => ({ x: toMs(p.x), y: +p.y })).sort((a, b) => a.x - b.x) }));
   const all = pts.flatMap((s) => s.data);
   if (all.length < 2) { root.append(h('div', { class: 'empty' }, emptyText)); return root; }
-  const xMin = Math.min(...all.map((p) => p.x)), xMax = Math.max(...all.map((p) => p.x));
+  const holes = gaps.map((g) => ({ from: toMs(g.from), to: toMs(g.to) })).filter((g) => g.to > g.from);
+  const xs = [...all.map((p) => p.x), ...holes.flatMap((g) => [g.from, g.to])];
+  const xMin = Math.min(...xs), xMax = Math.max(...xs);
+  // runs of points with no gap between neighbours: each run is its own line (and area)
+  const runs = (data) => data.reduce((acc, p, j) => {
+    const a = data[j - 1];
+    if (!a || holes.some((g) => g.from >= a.x && g.to <= p.x)) acc.push([p]); else acc.at(-1).push(p);
+    return acc;
+  }, []);
   const hasRight = pts.some((s) => s.axis === 'right');
   const scaleFor = (axis, cfg) => {
     const ys = pts.filter((s) => (s.axis || 'left') === axis).flatMap((s) => s.data.map((p) => p.y));
@@ -88,19 +98,26 @@ export function lineChart({ series, height = 220, yLeft = {}, yRight = {}, xFmt,
       const ms = xMin + (span * i) / steps;
       g.append(svg('text', { x: X(ms), y: height - 6, 'text-anchor': i === 0 ? 'start' : i === steps ? 'end' : 'middle' }, (xFmt || timeLabel)(ms, span)));
     }
+    for (const hole of holes) g.append(svg('rect', { class: 'gap', x: X(hole.from), y: M.top, width: Math.max(1, X(hole.to) - X(hole.from)), height: ih }));
     pts.forEach((s, i) => {
       const color = s.color || COLORS[i % 4];
-      let d = '';
-      s.data.forEach((p, j) => {
-        const x = X(p.x), y = Y(s, p.y);
-        if (j === 0) d += `M${x},${y}`;
-        else d += s.step ? `H${x}V${y}` : `L${x},${y}`;
-      });
-      if (s.area) {
-        const base = M.top + ih;
-        g.append(svg('path', { d: `${d}L${X(s.data.at(-1).x)},${base}L${X(s.data[0].x)},${base}Z`, fill: color, opacity: 0.14 }));
+      for (const run of runs(s.data)) {
+        if (run.length === 1) {  // a lone reading between two gaps: a dot, since a one-point path draws nothing
+          g.append(svg('circle', { cx: X(run[0].x), cy: Y(s, run[0].y), r: 2.5, fill: color }));
+          continue;
+        }
+        let d = '';
+        run.forEach((p, j) => {
+          const x = X(p.x), y = Y(s, p.y);
+          if (j === 0) d += `M${x},${y}`;
+          else d += s.step ? `H${x}V${y}` : `L${x},${y}`;
+        });
+        if (s.area) {
+          const base = M.top + ih;
+          g.append(svg('path', { d: `${d}L${X(run.at(-1).x)},${base}L${X(run[0].x)},${base}Z`, fill: color, opacity: 0.14 }));
+        }
+        g.append(svg('path', { d, fill: 'none', stroke: color, 'stroke-width': 2, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }));
       }
-      g.append(svg('path', { d, fill: 'none', stroke: color, 'stroke-width': 2, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }));
     });
     const cursor = svg('line', { y1: M.top, y2: M.top + ih, stroke: 'var(--muted)', 'stroke-dasharray': '3 3', visibility: 'hidden' });
     g.append(cursor);

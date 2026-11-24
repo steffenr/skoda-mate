@@ -115,6 +115,23 @@ def test_charges_costs_home_vs_public_and_manual_override():
     assert c.get(f"/api/vehicles/{vid}/charges?kind=DC").json()["total"] == 1
     cur = c.get(f"/api/vehicles/{vid}/charges/{ac['id']}").json()["curve"]
     assert [p["soc"] for p in cur][:2] == [20, 30] and cur[0]["p"] == 10.0  # the charging curve from the polls
+    assert c.get(f"/api/vehicles/{vid}/charges/{ac['id']}").json()["curve_gaps"] == []  # polled every 30 min: no holes
+
+
+def test_charge_curve_names_the_stretches_without_readings():
+    """Issue #8: the chart must leave holes in the readings open, including the time up to an estimated end."""
+    c, conn, api, vid = connected()
+    recorder.upsert_vehicle(conn, VIN, battery_kwh=77.0)
+    for ts, soc in (("19:49", 46), ("21:26", 68), ("21:30", 69)):
+        recorder.ingest(conn, vid, {"ts": f"2027-02-11T{ts}:00+00:00", "soc": soc, "charging": True, "charge_state": "CHARGING",
+                                    "charge_power_kw": 10.5, "remaining_min": 50})
+    recorder.ingest(conn, vid, {"ts": "2027-02-12T05:27:00+00:00", "soc": 80, "charging": False, "charge_state": "READY_FOR_CHARGING"})
+    cid = conn.execute("SELECT id FROM charges WHERE source='detected'").fetchone()[0]
+    ch = c.get(f"/api/vehicles/{vid}/charges/{cid}").json()
+    assert ch["end_estimated"] == 1 and ch["ended_at"] == "2027-02-11T22:23:47+00:00"
+    assert [p["t"] for p in ch["curve"]][-1] == "2027-02-11T21:30:00+00:00"  # the 05:27 reading is after the end
+    assert ch["curve_gaps"] == [{"from": "2027-02-11T19:49:00+00:00", "to": "2027-02-11T21:26:00+00:00"},
+                                {"from": "2027-02-11T21:30:00+00:00", "to": "2027-02-11T22:23:47+00:00"}]
 
 
 def test_home_filter_applies_before_paging():

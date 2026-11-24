@@ -157,6 +157,7 @@ def create_app(cfg: Config | None = None, conn=None, poller: Poller | None = Non
     key_path = None if cfg.db_path == ":memory:" else str(Path(cfg.db_path).with_name("secret.key"))
     box = SecretBox(key_path)
     login = Auth(box.key, conn)
+    recorder.repair_charge_gaps(conn)  # once: charges recorded before gaps in the readings were handled (issue #8)
     for v in conn.execute("SELECT id FROM vehicles").fetchall():  # backfill charges that can be read off existing trips/readings
         recorder.infer_charges(conn, v["id"])
     state: dict = {"poller": poller, "task": None, "api": None, "publisher": None}

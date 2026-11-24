@@ -26,7 +26,8 @@ every 30 s and after Refresh), `setTitle()`. Routes: `''` overview · `trips` ·
 ## Libraries (`static/lib/`)
 `dom.js` h()/svg()/mount()/clear() — **no innerHTML, ever** (names, addresses and notes come from outside).
 `ui.js` card, stat, chip, button, asyncButton, banner, empty, loading, field, seg, kv, socBar, table, modal,
-confirmDialog, toast. `charts.js` lineChart, barChart, sparkline. `mapview.js` mapView (Leaflet from CDN, offline fallback).
+confirmDialog, toast. `charts.js` lineChart (`gaps: [{from, to}]` shades stretches without data and draws no line across
+them), barChart, sparkline. `mapview.js` mapView (Leaflet from CDN, offline fallback).
 `car.js` carView. `icons.js` icon(name) (see ICON_NAMES). `format.js` km/mi aware formatters (`f.km`, `f.cons`, `f.kwh`,
 `f.money`, `f.duration`, `f.dateTime`, `f.dayLabel`, `f.shortPlace`, …). `i18n.js` `t('English')`; add German with
 `extendDE({...})` at the top of your page file. `style.css` holds tokens and components; page CSS goes in your own file.

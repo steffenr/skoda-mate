@@ -179,6 +179,7 @@ table.t td.num, table.t th.num { text-align: right; }
 .chart svg { display: block; width: 100%; height: auto; overflow: visible; }
 .chart text { fill: var(--muted); font-size: 11px; font-family: inherit; }
 .chart .grid { stroke: var(--chart-grid); stroke-width: 1; } .chart .axis { stroke: var(--line); }
+.chart .gap { fill: var(--chart-grid); opacity: .7; }  /* a stretch without readings: no line is drawn across it */
 .chart .tip { position: absolute; pointer-events: none; background: var(--fg); color: var(--bg); padding: 6px 9px; border-radius: 8px; font-size: 12px; white-space: nowrap; transform: translate(-50%, -110%); z-index: 3; }
 .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin-top: 6px; }
 .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }

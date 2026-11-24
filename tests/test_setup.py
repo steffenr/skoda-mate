@@ -118,6 +118,8 @@ def test_credentials_survive_restart(tmp_path):
         sign_up(c)
         assert c.post("/api/setup/skoda", json=BODY).status_code == 200
     assert (tmp_path / "secret.key").stat().st_mode & 0o077 == 0  # key file is private
+    conn.execute("UPDATE api_calls SET at = at - 600")  # the restart comes after the poll interval, so it polls at once
+    conn.commit()
     f2 = Factory()
     app2, _ = make_app(db_path=db, api_factory=f2)  # a fresh process: nothing in memory
     with client_for(app2) as c:
