@@ -1,5 +1,5 @@
 # Build stage: install the exact dependency versions from uv.lock into a virtualenv.
-FROM python:3.13.18-slim-trixie AS build
+FROM python:3.15.1-slim-trixie AS build
 COPY --from=ghcr.io/astral-sh/uv:0.13.8 /uv /bin/uv
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy UV_PYTHON_DOWNLOADS=never UV_PYTHON=/usr/local/bin/python3.13
 WORKDIR /app
@@ -7,7 +7,7 @@ COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev --no-install-project
 
 # Runtime stage: no uv, just the virtualenv and the app; the app runs as uid 10001 (see docker-entrypoint.sh).
-FROM python:3.13.18-slim-trixie
+FROM python:3.15.1-slim-trixie
 RUN useradd --system --uid 10001 --user-group --home-dir /nonexistent --no-create-home --shell /usr/sbin/nologin mate \
     && mkdir -p /data && chown 10001:10001 /data && chmod 700 /data
 WORKDIR /app
