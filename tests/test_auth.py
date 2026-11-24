@@ -280,15 +280,16 @@ def test_email_with_separator_or_space_is_rejected():
 
 
 def test_email_check_is_linear_and_accepts_subdomains():
-    """The domain part must not backtrack polynomially on long runs without a dot (CodeQL py/polynomial-redos)."""
-    from skoda_mate.auth import EMAIL_RE
+    """No backtracking on long runs of one character, with or without "@" (CodeQL py/polynomial-redos)."""
+    from skoda_mate.auth import valid_email
 
     for good in ("me@x.io", "first.last+tag@mail.example.co.uk"):
-        assert EMAIL_RE.fullmatch(good), good
-    for bad in ("a@x..io", "a@.x.io", "a@x.io.", "a@b"):
-        assert not EMAIL_RE.fullmatch(bad), bad
+        assert valid_email(good), good
+    for bad in ("a@x..io", "a@.x.io", "a@x.io.", "a@b", "a@b@x.io", "a\t@x.io", "a@x.io\n", ""):
+        assert not valid_email(bad), repr(bad)
     start = time.monotonic()
-    assert not EMAIL_RE.fullmatch("!@" + "!" * 20000)
+    for long in ("!" * 50000, "!@" + "!" * 50000, "!" * 50000 + "@x"):
+        assert not valid_email(long)
     assert time.monotonic() - start < 0.5
 
 
