@@ -22,7 +22,7 @@ updates:
         patterns: ["*"]
         update-types: ["minor", "patch"]
 
-  # Base images in the Dockerfile: python:3.13.x-slim-trixie and ghcr.io/astral-sh/uv.
+  # Base images in the Dockerfile: python:3.x-slim-trixie and ghcr.io/astral-sh/uv.
   - package-ecosystem: "docker"
     directory: "/"
     schedule:

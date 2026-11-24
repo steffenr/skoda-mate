@@ -1,7 +1,7 @@
 # Build stage: install the exact dependency versions from uv.lock into a virtualenv.
 FROM python:3.15.1-slim-trixie AS build
 COPY --from=ghcr.io/astral-sh/uv:0.13.8 /uv /bin/uv
-ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy UV_PYTHON_DOWNLOADS=never UV_PYTHON=/usr/local/bin/python3.13
+ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy UV_PYTHON_DOWNLOADS=never UV_PYTHON=/usr/local/bin/python3
 WORKDIR /app
 COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev --no-install-project
