@@ -7,8 +7,15 @@ services:
     volumes: ["./data:/data"]   # database + secret.key (encrypts your Skoda password): back up and protect both
     environment:
       # No logins here: open http://localhost:8080 and the setup form asks for them.
+      # Compose forwards the variables listed below only; put values in a .env file next to this file
+      # (compose reads it automatically) or export them before `docker compose up -d`.
       COOKIE_SECURE: ${COOKIE_SECURE:-} # "true" when served over HTTPS
       API_TOKEN: ${API_TOKEN:-}         # optional bearer token for scripts
+      SETUP_CODE: ${SETUP_CODE:-}       # optional: your own first-run setup code (then no setup-code.txt is written)
       MQTT_HOST: ${MQTT_HOST:-}         # optional: Home Assistant via MQTT Discovery
+      MQTT_PORT: ${MQTT_PORT:-1883}
       MQTT_USER: ${MQTT_USER:-}
       MQTT_PASSWORD: ${MQTT_PASSWORD:-}
+      MQTT_PREFIX: ${MQTT_PREFIX:-skoda_mate}
+      DEMO: ${DEMO:-}                   # "1": fictional car and history, no account (see README)
+      DEMO_CARS: ${DEMO_CARS:-1}        # "2": a second fictional car, to try the car switcher
