@@ -29,6 +29,10 @@ extendDE({
   'Charge': 'Ladevorgang', 'Back to charges': 'Zurück zu den Ladevorgängen', 'Delivered energy': 'Gelieferte Energie', 'Battery start → end': 'Batterie Start → Ende', 'Average power': 'Ø Leistung', 'Max power': 'Max. Leistung',
   'Charging curve': 'Ladekurve', 'Charging power': 'Ladeleistung', 'Battery': 'Batterie', 'Charging now': 'Lädt gerade', 'Running': 'Läuft',
   'The curve is drawn from the readings Mate took during this session (a few minutes apart). It is not a continuous measurement, so short peaks can be missing.': 'Die Kurve besteht aus den Messwerten, die Mate während des Ladevorgangs aufgenommen hat (einige Minuten Abstand). Sie ist keine durchgehende Messung, kurze Spitzen können fehlen.',
+  'Shaded: Mate has no readings from this time, so no line is drawn there.': 'Schattiert: Aus dieser Zeit hat Mate keine Messwerte, daher ist dort keine Linie gezeichnet.',
+  'Mate had no reading when the charge ended, so the end time is estimated from the last reading before it and the rise in battery level after it.':
+    'Mate hatte keinen Messwert, als der Ladevorgang endete. Die Endzeit ist daher aus dem letzten Messwert davor und dem Anstieg des Batteriestands danach geschätzt.',
+  'end estimated': 'Ende geschätzt',
   'Not enough readings for a curve': 'Zu wenige Messwerte für eine Kurve', 'Mate needs at least two readings during the session.': 'Mate braucht mindestens zwei Messwerte während des Ladevorgangs.',
   'Cost': 'Kosten', 'Place': 'Ort', 'Auto': 'Automatisch', 'Home': 'Zuhause', 'Public': 'Öffentlich', 'Where was this charged?': 'Wo wurde geladen?', 'Auto uses the home position from your tariff settings.': 'Automatisch nutzt die Heimposition aus Ihren Tarifeinstellungen.',
   'Total cost (manual)': 'Gesamtkosten (manuell)', 'Set cost': 'Kosten setzen', 'Clear manual cost': 'Manuelle Kosten löschen', 'Cost saved': 'Kosten gespeichert', 'Manual cost removed': 'Manuelle Kosten entfernt', 'Enter a valid amount': 'Gültigen Betrag eingeben',
@@ -123,17 +127,19 @@ export default async function charge(root, ctx) {
   }
 
   function draw() {
-    const curve = c.curve || [];
+    const curve = c.curve || [], gaps = c.curve_gaps || [];
     const place = chargePlace(c), placeName = place.title, fromTrip = c.source === 'import-trip';
+    const about = c.end_estimated ? '≈ ' : '';  // Mate saw no reading when it ended (issue #8)
     const head = h('div', { class: 'stack' }, back(),
-      h('div', { class: 'a-title' }, h('h1', null, placeName), h('div', { class: 'muted' }, `${f.date(c.started_at, { dateStyle: "full" })} · ${fromTrip ? `${t('Trip')} ` : ''}${f.time(c.started_at)} – ${c.open ? '…' : f.time(c.ended_at)}`),
+      h('div', { class: 'a-title' }, h('h1', null, placeName), h('div', { class: 'muted' }, `${f.date(c.started_at, { dateStyle: "full" })} · ${fromTrip ? `${t('Trip')} ` : ''}${f.time(c.started_at)} – ${c.open ? '…' : `${about}${f.time(c.ended_at)}`}`),
         place.sub ? h('div', { class: 'small muted' }, place.sub) : null,
         h('div', { class: 'row tight', style: { marginTop: '6px' } }, c.open ? h('span', { class: 'chip good' }, h('i', { class: 'dot good pulse' }), t('Charging now')) : null, typeChip(c), placeChip(c))));
     const stats = h('div', { class: 'grid auto' },
       card(null, stat(t('Delivered energy'), c.energy_kwh != null ? f.num(c.energy_kwh, 1) : '–', { unit: c.energy_kwh != null ? 'kWh' : null, ic: 'bolt' })),
       card(null, stat(t('Battery start → end'), f.socText(c), { ic: 'battery', sub: c.target_soc != null ? `${t('Charge target')} ${f.pct(c.target_soc)}` : null })),
-      card(null, stat(c.source === 'import-trip' ? t('Trip duration') : c.inferred ? t('Time window') : t('Duration'), c.open ? `${f.duration(c.duration_min)} …` : f.duration(c.duration_min),
-        { ic: 'clock', sub: c.inferred ? (c.source === 'import-trip' ? t('the duration of the trip; charging happened somewhere during it') : t('the car stood here; charging happened somewhere in it')) : null })),
+      card(null, stat(c.source === 'import-trip' ? t('Trip duration') : c.inferred ? t('Time window') : t('Duration'), c.open ? `${f.duration(c.duration_min)} …` : `${about}${f.duration(c.duration_min)}`,
+        { ic: 'clock', sub: c.inferred ? (c.source === 'import-trip' ? t('the duration of the trip; charging happened somewhere during it') : t('the car stood here; charging happened somewhere in it'))
+          : c.end_estimated ? t('end estimated') : null })),
       ...(c.inferred
         // Not measured: dividing the energy by the whole parked window would give a meaningless "average power".
         ? [card(null, stat(t('Charging power'), t('unknown'), { ic: 'gauge',
@@ -142,10 +148,12 @@ export default async function charge(root, ctx) {
           card(null, stat(t('Max power'), f.num(c.max_power_kw, 1), { unit: c.max_power_kw != null ? 'kW' : null, ic: 'gauge' }))]));
 
     const chart = card(t('Charging curve'), curve.filter((p) => p.soc != null).length > 1 ? h('div', { class: 'stack' }, lineChart({
-      height: 240, yLeft: { min: 0, max: 100, fmt: (v) => `${v}%` }, yRight: { min: 0, fmt: (v) => `${v} kW` },
+      height: 240, yLeft: { min: 0, max: 100, fmt: (v) => `${v}%` }, yRight: { min: 0, fmt: (v) => `${v} kW` }, gaps,
       series: [{ name: t('Battery'), data: curve.map((p) => ({ x: p.t, y: p.soc })), area: true, fmt: (v) => f.pct(v, 1) },
         { name: t('Charging power'), data: curve.map((p) => ({ x: p.t, y: p.p })), axis: 'right', color: 'var(--chart-3)', fmt: (v) => f.kw(v) }],
-    }), h('div', { class: 'tiny muted' }, t('The curve is drawn from the readings Mate took during this session (a few minutes apart). It is not a continuous measurement, so short peaks can be missing.')))
+    }), h('div', { class: 'tiny muted' }, t('The curve is drawn from the readings Mate took during this session (a few minutes apart). It is not a continuous measurement, so short peaks can be missing.'),
+      gaps.length ? ` ${t('Shaded: Mate has no readings from this time, so no line is drawn there.')}` : null,
+      c.end_estimated ? ` ${t('Mate had no reading when the charge ended, so the end time is estimated from the last reading before it and the rise in battery level after it.')}` : null))
       : empty(t('Not enough readings for a curve'), t('Mate needs at least two readings during the session.'), 'trend'), { ic: 'trend' });
 
     const note = h('textarea', { rows: 3, maxlength: 500, placeholder: t('Add a note') }); note.value = c.note || '';

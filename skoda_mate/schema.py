@@ -94,6 +94,7 @@ EXTRA_COLUMNS: dict[str, dict[str, str]] = {
         "source": "TEXT DEFAULT 'detected'", "cost": "REAL", "cost_manual": "REAL", "place_kind": "TEXT",
         "duration_min": "INTEGER", "address": "TEXT", "target_soc": "REAL",
         "energy_battery_kwh": "REAL",  # soc delta x battery capacity: what reached the pack
+        "end_estimated": "INTEGER DEFAULT 0",  # 1 = no reading when it ended: ended_at is worked out from the last one
     },
 }
 

@@ -163,11 +163,11 @@ def _charge(conn, vid, prev, s):
         return
     if cur is None:
         return
+    kwh, eff = battery_kwh(conn, vid), _efficiency(conn, vid)
+    soc = s.get("soc") if s.get("soc") is not None else cur["end_soc"]
     energy = cur["energy_kwh"] or 0.0
     if prev is not None:
-        h = min(_hours(prev["recorded_at"], ts), MAX_GAP_H)
-        energy += h * ((prev["charge_power_kw"] or 0.0) + power) / 2
-    soc = s.get("soc") if s.get("soc") is not None else cur["end_soc"]
+        energy += _step_energy(prev, {"recorded_at": ts, "soc": s.get("soc"), "charge_power_kw": power}, kwh, eff)
     if charging:
         conn.execute("UPDATE charges SET energy_kwh=?, end_soc=?, max_power_kw=MAX(max_power_kw,?),"
                      " charge_type=COALESCE(charge_type,?), target_soc=COALESCE(?,target_soc) WHERE id=?",
@@ -177,23 +177,103 @@ def _charge(conn, vid, prev, s):
     # only close when the car says something definite, or when it has been silent for too long.
     definite = s.get("charge_state") is not None or s.get("plug_connected") is False
     last_charging = conn.execute(
-        "SELECT recorded_at FROM snapshots WHERE vehicle_id=? AND charging=1 ORDER BY recorded_at DESC LIMIT 1",
-        (vid,)).fetchone()
+        "SELECT recorded_at, soc, charge_power_kw, remaining_min FROM snapshots WHERE vehicle_id=? AND charging=1 "
+        "ORDER BY recorded_at DESC LIMIT 1", (vid,)).fetchone()
     stale = last_charging is not None and _hours(last_charging["recorded_at"], ts) > STALE_CHARGE_H
     if not (definite or stale):
         return
-    kwh = battery_kwh(conn, vid)
     batt = None
     if kwh and cur["start_soc"] is not None and soc is not None:
         batt = max(0.0, (soc - cur["start_soc"]) * kwh / 100)
     if energy <= 0 and batt:  # no usable power readings: fall back to the pack-side estimate
         energy = batt
-    ended = last_charging["recorded_at"] if stale and not definite else ts
+    guess = _estimate_end(last_charging, ts, soc, kwh, eff) if last_charging is not None else None
+    ended = guess or (last_charging["recorded_at"] if stale and not definite else ts)
     dur = round((_dt(ended) - _dt(cur["started_at"])).total_seconds() / 60)
-    conn.execute("UPDATE charges SET energy_kwh=?, energy_battery_kwh=?, end_soc=?, ended_at=?, duration_min=? WHERE id=?",
-                 (energy, batt, soc, ended, dur, cur["id"]))
+    conn.execute("UPDATE charges SET energy_kwh=?, energy_battery_kwh=?, end_soc=?, ended_at=?, duration_min=?, end_estimated=? "
+                 "WHERE id=?", (energy, batt, soc, ended, dur, int(guess is not None), cur["id"]))
     _event(conn, vid, ended, "charge_end", f"{energy:.1f} kWh")
     infer_charges(conn, vid)  # a measured charge replaces any inferred one covering the same moments
+
+
+def _efficiency(conn, vid) -> float:
+    return _measured_efficiency(conn, vid) or DEFAULT_EFFICIENCY
+
+
+def _step_energy(prev, cur, kwh, eff) -> float:
+    """Wall energy between two readings of one charge (rows or dicts with recorded_at, soc, charge_power_kw).
+
+    Normally the trapezoid of the two power readings. Across a hole longer than MAX_GAP_H the power readings say
+    nothing (the charge may have stopped in it), so the rise in battery level is used instead, divided by the charging
+    efficiency. Only without a battery capacity or level does the hole count as MAX_GAP_H at the two powers."""
+    h = _hours(prev["recorded_at"], cur["recorded_at"])
+    p0, p1 = prev["charge_power_kw"] or 0.0, cur["charge_power_kw"] or 0.0
+    if h <= MAX_GAP_H:
+        return h * (p0 + p1) / 2
+    if kwh and prev["soc"] is not None and cur["soc"] is not None:
+        return max(0.0, cur["soc"] - prev["soc"]) * kwh / 100 / eff
+    return MAX_GAP_H * (p0 + p1) / 2
+
+
+def _estimate_end(last, closed_at: str, soc, kwh, eff) -> str | None:
+    """When a charge stopped, if Mate had no readings then (issue #8): None when the reading that saw it over came
+    within MAX_GAP_H of the last CHARGING one (that reading's time is then accurate enough), or when nothing to
+    estimate from is known.
+
+    From the last CHARGING reading: the time its power needs for the rest of the rise in battery level, else the
+    car's own remaining time. Never later than the reading that saw the charge over."""
+    if _hours(last["recorded_at"], closed_at) <= MAX_GAP_H:
+        return None
+    hours = None
+    if kwh and soc is not None and last["soc"] is not None and last["charge_power_kw"]:
+        hours = max(0.0, soc - last["soc"]) * kwh / 100 / eff / last["charge_power_kw"]
+    elif last["remaining_min"] is not None:
+        hours = last["remaining_min"] / 60
+    if hours is None:
+        return None
+    end = _dt(last["recorded_at"]) + timedelta(seconds=round(hours * 3600))
+    return _iso(min(end, _dt(closed_at)))
+
+
+REPAIRED_GAPS_KEY = "repaired_charge_gaps"
+
+
+def repair_charge_gaps(conn) -> int:
+    """Once per database: correct live-detected charges recorded before gaps in the readings were handled (issue #8).
+
+    They were closed at the first reading after the gap and had each gap counted as at most MAX_GAP_H of power. The
+    readings are still stored, so the charge is replayed with today's rules. Only charges closed by a definite
+    reading are touched; a stale-closed one already ends at its last CHARGING reading. Returns how many changed."""
+    if conn.execute("SELECT 1 FROM settings WHERE key=?", (REPAIRED_GAPS_KEY,)).fetchone():
+        return 0
+    n = sum(_repair_charge(conn, c) for c in conn.execute(
+        "SELECT * FROM charges WHERE COALESCE(source,'detected')='detected' AND ended_at IS NOT NULL").fetchall())
+    conn.execute("INSERT INTO settings(key,value) VALUES(?, '1')", (REPAIRED_GAPS_KEY,))
+    conn.commit()
+    return n
+
+
+def _repair_charge(conn, c) -> int:
+    vid = c["vehicle_id"]
+    snaps = conn.execute("SELECT recorded_at, soc, charging, charge_power_kw, remaining_min FROM snapshots WHERE vehicle_id=? "
+                         "AND recorded_at BETWEEN ? AND ? ORDER BY recorded_at, id", (vid, c["started_at"], c["ended_at"])).fetchall()
+    pairs = list(zip(snaps, snaps[1:]))
+    last = next((s for s in reversed(snaps) if s["charging"]), None)
+    if last is None or snaps[-1]["charging"] or not any(_hours(a["recorded_at"], b["recorded_at"]) > MAX_GAP_H for a, b in pairs):
+        return 0
+    kwh, eff = battery_kwh(conn, vid), _efficiency(conn, vid)
+    energy = sum(_step_energy(a, b, kwh, eff) for a, b in pairs)
+    if energy <= 0 and c["energy_battery_kwh"]:
+        energy = c["energy_battery_kwh"]
+    soc = snaps[-1]["soc"] if snaps[-1]["soc"] is not None else c["end_soc"]
+    guess = _estimate_end(last, snaps[-1]["recorded_at"], soc, kwh, eff)
+    ended = guess or c["ended_at"]
+    dur = round((_dt(ended) - _dt(c["started_at"])).total_seconds() / 60)
+    conn.execute("UPDATE charges SET energy_kwh=?, ended_at=?, duration_min=?, end_estimated=? WHERE id=?",
+                 (energy, ended, dur, int(guess is not None), c["id"]))
+    conn.execute("UPDATE events SET at=?, detail=? WHERE vehicle_id=? AND kind='charge_end' AND at=?",
+                 (ended, f"{energy:.1f} kWh", vid, c["ended_at"]))
+    return 1
 
 
 # ---------------------------------------------------------------------------------------------- inferred charges

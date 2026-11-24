@@ -64,8 +64,11 @@ class Poller:
     def add_vehicle(self, vin: str, vid: int) -> Runtime:
         b = RequestBudget(clock=self.clock)
         b.configure(reserve=store.int_setting(self.conn, "command_reserve", 4, 0, 10))
-        b.load(store.recent_calls(self.conn, vid, self.clock() - 3600))
-        r = self.rt[vin] = Runtime(vin=vin, vid=vid, budget=b, next_poll=self.clock())
+        calls = store.recent_calls(self.conn, vid, self.clock() - 3600)
+        b.load(calls)
+        # A restart is not a reason to ask again: wait the shorter interval since the last request (issue #8).
+        first = max(self.clock(), max(calls) + self.intervals()[1]) if calls else self.clock()
+        r = self.rt[vin] = Runtime(vin=vin, vid=vid, budget=b, next_poll=first)
         saved = store.load_sections(self.conn, vid)
         if "operations" in saved:
             r.operations = saved["operations"].get("list")

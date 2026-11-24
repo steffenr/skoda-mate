@@ -196,6 +196,18 @@ def test_request_ledger_survives_a_restart():
     assert p2.rt[VIN].budget.used() == 5
 
 
+def test_a_restart_does_not_poll_again_before_the_interval_is_up():
+    """Issue #8: each restart polled at once, so a few restarts in a row used up Škoda's hourly quota."""
+    p, api, conn, clock, vid = setup()
+    run(p.poll(VIN))
+    clock.advance(30)
+    p2 = Poller(conn, FakeApi(clock=clock), clock=clock)
+    p2.add_vehicle(VIN, vid)
+    assert run(p2.tick()) == 0
+    clock.advance(271)  # the active interval (300 s) since the last request
+    assert run(p2.tick()) == 1
+
+
 def test_derived_data_flows_through_polls():
     """Three polls: parked, driving, parked elsewhere -> one derived trip and the position."""
     parked = bev(**{"odometer.mileageInKm": 1000})
