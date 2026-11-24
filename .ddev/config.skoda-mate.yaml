@@ -6,7 +6,7 @@ omit_containers: [db]
 web_extra_daemons:
   - name: skoda-mate
     # --reload: the app restarts by itself when a Python file changes (a stale server answers 404 for new features).
-    command: "uv run --python 3.13 uvicorn --factory skoda_mate.web:app --host 0.0.0.0 --port 8000 --reload --reload-dir skoda_mate"
+    command: "uv run --python 3.15 uvicorn --factory skoda_mate.web:app --host 0.0.0.0 --port 8000 --reload --reload-dir skoda_mate"
     directory: /var/www/html
 
 web_extra_exposed_ports:
