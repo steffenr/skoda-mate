@@ -11,7 +11,23 @@ Self-hosted trip tracking, charge logging and remote control for Škoda cars: *T
 
 Škoda Mate is a spare-time project and stays free software (AGPL). If it is useful to you, you can buy me a coffee:
 
-[![Buy Me a Coffee](https://camo.githubusercontent.com/c28781810ec561314c0480f2a773391df0006ce9f6fc92c1e36dee408ab2869e/68747470733a2f2f63646e2e6275796d6561636f666665652e636f6d2f627574746f6e732f76322f64656661756c742d79656c6c6f772e706e67)](https://buymeacoffee.com/steffenr)
+<a href="https://buymeacoffee.com/steffenr"><img
+  src="https://camo.githubusercontent.com/c28781810ec561314c0480f2a773391df0006ce9f6fc92c1e36dee408ab2869e/68747470733a2f2f63646e2e6275796d6561636f666665652e636f6d2f627574746f6e732f76322f64656661756c742d79656c6c6f772e706e67"
+  alt="Buy Me a Coffee" width="150" height="42"></a>
+
+## Screenshots
+
+Taken in the built-in demo mode (`DEMO=1`): a fictional Enyaq with 60 days of history, no account and no network.
+
+| Overview | Trips |
+|:--:|:--:|
+| ![Overview](docs/screenshots/overview.jpg) | ![Trips](docs/screenshots/trips.jpg) |
+| **Charges** | **Battery** |
+| ![Charges](docs/screenshots/charges.jpg) | ![Battery](docs/screenshots/battery.jpg) |
+| **Control** | **Statistics** |
+| ![Control](docs/screenshots/control.jpg) | ![Statistics](docs/screenshots/statistics.jpg) |
+| **Map** | **System** |
+| ![Map](docs/screenshots/map.jpg) | ![System](docs/screenshots/system.jpg) |
 
 ## What it does
 
