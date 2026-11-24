@@ -10,23 +10,20 @@ Docker host, and neither replaces the other. Two files in `unraid/` do the Unrai
 Unraid itself has no built-in Docker Compose support ([Docker overview](https://docs.unraid.net/unraid-os/using-unraid-to/run-docker-containers/overview/)),
 so the template is the native route and Compose Manager is a community plugin from the Apps tab.
 
-There is no image on a registry and no Community Applications entry yet (CA expects a published image it can pull and
-update), so the image is **built once on the server**. Everything after that happens in the browser, exactly like the
-Docker setup in the [README](../README.md): the setup form asks for the dashboard login and the Škoda API key, and no
-secret goes into a template field.
+The image is published on Docker Hub as [`steffenr/skoda-mate`](https://hub.docker.com/r/steffenr/skoda-mate) for
+`linux/amd64` and `linux/arm64`, so both files **pull it and nothing is built on the server**. Everything after that
+happens in the browser, exactly like the Docker setup in the [README](../README.md): the setup form asks for the
+dashboard login and the Škoda API key, and no secret goes into a template field.
 
-## 1. Build the image once
+There is no Community Applications entry yet; the template is installed by hand from this repository (step 2).
 
-In the Unraid terminal (array started, internet access for the base image):
+## 1. The image
 
-```bash
-mkdir -p /mnt/user/appdata/skoda-mate-build && cd /mnt/user/appdata/skoda-mate-build
-curl -L https://github.com/steffenr/skoda-mate/archive/refs/heads/main.tar.gz | tar -xz --strip-components=1
-docker build -t skoda-mate:latest .
-```
+Unraid pulls `steffenr/skoda-mate:latest` on the first start, tagged `latest`, `X.Y` and `X.Y.Z`. Prefer a version that
+only moves when you decide? Replace `:latest` with a release tag (`steffenr/skoda-mate:0.1.0`) in the template field or
+in `unraid/docker-compose.yml`.
 
-That takes a few minutes. Keep the folder for updates, or delete it (`rm -rf /mnt/user/appdata/skoda-mate-build`) and
-repeat the three lines when you want a new version.
+To fetch a new release by hand (Compose Manager, or over SSH): `docker pull steffenr/skoda-mate:latest`.
 
 ## 2. Start it
 
@@ -51,9 +48,10 @@ repeat the three lines when you want a new version.
    `PORT=8099` in the project's `.env` file to change either.
 3. Open `http://<unraid-ip>:8080/`.
 
-Either way Unraid's **update check for this container fails**: it tries to pull `skoda-mate:latest` from a registry that
-does not exist. That is expected — updates come from rebuilding the image (step 1) and pressing *Apply* / *Compose up*
-again.
+Either way Unraid's **update check works**: *Docker → check for updates* compares the running container with
+`steffenr/skoda-mate:latest` in the registry, and a new release shows up as an update — *Apply* (or *Compose up* after
+`docker compose pull`) replaces the container. The appdata folder is untouched, and the database schema is migrated on
+start.
 
 ## 3. First start
 

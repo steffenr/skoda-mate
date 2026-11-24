@@ -7,8 +7,8 @@ name: Docker image
 # (0.2) and, for full releases only, latest.
 #
 # Requires the repository secrets DOCKERHUB_USERNAME and DOCKERHUB_TOKEN (Docker Hub -> Account
-# settings -> Personal access tokens, read/write). Without them the build fails at the login step;
-# nothing else in the repo depends on this workflow.
+# settings -> Personal access tokens, read/write). A run without them stops at the credentials
+# guard below; nothing else in the repo depends on this workflow.
 
 on:
   release:

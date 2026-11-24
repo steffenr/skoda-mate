@@ -1,10 +1,10 @@
 <?xml version="1.0"?>
 <Container version="2">
   <Name>skoda-mate</Name>
-  <!-- A locally built image: there is no published one. Run `docker build -t skoda-mate:latest .` first, see
-       docs/UNRAID.md. Unraid's update check will therefore report "not available" - rebuild to update. -->
-  <Repository>skoda-mate:latest</Repository>
-  <Registry/>
+  <!-- Published image: https://hub.docker.com/r/steffenr/skoda-mate (tags latest, X.Y, X.Y.Z; amd64 + arm64). Unraid
+       pulls it on the first start; to pin a version, replace :latest below with a release tag such as :0.1.0. -->
+  <Repository>steffenr/skoda-mate:latest</Repository>
+  <Registry>https://registry-1.docker.io</Registry>
   <Network>bridge</Network>
   <MyIP/>
   <Shell>sh</Shell>
@@ -35,7 +35,7 @@ There is intentionally no PUID/PGID: the app always runs as uid 10001, and the c
 user itself. Set the data path to a private folder (not exported over SMB) - it holds the key that decrypts your
 Skoda API key.
 
-Image: built locally from https://github.com/steffenr/skoda-mate - see docs/UNRAID.md.
+Image: steffenr/skoda-mate from Docker Hub (AGPL-3.0-only) - see docs/UNRAID.md.
 Against a reverse proxy, add --proxy-headers --forwarded-allow-ips=172.16.0.0/12 to the extra parameters, with your
 proxy's network instead of the example range.</Description>
   <Config Name="WebUI port" Target="8080" Default="8080" Mode="tcp" Description="Container port 8080; change the host side if 8080 is taken." Type="Port" Display="always" Required="true" Mask="false">8080</Config>

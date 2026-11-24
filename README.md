@@ -69,9 +69,18 @@ recommended, see below). Everything after that happens in the browser: no secret
 the database.
 
 ### With Docker (recommended)
+The image is published on Docker Hub as [`steffenr/skoda-mate`](https://hub.docker.com/r/steffenr/skoda-mate) for
+`linux/amd64` and `linux/arm64`, tagged `latest`, `X.Y` and `X.Y.Z`. Nothing is built on your machine:
 ```bash
+mkdir -p ~/skoda-mate && cd ~/skoda-mate
+curl -LO https://raw.githubusercontent.com/steffenr/skoda-mate/main/docker-compose.yml
 docker compose up -d     # http://localhost:8080 -> the setup form opens
 docker compose logs -f skoda-mate
+```
+Without Compose (a NAS GUI, a script, `docker run`), the same container by hand:
+```bash
+docker run -d --name skoda-mate -p 8080:8080 -v "$PWD/data:/data" --restart unless-stopped \
+  steffenr/skoda-mate:latest
 ```
 Optional settings are environment variables in a **`.env` file next to `docker-compose.yml`** (compose reads it
 automatically) or exported in your shell before `docker compose up -d`. Compose forwards only the variables in its
@@ -80,15 +89,21 @@ automatically) or exported in your shell before `docker compose up -d`. Compose 
 Anything else in `.env` does not reach the container.
 
 To serve it on another host port, change the left side of `ports: ["8080:8080"]` in `docker-compose.yml` (for example
-`"9000:8080"`).
+`"9000:8080"`), or the `-p` value in the `docker run` line above. To pin a version instead of following `latest`, set
+`image: steffenr/skoda-mate:0.1.0`.
 
-**Updating:** `git pull && docker compose up -d --build`. `./data` survives the rebuild and the database schema is
-migrated automatically on start. **Backing up:** stop the container (`docker compose stop`) and copy `./data`; never
+**Updating:** `docker compose pull && docker compose up -d`. `./data` survives the update and the database schema is
+migrated automatically on start. Coming from an install that built the image locally? `docker-compose.yml` now names the
+published image, so the first `docker compose pull && docker compose up -d` after `git pull` switches the container over;
+same port, same `./data`. **Backing up:** stop the container (`docker compose stop`) and copy `./data`; never
 delete it, it holds the database, `secret.key` and, on a first run, `setup-code.txt`.
 
-The app in the container runs as an unprivileged user (uid 10001), with dependency versions pinned by `uv.lock`. On start
-the container makes `./data` writable for that user (`chown` to 10001), so a `./data` folder from an older, root-run
-version keeps working without manual steps; new database files are created mode 0600. On a volume where `chown` is not
+**Building from source** still works and is what contributors use: `docker compose up -d --build` builds this checkout
+instead of pulling (compose only builds by itself when the pull fails). Dependencies stay pinned by `uv.lock` either way.
+
+The app in the container runs as an unprivileged user (uid 10001), with dependency versions pinned by `uv.lock` when the
+image is built. On start the container makes `./data` writable for that user (`chown` to 10001), so a `./data` folder
+from an older, root-run version keeps working without manual steps; new database files are created mode 0600. On a volume where `chown` is not
 allowed (some NAS/NFS shares), run `sudo chown -R 10001:10001 ./data` once on the host, or set `user: "10001:10001"` in
 `docker-compose.yml`. For commands inside the container, add `-u 10001`
 (e.g. `docker compose exec -u 10001 skoda-mate python -m skoda_mate reset-password`) so no root-owned files end up in `data/`.
@@ -96,14 +111,14 @@ allowed (some NAS/NFS shares), run `sudo chown -R 10001:10001 ./data` once on th
 ### On Unraid
 Unraid has no Docker Compose support of its own, so the repository ships two files for it: `unraid/skoda-mate.xml` (an
 Unraid template for the **Docker** tab) and `unraid/docker-compose.yml` (for the **Docker Compose Manager** plugin).
-There is no image on a registry, so build it once on the server and open the WebUI:
+Both files pull the published image (`steffenr/skoda-mate:latest`), so nothing is built on the server:
+
 ```bash
-mkdir -p /mnt/user/appdata/skoda-mate-build && cd /mnt/user/appdata/skoda-mate-build
-curl -L https://github.com/steffenr/skoda-mate/archive/refs/heads/main.tar.gz | tar -xz --strip-components=1
-docker build -t skoda-mate:latest .
+curl -L -o /boot/config/plugins/dockerMan/templates-user/my-skoda-mate.xml \
+  https://raw.githubusercontent.com/steffenr/skoda-mate/main/unraid/skoda-mate.xml
 ```
-Data lives in `/mnt/user/appdata/skoda-mate`, the port is `8080`. Step by step, including reverse proxies, backups and
-the uid 10001 note: [docs/UNRAID.md](docs/UNRAID.md).
+Then *Docker → Add Container → Template: skoda-mate → Apply*. Data lives in `/mnt/user/appdata/skoda-mate`, the port is
+`8080`. Step by step, including reverse proxies, backups and the uid 10001 note: [docs/UNRAID.md](docs/UNRAID.md).
 
 ### With DDEV (local testing)
 The repository ships its DDEV config (nothing to create by hand): `.ddev/config.yaml` (generic project),
@@ -227,6 +242,22 @@ The `MQTT_*` environment variables still work as a fallback for existing install
 - `scripts/dom-smoke/a11y_axe.mjs` and `a11y_contrast.mjs` are the accessibility checks (WCAG 2.2 AA with axe-core, and the real contrast ratio of every text element, light and dark). Run them against a demo server after UI changes.
 - Feature comparison with leapmotor-mate: [docs/FEATURE-PARITY.md](docs/FEATURE-PARITY.md)
 - Design notes: [docs/superpowers/specs](docs/superpowers/specs).
+
+### Releasing
+Maintainers only: **Actions → Release → Run workflow** and pick `patch`, `minor` or `major`. The workflow runs the test
+suite, bumps the version in `pyproject.toml`, `uv.lock` and `skoda_mate/__init__.py`, commits `chore(release): X`,
+pushes the commit together with the `vX` tag in one atomic push, and publishes the GitHub release with generated notes.
+Nothing is tagged unless the tests pass. The tag must point at `main`.
+
+The published release then builds and pushes the image to Docker Hub (`.github/workflows/docker-publish.yml`):
+[`steffenr/skoda-mate`](https://hub.docker.com/r/steffenr/skoda-mate) tagged `X.Y.Z`, `X.Y` and, for non-prereleases,
+`latest`, for `linux/amd64` and `linux/arm64`. Building it yourself with `docker compose up -d --build` keeps working and
+needs no secrets.
+
+Two repository secrets are required. `RELEASE_PAT`: a fine-grained token with **Contents: Read & write** on this
+repository (classic: `repo` scope) — the built-in `GITHUB_TOKEN` cannot be used, because a push or release made with it
+does not trigger further workflows, so neither CI nor the image build would start. `DOCKERHUB_USERNAME` and
+`DOCKERHUB_TOKEN`: the Docker Hub account name and an access token with read/write permission.
 
 ## License
 

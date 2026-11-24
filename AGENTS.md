@@ -37,7 +37,9 @@
   get their German entry in `static/de_backend.js`, keyed by the exact English text.
 - **Docs in sync.** README for env vars, setup and security; `docs/HOME-ASSISTANT.md` for entities and topics;
   `docs/FEATURE-PARITY.md` when a feature lands or is ruled out; `docs/UNRAID.md` plus `unraid/` when the port, the data
-  path or an environment variable changes (template and compose file mirror the image).
+  path or an environment variable changes (template and compose file mirror the image). The published image name
+  (`steffenr/skoda-mate`) and its tags live in README, `docker-compose.yml`, `unraid/` and `docs/UNRAID.md`; change them
+  everywhere at once.
 - **Real data.** `data/` holds the live database and `secret.key`. Run demos and experiments on a scratch database.
 - **License.** AGPL-3.0-only, copyright Steffen Rühlmann. Keep `LICENSE` verbatim and the leapmotor-mate / Silvio Bressani
   attribution in the README (inspiration only, no shared code).

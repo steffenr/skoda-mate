@@ -1,13 +1,13 @@
 # Škoda Mate on Unraid — for Unraid's Docker Compose Manager plugin (or `docker compose up -d` over SSH).
 #
-# Build the image once from this repository first (`docker build -t skoda-mate:latest .`, see docs/UNRAID.md);
-# there is no published image, so this file references a local tag instead of building on every start.
+# The image comes from Docker Hub (https://hub.docker.com/r/steffenr/skoda-mate), so nothing is built here. Pin a
+# release tag (steffenr/skoda-mate:0.1.0) instead of `latest` if you want upgrades to be a deliberate edit.
 #
 # Paths default to Unraid's appdata share. To change them, put `APPDATA=/mnt/user/myshare/skoda-mate` and/or
 # `PORT=8099` in a `.env` file next to this file (Compose Manager has a `.env` editor), or edit the two lines below.
 services:
   skoda-mate:
-    image: skoda-mate:latest        # built from this repo; `docker compose build` works after cloning it here
+    image: steffenr/skoda-mate:latest   # change to a release tag (e.g. :0.1.0) to pin; `docker compose pull` updates
     container_name: skoda-mate
     restart: unless-stopped
     # The app runs as uid 10001 (the entrypoint drops root) and can never regain root this way.

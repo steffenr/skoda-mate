@@ -1,5 +1,10 @@
 services:
   skoda-mate:
+    # Published image (https://hub.docker.com/r/steffenr/skoda-mate), amd64 + arm64. `docker compose up -d` pulls it;
+    # with both image and build set, compose pulls first and only builds when the pull fails. `docker compose up -d
+    # --build` builds this checkout instead, for a change you want to test. Pin a version (steffenr/skoda-mate:0.1.0)
+    # if you would rather not follow `latest`.
+    image: steffenr/skoda-mate:latest
     build: .
     restart: unless-stopped
     security_opt: ["no-new-privileges:true"]  # the app runs as uid 10001 and can never regain root
