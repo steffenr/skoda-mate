@@ -13,6 +13,7 @@
 ## Commands
 
 - Tests: `uv run --extra dev pytest -q` (in DDEV: `ddev test`). Keep the suite green; every fix gets a test.
+- Lint and types, both gates: `uv run --extra dev ruff check` and `uv run --extra dev mypy` (37 source files).
 - Demo server (fictional car, no account, no network):
   `DEMO=1 DB_PATH=<scratch>/demo.db uv run uvicorn --factory skoda_mate.web:app --port 8766` (add `DEMO_CARS=2` for two cars).
 - Frontend checks, against a demo server, from `scripts/dom-smoke` (`npm install` once; Chromium at
@@ -20,6 +21,9 @@
   `BASE=http://localhost:8766 node browser_e2e.mjs` (phone fit + click-through), `node i18n_coverage.mjs`,
   `node a11y_axe.mjs http://localhost:8766`, `node a11y_contrast.mjs http://localhost:8766`.
 - Contract check against Škoda's OpenAPI: `.venv/bin/python scripts/check_contract.py`.
+- CI (`.github/workflows/ci.yml`) runs the same four things: `test` (ruff, mypy, pytest with coverage), `frontend`
+  (jsdom unit checks and `i18n_coverage.mjs`), `browser` (demo server plus `run.mjs`, `browser_e2e.mjs`, axe and
+  contrast). The a11y scripts report rather than gate; keep their output in the artifacts worth reading.
 
 ## Rules
 
@@ -30,11 +34,18 @@
 - **Secrets** (API key, S-PIN, MQTT password) are stored encrypted with `SecretBox`, and the dashboard password only as a
   hash. Logins come from the setup form; keep them out of environment variables, logs and API responses.
 - **Security headers stay strict.** Pages load code only from `/static` (no inline `<script>`), and the DOM is built with
-  `h()` (text nodes). A new external host (CDN, image, tiles) is added to `CSP` in `web.py` together with a test in
-  `tests/test_auth.py`; CDN files carry SRI hashes.
+  `h()` (text nodes). The headers live in `middleware.py`; a new external host (CDN, image, tiles) goes into `CSP` there,
+  together with a test in `tests/test_auth.py`; CDN files carry SRI hashes.
+- **Backend layout.** `web.py` only wires the app; endpoints are one module per area under `routers/` and take
+  `ContextDep` (`context.AppContext`). Shared shaping of API responses belongs in `presenters.py`, the Škoda/MQTT
+  lifecycle in `cloud.py`. Do not put endpoints back into `web.py`.
 - **MQTT commands** stay opt-in and allowlisted; starting the auxiliary heater (S-PIN) stays dashboard-only.
 - **Translations.** Every visible frontend string is `t('English')` with a German entry; backend messages shown to users
-  get their German entry in `static/de_backend.js`, keyed by the exact English text.
+  get their German entry in `static/de_backend.js`, keyed by the exact English text. Nav labels are `label:` entries in
+  the `PAGES` table (`static/app.js`); `i18n_coverage.mjs` checks those too. Setup and login are English-only on purpose
+  (they render before the session and the language setting exist).
+- **Routes.** One table, `PAGES` in `static/app.js`: a page is one entry plus `static/pages/<name>.js`. Sidebar, router,
+  nav highlight and preloading all derive from it, so never add a second list.
 - **Docs in sync.** README for env vars, setup and security; `docs/HOME-ASSISTANT.md` for entities and topics;
   `docs/FEATURE-PARITY.md` when a feature lands or is ruled out; `docs/UNRAID.md` plus `unraid/` when the port, the data
   path or an environment variable changes (template and compose file mirror the image). The published image name
