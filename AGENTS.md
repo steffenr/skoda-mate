@@ -51,7 +51,9 @@
   `docs/FEATURE-PARITY.md` when a feature lands or is ruled out; `docs/UNRAID.md` plus `unraid/` when the port, the data
   path or an environment variable changes (template and compose file mirror the image). The published image name
   (`steffenr/skoda-mate`) and its tags live in README, `docker-compose.yml`, `unraid/` and `docs/UNRAID.md`; change them
-  everywhere at once.
+  everywhere at once. `ca_profile.xml` in the repository root is required by the Community Applications submission (it
+  needs a non-empty `<Profile>`); keep its profile text, icon and links in sync with `unraid/skoda-mate.xml` and the
+  README, and re-run the validate/scan step at <https://ca.unraid.net/submit/new> after template changes.
 - **Real data.** `data/` holds the live database and `secret.key`. Run demos and experiments on a scratch database.
 - **License.** AGPL-3.0-only, copyright Steffen Rühlmann. Keep `LICENSE` verbatim and the leapmotor-mate / Silvio Bressani
   attribution in the README (inspiration only, no shared code).

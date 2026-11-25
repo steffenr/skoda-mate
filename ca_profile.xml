@@ -1,0 +1,21 @@
+<CommunityApplications>
+  <!-- Required by the Community Apps submission flow: this file sits in the repository root and its <Profile> must not
+       be empty. Markdown is supported. Icon/WebPage/Forum are the recommended extras; everything else (Discord, Reddit,
+       Twitter, Facebook, Photo, Video) is optional and only worth adding when it is a real destination. -->
+  <Profile>
+    Skoda Mate is a self-hosted dashboard for Skoda cars, built on the official MySkoda Public API: trip and charge
+    history, costs, battery state, statistics, and remote control for charging and climate. It runs as one container
+    with a local SQLite database, optionally publishes about 40 entities to Home Assistant over MQTT discovery, and
+    needs no cloud account beyond the API key you create in the MySkoda app.
+
+    This repository holds the source and the Unraid template (`unraid/skoda-mate.xml`), which pulls
+    `steffenr/skoda-mate` from Docker Hub for amd64 and arm64. Install the app, open the WebUI and finish the setup form
+    there: the dashboard login, the API key and the VINs are asked by the app itself, never by the template. Support
+    runs through the GitHub issue tracker.
+  </Profile>
+  <Icon>https://raw.githubusercontent.com/steffenr/skoda-mate/main/skoda_mate/static/icon.svg</Icon>
+  <WebPage>https://github.com/steffenr/skoda-mate</WebPage>
+  <Forum>https://github.com/steffenr/skoda-mate/issues</Forum>
+  <DonateText>Buy me a coffee</DonateText>
+  <DonateLink>https://buymeacoffee.com/steffenr</DonateLink>
+</CommunityApplications>

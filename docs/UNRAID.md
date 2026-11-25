@@ -5,7 +5,11 @@ Unraid runs the same container as Docker; only the paths and the way the contain
 Docker host, and neither replaces the other. Two files in `unraid/` do the Unraid part:
 
 - `unraid/docker-compose.yml` — for Unraid's **Docker Compose Manager** plugin (or `docker compose` over SSH).
-- `unraid/skoda-mate.xml` — an **Unraid template**, installed as a private Community Applications template.
+- `unraid/skoda-mate.xml` — an **Unraid template**: the app entry for Community Applications, installed as a private
+template until the listing is live.
+
+The repository root carries `ca_profile.xml` (the repository profile CA shows next to the app) and the AGPL-3.0
+`LICENSE`; together with the template they are what the Community Applications submission scans ([section 8](#8-community-applications-submission)).
 
 Unraid itself has no built-in Docker Compose support ([Docker overview](https://docs.unraid.net/unraid-os/using-unraid-to/run-docker-containers/overview/)),
 so the template is the native route and Compose Manager is a community plugin from the Apps tab.
@@ -15,8 +19,8 @@ The image is published on Docker Hub as [`steffenr/skoda-mate`](https://hub.dock
 happens in the browser, exactly like the Docker setup in the [README](../README.md): the setup form asks for the
 dashboard login and the Škoda API key, and no secret goes into a template field.
 
-There is no Community Applications entry yet. The template goes into CA's *private* folder, which makes it show up in
-the Apps tab like a listed app (step 2).
+Škoda Mate is submitted to Community Applications but not listed yet. Until it is, the template goes into CA's
+*private* folder, which makes it show up in the Apps tab like a listed app (step 2).
 
 ## 1. The image
 
@@ -116,3 +120,24 @@ host's LAN IP, not `localhost` — inside Mate's container that is Mate itself. 
 
 Set *Demo mode* (`DEMO=1`) in the template or compose file and restart: a fictional Enyaq with 60 days of history
 appears, no account, no network. `DEMO_CARS=2` adds a second car. Clear it again afterwards.
+
+## 8. Community Applications submission
+
+CA reads the repository itself, not an upload: it must stay public and active, carry an OSI-approved `LICENSE` at the
+root, a `ca_profile.xml` with a non-empty `<Profile>`, and at least one template XML with `<Repository>` (Docker) or
+`<PluginURL>` (plugin). All three are in place; the template is `unraid/skoda-mate.xml`.
+
+- **Validate and scan** in the submission flow at [ca.unraid.net/submit/new](https://ca.unraid.net/submit/new) after
+every meaningful XML change, before pushing a release. The scan is what flags a broken `<TemplateURL>`, a dead icon or
+screenshot URL, or a missing tag.
+- **Fields the scan reads.** `<Name>`, `<Repository>`, `<Registry>`, `<Network>`, `<WebUI>`, `<Overview>`,
+`<Category>`, `<Support>`, `<Project>`, `<TemplateURL>`, `<ReadMe>`, `<Icon>`, `<Screenshot>`, `<License>`,
+`<Requires>` and one `<Config>` per port, path and variable. CA only rewrites `DateInstalled` and the saved values on
+install; everything else is the file in this repository.
+- **The icon and screenshots are hot-linked** from `raw.githubusercontent.com` on the `main` branch, so renaming
+`skoda_mate/static/icon.svg` or a file in `docs/screenshots/` breaks the listing.
+- **No Compose source package.** CA can package a repository as an immutable Compose archive (`<AppTemplateType>` plus a
+pinned `<ComposeSourceCommit>`), but that SHA would have to be bumped for every release. The Docker template covers the
+Apps tab, and `unraid/docker-compose.yml` covers Compose Manager for anyone who prefers it.
+- **Nothing secret in the template.** The dashboard login, the API key and the S-PIN are asked by the setup form and
+stored in `/data`; the template carries only the port, the data path and the optional variables.

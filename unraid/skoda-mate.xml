@@ -4,7 +4,7 @@
   <!-- Published image: https://hub.docker.com/r/steffenr/skoda-mate (tags latest, X.Y, X.Y.Z; amd64 + arm64). Unraid
        pulls it on the first start; to pin a version, replace :latest below with a release tag such as :0.1.0. -->
   <Repository>steffenr/skoda-mate:latest</Repository>
-  <Registry>https://registry-1.docker.io</Registry>
+  <Registry>https://hub.docker.com/r/steffenr/skoda-mate</Registry>
   <Network>bridge</Network>
   <MyIP/>
   <Shell>sh</Shell>
@@ -15,13 +15,20 @@
   <Category>HomeAutomation: Tools:Utilities</Category>
   <WebUI>http://[IP]:[PORT:8080]/</WebUI>
   <TemplateURL>https://raw.githubusercontent.com/steffenr/skoda-mate/main/unraid/skoda-mate.xml</TemplateURL>
+  <ReadMe>https://raw.githubusercontent.com/steffenr/skoda-mate/main/README.md</ReadMe>
   <Icon>https://raw.githubusercontent.com/steffenr/skoda-mate/main/skoda_mate/static/icon.svg</Icon>
+  <ExtraSearchTerms>skoda skoda-mate myskoda enyaq elroq octavia kodiaq superb vw ev electric car trips charging mqtt home assistant</ExtraSearchTerms>
+  <Requires>Internet access to reach the MySkoda Public API, and a Skoda account with an API key created in the MySkoda app.</Requires>
+  <License>AGPL-3.0-only</License>
   <ExtraParams>--restart=unless-stopped --security-opt=no-new-privileges:true</ExtraParams>
   <PostArgs/>
   <CPUset/>
   <DateInstalled></DateInstalled>
   <DonateText>Buy me a coffee</DonateText>
   <DonateLink>https://buymeacoffee.com/steffenr</DonateLink>
+  <Screenshot>https://raw.githubusercontent.com/steffenr/skoda-mate/main/docs/screenshots/overview.jpg</Screenshot>
+  <Screenshot>https://raw.githubusercontent.com/steffenr/skoda-mate/main/docs/screenshots/trips.jpg</Screenshot>
+  <Screenshot>https://raw.githubusercontent.com/steffenr/skoda-mate/main/docs/screenshots/control.jpg</Screenshot>
   <Description>Self-hosted dashboard for your Skoda: trips, charging sessions, costs, battery and remote control
 (charging, climate, charging profiles), based on the official MySkoda Public API and a local SQLite database.
 Optionally publishes about 40 entities to Home Assistant via MQTT discovery. No cloud account beyond the API key

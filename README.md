@@ -91,8 +91,8 @@ for commands, so no root-owned files end up in `data/`.
 
 ### Unraid
 
-The app is not in Community Applications yet, so it installs from a private template. Both the template and
-`unraid/docker-compose.yml` (Compose Manager) pull the published image; nothing is built on the server.
+The app is submitted to Community Applications but not listed yet, so it installs from a private template. Both the
+template and `unraid/docker-compose.yml` (Compose Manager) pull the published image; nothing is built on the server.
 
 1. Open a terminal on the server: the Unraid web terminal, or SSH.
 2. Create the folder for private templates
