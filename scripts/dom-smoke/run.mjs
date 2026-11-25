@@ -16,7 +16,7 @@ const w = dom.window;
 const errors = [];
 const realFetch = globalThis.fetch;
 Object.assign(globalThis, {
-  window: w, document: w.document, Node: w.Node, HTMLElement: w.HTMLElement, localStorage: w.localStorage,
+  window: w, document: w.document, Node: w.Node, HTMLElement: w.HTMLElement, localStorage: w.localStorage, sessionStorage: w.sessionStorage,
   location: w.location, matchMedia: () => ({ matches: false, addEventListener() {} }),
   ResizeObserver: class { observe() {} disconnect() {} }, IntersectionObserver: class { observe() {} },
   fetch: (u, o) => realFetch(new URL(u, BASE), o),

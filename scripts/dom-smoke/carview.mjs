@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { JSDOM } from 'jsdom';
 const dom = new JSDOM('<!doctype html><body></body>', { url: 'http://localhost/' });
-Object.assign(globalThis, { window: dom.window, document: dom.window.document, Node: dom.window.Node, localStorage: dom.window.localStorage });
+Object.assign(globalThis, { window: dom.window, document: dom.window.document, Node: dom.window.Node, localStorage: dom.window.localStorage, sessionStorage: dom.window.sessionStorage });
 const { carView } = await import('../../skoda_mate/static/lib/car.js');
 const view = (snap) => carView({ snapshot: snap, sections: {} });
 const text = (snap) => view(snap).innerText ?? view(snap).textContent.replace(/\s+/g, ' ');
@@ -44,9 +44,11 @@ assert.equal(cells(s).Doors[0], 'Unlocked'); assert.ok(summary(s).classList.cont
 s = { windows_open: false, sunroof_open: true, locked: true, doors_open: false, trunk_open: false, bonnet_open: false, lights_on: false };
 assert.equal(cells(s).Windows[0], 'Sunroof open');
 
-// live line only when something is happening
+// live line only when something is happening (charging details live next to the battery on the Overview)
 assert.equal(view({ windows_open: false, locked: true }).querySelector('.badges'), null);
-s = { charging: true, charge_power_kw: 10.8, soc: 64, remaining_min: 68, target_soc: 100, windows_open: false, locked: true };
-assert.match(view(s).querySelector('.badges').textContent, /10\.8 kW · 64 % · 1 h 08 min to 100 %/);
-assert.match(view({ charging: true }).querySelector('.badges').textContent, /Charging/);
+assert.equal(view({ charging: true, windows_open: false, locked: true }).querySelector('.badges'), null);
+s = { in_motion: true, windows_open: false, locked: true };
+assert.match(view(s).querySelector('.badges').textContent, /Driving/);
+s = { climate_state: 'HEATING', windows_open: false, locked: true };
+assert.match(view(s).querySelector('.badges').textContent, /Climate/);
 console.log('car status states OK');
