@@ -32,8 +32,17 @@ for (const r of ROUTES) {
   await sleep(1800);
   const m = await phone.evaluate(() => {
     const vw = document.documentElement.clientWidth;
+    // Content inside a horizontally scrollable box (tables, the system tab row) is reachable, not clipped: the page
+    // itself must not scroll sideways, which is what the scrollWidth check below covers.
+    const scrolls = (e) => {
+      for (let p = e.parentElement; p && p !== document.body; p = p.parentElement) {
+        const ox = getComputedStyle(p).overflowX;
+        if ((ox === 'auto' || ox === 'scroll') && p.scrollWidth > p.clientWidth + 1) return true;
+      }
+      return false;
+    };
     const over = [...document.querySelectorAll('#main *')].filter((e) => e.getBoundingClientRect().right > vw + 1 && getComputedStyle(e).position !== 'fixed'
-      && !e.closest('.scroll-x') && !e.closest('.leaflet-container') && !e.closest('svg'))
+      && !e.closest('.leaflet-container') && !e.closest('svg') && !scrolls(e))
       .map((e) => `${e.tagName.toLowerCase()}.${(e.className && e.className.baseVal === undefined ? e.className : '').toString().split(' ')[0]} +${Math.round(e.getBoundingClientRect().right - vw)}px`);
     return { scrollW: document.documentElement.scrollWidth, vw, over: [...new Set(over)].slice(0, 4), text: document.getElementById('main').innerText.length };
   });
