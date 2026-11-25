@@ -35,17 +35,30 @@ export const api = {
 };
 
 // ------------------------------------------------------------------ routes
-export const NAV = [
-  ['', 'Overview', 'overview'], ['trips', 'Trips', 'route'], ['charges', 'Charges', 'plug'], ['prices', 'Prices', 'coin'], ['battery', 'Battery', 'battery'],
-  ['control', 'Control', 'sliders'], ['stats', 'Statistics', 'chart'], ['map', 'Map', 'map'], ['events', 'Events', 'activity'],
-  ['settings', 'Settings', 'settings'], ['system', 'System', 'shield'],
+// One table drives the sidebar, the router, the page modules and which nav entry is highlighted. A page without a
+// label is a detail view (no nav entry) and names the section it belongs to.
+export const PAGES = [
+  { path: '', name: 'overview', label: 'Overview', icon: 'overview' },
+  { path: 'trips', name: 'trips', label: 'Trips', icon: 'route' },
+  { path: 'trips/(\\d+)', name: 'trip', section: 'trips' },
+  { path: 'charges', name: 'charges', label: 'Charges', icon: 'plug' },
+  { path: 'charges/(\\d+)', name: 'charge', section: 'charges' },
+  { path: 'prices', name: 'prices', label: 'Prices', icon: 'coin' },
+  { path: 'battery', name: 'battery', label: 'Battery', icon: 'battery' },
+  { path: 'control', name: 'control', label: 'Control', icon: 'sliders' },
+  { path: 'stats', name: 'stats', label: 'Statistics', icon: 'chart' },
+  { path: 'map', name: 'map', label: 'Map', icon: 'map' },
+  { path: 'events', name: 'events', label: 'Events', icon: 'activity' },
+  { path: 'settings', name: 'settings', label: 'Settings', icon: 'settings', sepBefore: true },
+  { path: 'system(?:/(status|capabilities|calls|diagnostics))?', name: 'system', label: 'System', icon: 'shield' },
+  { path: 'import', name: 'import', section: 'trips' },
+  { path: 'capabilities', name: 'capabilities', section: 'system' },  // old link, redirected in route()
 ];
-const ROUTES = [
-  [/^$/, 'overview'], [/^trips$/, 'trips'], [/^trips\/(\d+)$/, 'trip'], [/^charges$/, 'charges'], [/^charges\/(\d+)$/, 'charge'], [/^prices$/, 'prices'],
-  [/^battery$/, 'battery'], [/^control$/, 'control'], [/^stats$/, 'stats'], [/^map$/, 'map'], [/^events$/, 'events'],
-  [/^settings$/, 'settings'], [/^system(?:\/(status|capabilities|calls|diagnostics))?$/, 'system'], [/^import$/, 'import'],
-];
-const SECTION = { trip: 'trips', charge: 'charges', import: 'trips', capabilities: 'system' };
+export const NAV = PAGES.filter((p) => p.label);
+const sectionOf = (page) => page.section ?? page.path;
+const pageByPath = (path) => PAGES
+  .map((p) => [new RegExp(`^${p.path}$`).exec(path), p])
+  .find(([m]) => m);
 
 // ------------------------------------------------------------------ state
 const S = { vehicles: [], vid: null, overview: null, settings: null, cleanup: null, ticks: new Set(), seq: 0 };
@@ -64,8 +77,7 @@ function applyTheme(theme) {
 // Every page registers its German strings when its module loads. A string used on the Overview but defined on another
 // page would stay English until that page was opened, so load all page modules up front (a few small files).
 import './de_backend.js';
-const PAGE_MODULES = ["overview", "trips", "trip", "charges", "charge", "battery", "control", "stats", "map", "events", "settings", "system", "import", "capabilities"];
-const preloadPages = () => Promise.all(PAGE_MODULES.map((n) => import(`./pages/${n}.js`).catch(() => null)));
+const preloadPages = () => Promise.all([...new Set(PAGES.map((p) => p.name))].map((n) => import(`./pages/${n}.js`).catch(() => null)));
 
 async function loadSettings() {
   S.settings = await api.get("/api/settings");
@@ -104,10 +116,11 @@ function navLink(path, label, ic, current) {
 function paintShell() {
   if (els.skip) els.skip.textContent = t('Skip to content');
   const { path } = parseHash();
-  const match = ROUTES.find(([re]) => re.test(path));
-  const section = match ? (SECTION[match[1]] ?? (match[1] === 'overview' ? '' : match[1])) : '';
+  const match = pageByPath(path);
+  const section = match ? sectionOf(match[1]) : '';
   const brand = h('a', { class: 'brand', href: '#/', 'aria-label': `Škoda Mate, ${t('Overview')}` }, h('div', { class: 'mark' }, icon('car', { size: 20 })), h('div', null, 'Škoda Mate', h('small', null, 'v' + (S.version || ''))));
-  mount(els.sidebar, brand, h('nav', { class: 'nav', 'aria-label': 'Main' }, ...NAV.map(([p, l, i], k) => [k === 9 ? h('div', { class: 'sep' }) : null, navLink(p, l, i, p === section)]),
+  mount(els.sidebar, brand, h('nav', { class: 'nav', 'aria-label': 'Main' },
+    ...NAV.map((page) => [page.sepBefore ? h('div', { class: 'sep' }) : null, navLink(page.path, page.label, page.icon, page.path === section)]),
     // Sign out is the last entry of the same list: same shape, same alignment as the links above
     h('div', { class: 'sep' }),
     h('button', { class: 'signout', type: 'button', onclick: signOut }, icon('logout', { size: 19 }), h('span', null, t('Sign out')))),
@@ -118,8 +131,8 @@ function paintShell() {
 }
 
 function moreMenu() {
-  const body = h('div', { class: 'stack' }, ...NAV.filter(([p]) => !['', 'trips', 'charges', 'control'].includes(p)).map(([p, l, i]) =>
-    h('a', { class: 'btn', href: `#/${p}`, onclick: () => document.querySelector('.scrim')?.remove() }, icon(i, { size: 18 }), t(l))),
+  const body = h('div', { class: 'stack' }, ...NAV.filter((page) => !['', 'trips', 'charges', 'control'].includes(page.path)).map((page) =>
+    h('a', { class: 'btn', href: `#/${page.path}`, onclick: () => document.querySelector('.scrim')?.remove() }, icon(page.icon, { size: 18 }), t(page.label))),
     h('button', { class: 'btn danger', type: 'button', onclick: signOut }, icon('logout', { size: 18 }), t('Sign out')));
   modal(t('More'), body, (close) => [button(t('Close'), { onClick: close })]);
 }
@@ -213,9 +226,10 @@ async function route() {
   const { path, query } = parseHash();
   if (path === 'capabilities') { location.replace('#/system/capabilities'); return; } // old link: Capabilities now lives inside System
   paintShell();
-  const match = ROUTES.map(([re, name]) => [re.exec(path), name]).find(([m]) => m);
+  const match = pageByPath(path);
   if (!match) { mount(els.view, empty(t('Page not found'), null, 'compass')); return; }
-  const [m, name] = match;
+  const [m, page] = match;
+  const name = page.name;
   mount(els.view, loading());
   window.scrollTo(0, 0);
   try {
@@ -229,8 +243,8 @@ async function route() {
     const result = await mod.default(root, ctx);
     // Every page needs one level-1 heading for screen-reader navigation; pages that draw none get a hidden one.
     if (seq === S.seq && !root.querySelector('h1')) {
-      const label = (NAV.find(([p]) => p === (SECTION[name] ?? (name === 'overview' ? '' : name))) || [])[1];
-      root.prepend(h('h1', { class: 'sr-h1' }, t(label || 'Škoda Mate')));
+      const navPage = page.label ? page : PAGES.find((p) => p.path === sectionOf(page));
+      root.prepend(h('h1', { class: 'sr-h1' }, t(navPage?.label || 'Škoda Mate')));
     }
     if (seq !== S.seq) { if (typeof result === 'function') result(); return; }
     S.cleanup = result;
