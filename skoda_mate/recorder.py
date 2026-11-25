@@ -13,6 +13,8 @@ import json
 import sqlite3
 from datetime import datetime, timedelta
 
+from .store import set_setting
+
 MAX_GAP_H = 1.0  # never integrate power over a longer hole than this
 STALE_CHARGE_H = 3.0  # an open charge with no CHARGING snapshot for this long is closed
 STALE_TRIP_H = 6.0  # an open trip older than this is closed even without a definite PARKED
@@ -248,7 +250,7 @@ def repair_charge_gaps(conn) -> int:
         return 0
     n = sum(_repair_charge(conn, c) for c in conn.execute(
         "SELECT * FROM charges WHERE COALESCE(source,'detected')='detected' AND ended_at IS NOT NULL").fetchall())
-    conn.execute("INSERT INTO settings(key,value) VALUES(?, '1')", (REPAIRED_GAPS_KEY,))
+    set_setting(conn, REPAIRED_GAPS_KEY, "1")
     conn.commit()
     return n
 

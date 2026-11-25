@@ -9,6 +9,7 @@ from pydantic import BaseModel
 from .. import store
 from ..deps import ContextDep
 from ..presenters import charge_out, curve_gaps, local_bound, rows, vehicle
+from ..store import set_setting
 
 router = APIRouter()
 
@@ -108,8 +109,5 @@ def home_here(vid: int, ctx: ContextDep, charge_id: int | None = None):
         pos = (store.load_sections(ctx.conn, vid).get("position") or {})
     if pos.get("lat") is None:
         raise HTTPException(400, "The car's position is not known yet (it is moving or not reported).")
-    t = {**ctx.tariff(), "home_lat": pos["lat"], "home_lon": pos["lon"]}
-    ctx.conn.execute("INSERT INTO settings(key,value) VALUES('tariff',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
-                     (json.dumps(t),))
-    ctx.conn.commit()
+    set_setting(ctx.conn, "tariff", json.dumps({**ctx.tariff(), "home_lat": pos["lat"], "home_lon": pos["lon"]}))
     return {"ok": True, "home_lat": pos["lat"], "home_lon": pos["lon"]}

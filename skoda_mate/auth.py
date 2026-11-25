@@ -11,7 +11,7 @@ import re
 import secrets
 import time
 
-from .secrets_store import get_setting, set_setting
+from .store import get_setting, set_setting
 
 SESSION_TTL = 14 * 86400
 COOKIE = "skoda_mate_session"
