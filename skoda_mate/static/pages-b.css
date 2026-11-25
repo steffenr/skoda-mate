@@ -77,5 +77,5 @@
 .tabs a { padding: 10px 14px; font-weight: 600; font-size: 14px; color: var(--muted); text-decoration: none; white-space: nowrap; border-bottom: 2px solid transparent; margin-bottom: -1px; border-radius: 8px 8px 0 0; transition: color .15s, border-color .15s, background .15s; }
 .tabs a:hover { color: var(--fg); background: var(--surface-2); }
 .tabs a[aria-current="page"] { color: var(--fg); border-bottom-color: var(--accent); }
-@media (max-width: 480px) { .tabs { gap: 2px; } .tabs a { padding: 10px 9px; } }  /* all tabs visible on a phone, none cut off */
+@media (max-width: 480px) { .tabs { gap: 2px; } .tabs a { padding: 10px 8px; font-size: 13px; } }  /* all four tabs fit on a 390px phone, also with wider Linux font metrics */
 .pager { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
