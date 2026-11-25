@@ -1,41 +1,53 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
 <title>Škoda Mate – Setup</title>
+<link rel="icon" href="/static/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/static/style.css">
 <style>
-:root{--bg:#f7f9f8;--fg:#1b1b1b;--card:#fff;--mut:#5c6660;--acc:#0e3a2f;--on-acc:#fff;--bad:#b0301f;--ok:#0b7350;--warn:#8a5a00;--bd:#d9dedb}
-@media(prefers-color-scheme:dark){:root{--bg:#121613;--fg:#e8ebe9;--card:#181e1a;--mut:#9aa5a0;--acc:#78faae;--on-acc:#0e3a2f;--bad:#ff8a80;--ok:#78faae;--warn:#ffcf70;--bd:#2c332f}}
-body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.45 system-ui,sans-serif}
-main{max-width:520px;margin:0 auto;padding:24px 16px}
-h1{font-size:22px;margin:0 0 4px}h2{font-size:16px;margin:0 0 4px}.sub{color:var(--mut);margin:0 0 18px}
-section{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:18px;margin-bottom:16px}
-.off{opacity:.55}
-p.hint{color:var(--mut);font-size:13px;margin:2px 0 8px}
-ol.steps{color:var(--mut);font-size:13px;padding-left:20px;margin:6px 0 10px}
-a{color:var(--acc)}
-label{display:block;font-size:12px;color:var(--mut);margin:12px 0 4px}
-input,textarea{width:100%;box-sizing:border-box;padding:9px;border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--fg);font:inherit}
-textarea{min-height:64px;font-family:ui-monospace,monospace;font-size:13px;resize:vertical}
-button,a.btn{display:inline-block;margin-top:16px;padding:10px 16px;border:0;border-radius:8px;background:var(--acc);color:var(--on-acc);font:inherit;font-weight:600;cursor:pointer;text-decoration:none}
-button.ghost{background:transparent;color:var(--fg);border:1px solid var(--bd);font-weight:400}
-button:disabled{opacity:.6;cursor:wait}
-.msg{min-height:1.4em;margin-top:10px;font-size:13px}.err{color:var(--bad)}.ok{color:var(--ok)}.warn{color:var(--warn)}
-ul.veh{list-style:none;padding:0;margin:8px 0 0;font-size:13px}ul.veh li{padding:6px 0;border-top:1px solid var(--bd)}
-.small{font-size:12px;color:var(--mut);margin-top:12px}
-</style></head><body><main>
+/* Layout only: colours, type and controls come from style.css (the design system in DESIGN.md). */
+main { max-width: 520px; margin: 0 auto; padding: 24px 16px 40px; }
+.sub { color: var(--muted); margin: 0 0 var(--gap); }
+section.card { margin-bottom: var(--gap); }
+section.card.off { opacity: .55; }
+.hint { color: var(--muted); font-size: 13px; margin: 0 0 10px; }
+ol.steps { color: var(--muted); font-size: 13px; padding-left: 20px; margin: 6px 0 10px; }
+.field { margin-top: 12px; }
+textarea { min-height: 64px; font-family: ui-monospace, monospace; font-size: 13px; resize: vertical; }
+.msg { min-height: 1.4em; margin-top: 10px; font-size: 13px; color: var(--muted); }
+.msg.bad { color: var(--bad); }
+.msg.good { color: var(--good); }
+ul.veh { list-style: none; padding: 0; margin: 8px 0 0; font-size: 13px; }
+ul.veh li { padding: 6px 0; border-top: 1px solid var(--line); }
+.bad { color: var(--bad); }
+.warn { color: var(--warn); }
+.actions { display: flex; align-items: center; gap: 10px; margin-top: 16px; }
+</style>
+</head>
+<body>
+<main>
 <h1>Škoda Mate setup</h1>
 <p class="sub" id="sub">Two steps. Nothing is read from environment variables: your details are stored here, secrets encrypted.</p>
 
-<section id="s1"><h2>1 · Dashboard login</h2>
+<section class="card" id="s1"><h2>1 · Dashboard login</h2>
 <p class="hint" id="h1">Protects the dashboard. Pick any e-mail and password (8+ characters); they are separate from your Škoda account.</p>
 <form id="f1" autocomplete="on">
-<div id="coderow" hidden><label for="lc">Setup code</label><input id="lc" autocomplete="off" spellcheck="false" autocapitalize="characters">
-<p class="hint">You are connecting from outside your home network, so Mate asks for its one-time setup code: only you can create the login. Find it in Mate's log (Docker: <code>docker compose logs skoda-mate</code>, DDEV: <code>ddev logs</code>) or in the file <code>setup-code.txt</code> in Mate's data folder. If you set <code>SETUP_CODE</code>, enter that.</p></div>
-<div id="currow" hidden><label for="lo">Current password</label><input id="lo" type="password" autocomplete="current-password"></div>
-<label for="le">E-mail</label><input id="le" type="email" autocomplete="username" required>
-<label for="lp">Password</label><input id="lp" type="password" autocomplete="new-password" minlength="8" required>
-<label for="lq">Repeat password</label><input id="lq" type="password" autocomplete="new-password" minlength="8" required>
-<button id="b1">Create login</button><div class="msg" id="m1" role="alert"></div></form></section>
+<div id="coderow" hidden>
+  <label class="field" for="lc"><span>Setup code</span><input id="lc" autocomplete="off" spellcheck="false" autocapitalize="characters"></label>
+  <p class="hint">You are connecting from outside your home network, so Mate asks for its one-time setup code: only you can create the login. Find it in Mate's log (Docker: <code>docker compose logs skoda-mate</code>, DDEV: <code>ddev logs</code>) or in the file <code>setup-code.txt</code> in Mate's data folder. If you set <code>SETUP_CODE</code>, enter that.</p>
+</div>
+<label class="field" for="lo" id="currow" hidden><span>Current password</span><input id="lo" type="password" autocomplete="current-password"></label>
+<label class="field" for="le"><span>E-mail</span><input id="le" type="email" autocomplete="username" required></label>
+<label class="field" for="lp"><span id="lpl">Password</span><input id="lp" type="password" autocomplete="new-password" minlength="8" required></label>
+<label class="field" for="lq"><span>Repeat password</span><input id="lq" type="password" autocomplete="new-password" minlength="8" required></label>
+<div class="actions"><button class="btn primary" id="b1">Create login</button></div>
+<div class="msg" id="m1" role="alert"></div>
+</form></section>
 
-<section id="s2" class="off"><h2>2 · MyŠkoda API key</h2>
+<section class="card off" id="s2"><h2>2 · MyŠkoda API key</h2>
 <p class="hint">Mate uses Škoda's official public API, which signs in with a key instead of your password.</p>
 <ol class="steps">
 <li>Open the MyŠkoda app and create an API key for your car (<a href="https://go.skoda.eu/api-keys" target="_blank" rel="noopener">go.skoda.eu/api-keys</a>).</li>
@@ -43,15 +55,17 @@ ul.veh{list-style:none;padding:0;margin:8px 0 0;font-size:13px}ul.veh li{padding
 </ol>
 <div class="msg" id="st2"></div>
 <form id="f2" autocomplete="off">
-<label for="sk">API key</label><input id="sk" type="password" autocomplete="off" spellcheck="false" required disabled>
-<label for="sv">VIN(s) — one per line or comma separated (up to 5 cars per installation)</label><textarea id="sv" spellcheck="false" required disabled placeholder="TMBJB9NY5RF999999"></textarea>
-<label for="ss">S-PIN <span>(optional, 4 digits; only needed to start the auxiliary heater)</span></label>
-<input id="ss" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="off" disabled>
-<button id="b2" disabled>Connect</button>
-<button id="forget" class="ghost" type="button" hidden>Disconnect</button>
-<div class="msg" id="m2" role="alert"></div></form>
-<p class="small">Škoda limits each car to about 20 requests per hour and the key expires, so Mate reads your car every few minutes and tells you before the key runs out. The API is for personal use only. <a href="https://public.api.connect.skoda-auto.cz/docs" target="_blank" rel="noopener">Official API documentation</a>.</p>
+<label class="field" for="sk"><span>API key</span><input id="sk" type="password" autocomplete="off" spellcheck="false" required disabled></label>
+<label class="field" for="sv"><span>VIN(s) — one per line or comma separated (up to 5 cars per installation)</span><textarea id="sv" spellcheck="false" required disabled placeholder="TMBJB9NY5RF999999"></textarea></label>
+<label class="field" for="ss"><span>S-PIN (optional, 4 digits; only needed to start the auxiliary heater)</span><input id="ss" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="off" disabled></label>
+<div class="actions"><button class="btn primary" id="b2" disabled>Connect</button>
+<button class="btn ghost" id="forget" type="button" hidden>Disconnect</button></div>
+<div class="msg" id="m2" role="alert"></div>
+</form>
+<p class="hint">Škoda limits each car to about 20 requests per hour and the key expires, so Mate reads your car every few minutes and tells you before the key runs out. The API is for personal use only. <a href="https://public.api.connect.skoda-auto.cz/docs" target="_blank" rel="noopener">Official API documentation</a>.</p>
 <ul class="veh" id="veh"></ul></section>
 
 <a class="btn" id="go" href="/" hidden>Open dashboard</a>
-<script src="/static/setup.js"></script></main></body></html>
+</main>
+<script type="module" src="/static/setup.js"></script>
+</body></html>
