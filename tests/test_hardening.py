@@ -7,7 +7,7 @@ import sys
 import pytest
 
 from skoda_mate import schema
-from skoda_mate.api import csv_cell
+from skoda_mate.presenters import csv_cell
 from skoda_mate.secrets_store import SecretBox
 
 from .test_web import connected, seed_trip
