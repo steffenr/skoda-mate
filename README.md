@@ -83,16 +83,25 @@ for commands, so no root-owned files end up in `data/`.
 
 ### Unraid
 
-The repository ships `unraid/skoda-mate.xml` (Docker tab template) and `unraid/docker-compose.yml` (Compose Manager
-plugin). Both pull the published image.
+The app is not in Community Applications yet, so it installs from a private template. Both the template and
+`unraid/docker-compose.yml` (Compose Manager) pull the published image; nothing is built on the server.
 
-```bash
-curl -L -o /boot/config/plugins/dockerMan/templates-user/my-skoda-mate.xml \
-  https://raw.githubusercontent.com/steffenr/skoda-mate/main/unraid/skoda-mate.xml
-```
+1. Open a terminal on the server: the Unraid web terminal, or SSH.
+2. Create the folder for private templates
+   ([Unraid FAQ](https://forums.unraid.net/topic/57181-docker-faq/)):
+   ```bash
+   mkdir -p /boot/config/plugins/community.applications/private/skoda-mate
+   ```
+3. Download the template into it:
+   ```bash
+   curl -fL https://raw.githubusercontent.com/steffenr/skoda-mate/main/unraid/skoda-mate.xml \
+     -o /boot/config/plugins/community.applications/private/skoda-mate/skoda-mate.xml
+   ```
+4. *Apps → search `skoda-mate`* (category **Private**) → *Install*. Configure port and data path as usual; the template
+   uses `/mnt/user/appdata/skoda-mate` and port `8080`.
 
-Then *Docker → Add Container → Template: skoda-mate → Apply*. Data: `/mnt/user/appdata/skoda-mate`, port `8080`.
-Reverse proxies, backups and the uid note: [docs/UNRAID.md](docs/UNRAID.md).
+Autostart, Compose Manager, reverse proxies, updates and backups: [docs/UNRAID.md](docs/UNRAID.md). This route is
+tested on Unraid.
 
 ### DDEV (local development)
 

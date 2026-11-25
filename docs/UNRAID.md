@@ -5,7 +5,7 @@ Unraid runs the same container as Docker; only the paths and the way the contain
 Docker host, and neither replaces the other. Two files in `unraid/` do the Unraid part:
 
 - `unraid/docker-compose.yml` — for Unraid's **Docker Compose Manager** plugin (or `docker compose` over SSH).
-- `unraid/skoda-mate.xml` — an **Unraid template** for the Docker tab: *Add Container → Template → skoda-mate*.
+- `unraid/skoda-mate.xml` — an **Unraid template**, installed as a private Community Applications template.
 
 Unraid itself has no built-in Docker Compose support ([Docker overview](https://docs.unraid.net/unraid-os/using-unraid-to/run-docker-containers/overview/)),
 so the template is the native route and Compose Manager is a community plugin from the Apps tab.
@@ -15,7 +15,8 @@ The image is published on Docker Hub as [`steffenr/skoda-mate`](https://hub.dock
 happens in the browser, exactly like the Docker setup in the [README](../README.md): the setup form asks for the
 dashboard login and the Škoda API key, and no secret goes into a template field.
 
-There is no Community Applications entry yet; the template is installed by hand from this repository (step 2).
+There is no Community Applications entry yet. The template goes into CA's *private* folder, which makes it show up in
+the Apps tab like a listed app (step 2).
 
 ## 1. The image
 
@@ -27,15 +28,17 @@ To fetch a new release by hand (Compose Manager, or over SSH): `docker pull stef
 
 ## 2. Start it
 
-### Docker tab template (native Unraid way)
+### Private Community Applications template (native Unraid way)
 
-1. Copy the template into Unraid's user templates:
+1. In a terminal on the server (web terminal or SSH), create the folder for private templates and download the template
+   into it ([Unraid FAQ: private repositories](https://forums.unraid.net/topic/57181-docker-faq/)):
    ```bash
-   curl -L -o /boot/config/plugins/dockerMan/templates-user/my-skoda-mate.xml \
-     https://raw.githubusercontent.com/steffenr/skoda-mate/main/unraid/skoda-mate.xml
+   mkdir -p /boot/config/plugins/community.applications/private/skoda-mate
+   curl -fL https://raw.githubusercontent.com/steffenr/skoda-mate/main/unraid/skoda-mate.xml \
+     -o /boot/config/plugins/community.applications/private/skoda-mate/skoda-mate.xml
    ```
-2. *Docker → Add Container*, choose **skoda-mate** in the *Template* dropdown, adjust port and data path if you like, and
-   press *Apply*. Unraid creates the data path on first start.
+2. *Apps → search `skoda-mate`*, category **Private**, and press *Install*. Adjust port and data path in the template if
+   you like; Unraid creates the data path on first start.
 3. Switch **Autostart** on for the container in the Docker tab so it comes back with the array, and check that the health
    indicator turns green (the image ships a health check against `/health`). The *WebUI* entry in the container's context
    menu opens the dashboard.
