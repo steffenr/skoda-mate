@@ -257,7 +257,7 @@ def _repair_charge(conn, c) -> int:
     vid = c["vehicle_id"]
     snaps = conn.execute("SELECT recorded_at, soc, charging, charge_power_kw, remaining_min FROM snapshots WHERE vehicle_id=? "
                          "AND recorded_at BETWEEN ? AND ? ORDER BY recorded_at, id", (vid, c["started_at"], c["ended_at"])).fetchall()
-    pairs = list(zip(snaps, snaps[1:]))
+    pairs = list(zip(snaps, snaps[1:], strict=False))
     last = next((s for s in reversed(snaps) if s["charging"]), None)
     if last is None or snaps[-1]["charging"] or not any(_hours(a["recorded_at"], b["recorded_at"]) > MAX_GAP_H for a, b in pairs):
         return 0
@@ -313,21 +313,24 @@ def infer_charges(conn, vid: int, days: int = INFER_WINDOW_DAYS) -> int:
         return 0
     since = _iso(_dt(latest) - timedelta(days=days))
     anchors = _anchors(conn, vid, since)
-    cands, cur = [], None
+    cands: list[dict] = []
+    cur = None
 
     def flush():
         if cur and cur["rise"] >= INFER_MIN_RISE:
             cands.append(cur)
 
-    for a, b in zip(anchors, anchors[1:]):
+    for a, b in zip(anchors, anchors[1:], strict=False):
         if a["kind"] == "drive-start" or b["kind"] == "drive-end":  # the car was driving between these two: not a charge
-            flush(); cur = None
+            flush()
+            cur = None
             continue
         d = b["soc"] - a["soc"]
         if d > 0:
             cur = {"a": a, "b": b, "rise": d} if cur is None else {**cur, "b": b, "rise": cur["rise"] + d}
         else:
-            flush(); cur = None
+            flush()
+            cur = None
     flush()
 
     real = [(r["started_at"], r["ended_at"] or "9999") for r in conn.execute(
@@ -422,8 +425,8 @@ def _trips(conn, vid, prev, s, snap_id):
         _event(conn, vid, ts, "odometer_jump", f"+{km:.0f} km in {elapsed_h:.1f} h, not recorded as a trip")
         return
     ended = _clamp_end(s, ref["recorded_at"])
-    started = max(_dt(ref["recorded_at"]), _dt(ended) - timedelta(hours=km / GUESS_KMH))
-    _finish(conn, vid, None, s, start_iso=_iso(started), end_iso=ended, km=km, odo_start=ref["mileage_km"],
+    start_dt = max(_dt(ref["recorded_at"]), _dt(ended) - timedelta(hours=km / GUESS_KMH))
+    _finish(conn, vid, None, s, start_iso=_iso(start_dt), end_iso=ended, km=km, odo_start=ref["mileage_km"],
             start_soc=ref["soc"], start_fuel=ref["fuel_pct"], start=(ref["address"], ref["lat"], ref["lon"]), approx=1)
 
 

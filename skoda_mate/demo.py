@@ -6,17 +6,16 @@ to the network.
 """
 from __future__ import annotations
 
-import copy
-import math
 import random
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from . import recorder, store
-from .client import ApiError, ApiResult, RateInfo
+from .client import ApiResult, RateInfo
 
 DEMO_VIN = "TMBDEMO0000000001"
 DEMO_VIN2 = "TMBDEMO0000000002"  # second car, only with DEMO_CARS=2 (to try switching between cars)
-SECOND = {"name": "Demo Elroq", "plate": "F-DM 2027", "model": "Elroq 85", "soc": 42.0, "odo": 3120}
+SECOND: dict[str, Any] = {"name": "Demo Elroq", "plate": "F-DM 2027", "model": "Elroq 85", "soc": 42.0, "odo": 3120}
 HOME = (50.1109, 8.6821, "Römerberg 1, 60311 Frankfurt am Main, Germany")
 WORK = (50.0686, 8.2386, "Kaiser-Friedrich-Ring 5, 65185 Wiesbaden, Germany")
 SHOP = (50.1213, 8.6564, "Zeil 90, 60313 Frankfurt am Main, Germany")

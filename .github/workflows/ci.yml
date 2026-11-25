@@ -1,8 +1,10 @@
 name: CI
 
-# The check gate: every push to main and every pull request (Dependabot's included) runs the pytest
-# suite against the frozen lock file. release.yml calls this workflow before it bumps a version, so
-# nothing is ever tagged that hasn't passed here.
+# The check gate: every push to main and every pull request (Dependabot's included) runs lint, type checks, the pytest
+# suite and the frontend checks. release.yml calls this workflow before it bumps a version, so nothing is ever tagged
+# that hasn't passed here.
+#
+# The frontend has no build step; what runs here are the same scripts a developer runs by hand (docs/DASHBOARD.md).
 
 on:
   push:
@@ -16,8 +18,9 @@ permissions:
 
 jobs:
   test:
-    name: pytest
+    name: lint, types, pytest
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
 
@@ -33,5 +36,98 @@ jobs:
       - name: Install dependencies
         run: uv sync --frozen --extra dev
 
+      - name: Lint
+        run: uv run --frozen ruff check
+
+      - name: Types
+        run: uv run --frozen mypy
+
       - name: Tests
-        run: uv run --frozen pytest -q
+        run: uv run --frozen pytest -q --cov --cov-report=term
+
+  frontend:
+    name: frontend checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: scripts/dom-smoke/package-lock.json
+
+      - name: Install
+        working-directory: scripts/dom-smoke
+        run: npm ci
+
+      - name: Chart maths
+        working-directory: scripts/dom-smoke
+        run: node unit.mjs
+
+      - name: German translation coverage
+        working-directory: scripts/dom-smoke
+        run: node i18n_coverage.mjs
+
+  browser:
+    name: dashboard in a browser
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      BASE: http://localhost:8766
+      # GitHub's ubuntu image ships Google Chrome stable.
+      CHROME: /usr/bin/google-chrome
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.15"
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: scripts/dom-smoke/package-lock.json
+
+      - name: Install
+        working-directory: scripts/dom-smoke
+        run: npm ci
+
+      # A fictional car: no account, no network. A fresh database per run.
+      - name: Start the demo server
+        run: |
+          DEMO=1 DB_PATH="$RUNNER_TEMP/demo.db" uv run --frozen uvicorn --factory skoda_mate.web:app \
+            --host 127.0.0.1 --port 8766 > "$RUNNER_TEMP/server.log" 2>&1 &
+          for _ in $(seq 1 30); do curl -sf "$BASE/health" > /dev/null && exit 0; sleep 1; done
+          cat "$RUNNER_TEMP/server.log"
+          exit 1
+
+      # Renders every route in jsdom and fails on console errors, error banners or missing pages.
+      - name: jsdom render
+        working-directory: scripts/dom-smoke
+        run: node run.mjs
+
+      - name: Click-through, phone fit, language
+        working-directory: scripts/dom-smoke
+        run: node browser_e2e.mjs
+
+      # These two report rather than fail (their scripts always exit 0): the output is the artifact.
+      - name: Accessibility (axe-core)
+        working-directory: scripts/dom-smoke
+        run: node a11y_axe.mjs "$BASE"
+
+      - name: Text contrast
+        working-directory: scripts/dom-smoke
+        run: node a11y_contrast.mjs "$BASE"
+
+      - name: Server log
+        if: always()
+        run: cat "$RUNNER_TEMP/server.log" || true

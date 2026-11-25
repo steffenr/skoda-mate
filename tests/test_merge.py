@@ -1,4 +1,3 @@
-import json
 
 import pytest
 
@@ -6,9 +5,9 @@ from skoda_mate import importer, merge, recorder, schema
 
 from .fixtures import VIN
 from .test_importer import A, csv, f
+from .test_web import connected
 
 B = A.replace("01.07.2026 08:00", "01.07.2026 08:50").replace("01.07.2026 08:30", "01.07.2026 09:20").replace('"1000","1030"', '"1030","1060"')
-from .test_web import connected
 
 
 def setup():

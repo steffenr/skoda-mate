@@ -8,10 +8,9 @@ import json
 import os
 import tempfile
 from datetime import UTC, datetime, timedelta
-from typing import Callable
 
 from fastapi import APIRouter, HTTPException, Query
-from fastapi.responses import FileResponse, JSONResponse, Response
+from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
 from starlette.background import BackgroundTask
 
@@ -28,7 +27,7 @@ FORMULA_START = ("=", "+", "-", "@", "\t", "\r")
 def curve_gaps(curve: list[dict], estimated_end: str | None) -> list[dict]:
     """Stretches of a charge without readings, which the curve leaves open instead of drawing a line across: holes
     longer than recorder.MAX_GAP_H between two readings, and the time from the last reading to an estimated end."""
-    gaps = [{"from": a["t"], "to": b["t"]} for a, b in zip(curve, curve[1:])
+    gaps = [{"from": a["t"], "to": b["t"]} for a, b in zip(curve, curve[1:], strict=False)
             if recorder._hours(a["t"], b["t"]) > recorder.MAX_GAP_H]
     if estimated_end and curve and curve[-1]["t"] < estimated_end:
         gaps.append({"from": curve[-1]["t"], "to": estimated_end})
@@ -99,7 +98,7 @@ def local_bound(day: str | None, tz_offset: int = 0, end: bool = False) -> str |
     try:
         d = datetime.fromisoformat(day)
     except ValueError:
-        raise HTTPException(400, f"bad date {day!r}, expected YYYY-MM-DD")
+        raise HTTPException(400, f"bad date {day!r}, expected YYYY-MM-DD") from None
     d = d + timedelta(days=1 if end else 0, minutes=tz_offset)
     return d.replace(tzinfo=UTC).isoformat()
 
@@ -210,7 +209,7 @@ def register(app, ctx) -> None:
             try:
                 kwh = None if kwh == "" else float(kwh)
             except (TypeError, ValueError):
-                raise HTTPException(400, "battery_kwh must be a number")
+                raise HTTPException(400, "battery_kwh must be a number") from None
             if kwh is not None and not 10 <= kwh <= 200:
                 raise HTTPException(400, "battery_kwh must be between 10 and 200")
             ctx.conn().execute("UPDATE vehicles SET battery_kwh=? WHERE id=?", (kwh, vid))
@@ -271,15 +270,20 @@ def register(app, ctx) -> None:
     def trips(vid: int, frm: str | None = Query(None, alias="from"), to: str | None = None, q: str | None = None,
               min_km: float | None = None, limit: int = Query(50, le=500), offset: int = 0, tz_offset: int = 0):
         vehicle(vid)
-        where, args = ["vehicle_id=?", "ended_at IS NOT NULL"], [vid]
+        where: list[str] = ["vehicle_id=?", "ended_at IS NOT NULL"]
+        args: list = [vid]
         if frm:
-            where.append("COALESCE(started_at, ended_at) >= ?"); args.append(local_bound(frm, tz_offset))
+            where.append("COALESCE(started_at, ended_at) >= ?")
+            args.append(local_bound(frm, tz_offset))
         if to:
-            where.append("COALESCE(started_at, ended_at) < ?"); args.append(local_bound(to, tz_offset, end=True))
+            where.append("COALESCE(started_at, ended_at) < ?")
+            args.append(local_bound(to, tz_offset, end=True))
         if min_km is not None:
-            where.append("distance_km >= ?"); args.append(min_km)
+            where.append("distance_km >= ?")
+            args.append(min_km)
         if q:
-            where.append("(start_place LIKE ? OR end_place LIKE ? OR note LIKE ?)"); args += [f"%{q}%"] * 3
+            where.append("(start_place LIKE ? OR end_place LIKE ? OR note LIKE ?)")
+            args += [f"%{q}%"] * 3
         w = " AND ".join(where)
         total = ctx.conn().execute(f"SELECT COUNT(*) FROM trips WHERE {w}", args).fetchone()[0]
         items = rows(ctx.conn().execute(f"SELECT * FROM trips WHERE {w} ORDER BY COALESCE(started_at, ended_at) DESC LIMIT ? OFFSET ?",
@@ -305,7 +309,7 @@ def register(app, ctx) -> None:
         try:
             tid = merge.merge(ctx.conn(), vid, list(body.get("ids") or []))
         except (merge.MergeError, TypeError, ValueError) as e:
-            raise HTTPException(400, str(e))
+            raise HTTPException(400, str(e)) from e
         return {"ok": True, "id": tid}
 
     @r.post("/vehicles/{vid}/trips/{tid}/unmerge")
@@ -314,7 +318,7 @@ def register(app, ctx) -> None:
         try:
             return {"ok": True, "ids": merge.unmerge(ctx.conn(), vid, tid)}
         except merge.MergeError as e:
-            raise HTTPException(400, str(e))
+            raise HTTPException(400, str(e)) from e
 
     @r.post("/vehicles/{vid}/import/trips")
     def import_trips(vid: int, body: ImportBody):
@@ -327,7 +331,7 @@ def register(app, ctx) -> None:
         try:
             return importer.run(ctx.conn(), vid, v["vin"], body.files, body.tz, body.dry_run)
         except importer.ImportError_ as e:
-            raise HTTPException(400, str(e))
+            raise HTTPException(400, str(e)) from e
 
     @r.put("/trips/{tid}/note")
     def trip_note(tid: int, body: NoteBody):
@@ -340,13 +344,17 @@ def register(app, ctx) -> None:
     def charges(vid: int, frm: str | None = Query(None, alias="from"), to: str | None = None, kind: str | None = None,
                 limit: int = Query(50, le=500), offset: int = 0, tz_offset: int = 0):
         vehicle(vid)
-        where, args = ["vehicle_id=?"], [vid]
+        where: list[str] = ["vehicle_id=?"]
+        args: list = [vid]
         if frm:
-            where.append("started_at >= ?"); args.append(local_bound(frm, tz_offset))
+            where.append("started_at >= ?")
+            args.append(local_bound(frm, tz_offset))
         if to:
-            where.append("started_at < ?"); args.append(local_bound(to, tz_offset, end=True))
+            where.append("started_at < ?")
+            args.append(local_bound(to, tz_offset, end=True))
         if kind in ("AC", "DC"):
-            where.append("charge_type=?"); args.append(kind)
+            where.append("charge_type=?")
+            args.append(kind)
         w = " AND ".join(where)
         tariff = ctx.tariff()
         if kind in ("home", "public"):
@@ -382,19 +390,23 @@ def register(app, ctx) -> None:
 
     @r.patch("/vehicles/{vid}/charges/{cid}")
     def patch_charge(vid: int, cid: int, body: ChargePatch):
-        sets, args = [], []
+        sets: list[str] = []
+        args: list = []
         if body.place_kind is not None:
             if body.place_kind not in ("home", "public", ""):
                 raise HTTPException(400, "place_kind must be home, public or empty")
-            sets.append("place_kind=?"); args.append(body.place_kind or None)
+            sets.append("place_kind=?")
+            args.append(body.place_kind or None)
         if body.clear_cost:
             sets.append("cost_manual=NULL")
         elif body.cost_manual is not None:
             if not 0 <= body.cost_manual <= 10000:
                 raise HTTPException(400, "cost out of range")
-            sets.append("cost_manual=?"); args.append(body.cost_manual)
+            sets.append("cost_manual=?")
+            args.append(body.cost_manual)
         if body.note is not None:
-            sets.append("note=?"); args.append(body.note[:500])
+            sets.append("note=?")
+            args.append(body.note[:500])
         if sets:
             ctx.conn().execute(f"UPDATE charges SET {','.join(sets)} WHERE id=? AND vehicle_id=?", [*args, cid, vid])
             ctx.conn().commit()
@@ -426,15 +438,20 @@ def register(app, ctx) -> None:
     def events(vid: int, kind: str | None = None, q: str | None = None, frm: str | None = Query(None, alias="from"),
                to: str | None = None, limit: int = Query(100, le=1000), offset: int = 0, tz_offset: int = 0):
         vehicle(vid)
-        where, args = ["vehicle_id=?"], [vid]
+        where: list[str] = ["vehicle_id=?"]
+        args: list = [vid]
         if kind:
-            where.append("kind=?"); args.append(kind)
+            where.append("kind=?")
+            args.append(kind)
         if q:
-            where.append("(kind LIKE ? OR detail LIKE ?)"); args += [f"%{q}%"] * 2
+            where.append("(kind LIKE ? OR detail LIKE ?)")
+            args += [f"%{q}%"] * 2
         if frm:
-            where.append("at >= ?"); args.append(local_bound(frm, tz_offset))
+            where.append("at >= ?")
+            args.append(local_bound(frm, tz_offset))
         if to:
-            where.append("at < ?"); args.append(local_bound(to, tz_offset, end=True))
+            where.append("at < ?")
+            args.append(local_bound(to, tz_offset, end=True))
         w = " AND ".join(where)
         return {"total": ctx.conn().execute(f"SELECT COUNT(*) FROM events WHERE {w}", args).fetchone()[0],
                 "kinds": [x[0] for x in ctx.conn().execute("SELECT DISTINCT kind FROM events WHERE vehicle_id=? ORDER BY kind", (vid,))],
@@ -469,7 +486,7 @@ def register(app, ctx) -> None:
         try:
             return await p.run_command(v["vin"], body.name, body.params)
         except commands.CommandError as e:
-            raise HTTPException(400, str(e))
+            raise HTTPException(400, str(e)) from e
 
     # ------------------------------------------------------------------ diagnostics, export, backup
     @r.get("/vehicles/{vid}/raw")
@@ -551,7 +568,7 @@ def register(app, ctx) -> None:
             try:
                 new = costs.clean_tariff(body.tariff)
             except (ValueError, TypeError) as e:
-                raise HTTPException(400, str(e))
+                raise HTTPException(400, str(e)) from e
             store_tariff = {**ctx.tariff(), **new}
             conn.execute("INSERT INTO settings(key,value) VALUES('tariff',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
                          (json.dumps(store_tariff),))
@@ -562,12 +579,12 @@ def register(app, ctx) -> None:
                     raise HTTPException(400, f"{key} must be between {lo} and {hi}")
                 conn.execute("INSERT INTO settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
                              (key, str(val)))
-        for key, val, allowed in (("units", body.units, ("km", "mi")), ("language", body.language, ("en", "de")),
-                                  ("theme", body.theme, ("auto", "light", "dark"))):
-            if val is not None:
-                if val not in allowed:
+        for key, choice, allowed in (("units", body.units, ("km", "mi")), ("language", body.language, ("en", "de")),
+                                     ("theme", body.theme, ("auto", "light", "dark"))):
+            if choice is not None:
+                if choice not in allowed:
                     raise HTTPException(400, f"{key} must be one of {', '.join(allowed)}")
-                conn.execute("INSERT INTO settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (key, val))
+                conn.execute("INSERT INTO settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (key, choice))
         if body.battery_kwh_default is not None:
             if not 10 <= body.battery_kwh_default <= 200:
                 raise HTTPException(400, "battery_kwh must be between 10 and 200")

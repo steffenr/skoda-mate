@@ -4,7 +4,7 @@ import json
 import httpx
 import pytest
 
-from skoda_mate.client import (INCLUDE_ALL, ApiError, SkodaApi, _expiry_soon, normalise_vin, parse_rate, valid_vin)
+from skoda_mate.client import INCLUDE_ALL, ApiError, SkodaApi, _expiry_soon, normalise_vin, parse_rate, valid_vin
 
 from .fixtures import BEV, VIN
 

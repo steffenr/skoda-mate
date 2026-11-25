@@ -1,4 +1,3 @@
-import json
 
 from skoda_mate import costs, recorder, schema, stats
 
@@ -42,7 +41,8 @@ def test_small_rises_and_driving_are_not_charges():
 
 def test_parked_readings_reveal_a_charge_nobody_watched_but_a_drive_in_between_does_not():
     conn, vid = make()
-    rd = lambda ts, soc, **k: recorder.ingest(conn, vid, {"ts": ts, "soc": soc, "charging": False, "in_motion": False, "lat": 50.0, "lon": 8.0, **k})
+    def rd(ts, soc, **k):
+        recorder.ingest(conn, vid, {"ts": ts, "soc": soc, "charging": False, "in_motion": False, "lat": 50.0, "lon": 8.0, **k})
     rd("2026-11-20T10:00:00+00:00", 40)
     rd("2026-11-20T10:20:00+00:00", 41)
     rd("2026-11-20T14:00:00+00:00", 75)  # rose 34 points between two parked readings, never seen charging
@@ -61,8 +61,9 @@ def test_a_measured_charge_wins_and_replaces_an_inferred_one():
     trip(conn, vid, "2026-11-21T08:00:00+00:00", "2026-11-21T08:30:00+00:00", 80, 70)
     recorder.infer_charges(conn, vid)
     assert [c["source"] for c in charges(conn)] == ["inferred"]
-    ch = lambda ts, soc, state, p=None: recorder.ingest(conn, vid, {"ts": ts, "soc": soc, "charging": state == "CHARGING", "charge_state": state,
-                                                                      "charge_power_kw": p, "charge_type": "AC", "in_motion": False})
+    def ch(ts, soc, state, p=None):
+        recorder.ingest(conn, vid, {"ts": ts, "soc": soc, "charging": state == "CHARGING", "charge_state": state,
+                                    "charge_power_kw": p, "charge_type": "AC", "in_motion": False})
     ch("2026-11-20T22:00:00+00:00", 36, "CHARGING", 10.0)  # now the car is caught charging inside that window
     ch("2026-11-21T01:00:00+00:00", 66, "CHARGING", 10.0)
     ch("2026-11-21T01:05:00+00:00", 80, "READY_FOR_CHARGING")

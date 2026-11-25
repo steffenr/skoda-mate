@@ -20,9 +20,16 @@ import json
 import re
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
+from functools import partial
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from . import merge, recorder
+
+
+def _cell(row: list[str], idx: dict[str, int | None], key: str) -> str:
+    """One cell of a CSV row by column key; empty when the column is absent or the row is short."""
+    i = idx[key]
+    return row[i].strip() if i is not None and i < len(row) else ""
 
 
 def _num(text) -> float | None:
@@ -84,7 +91,7 @@ def get_tz(name: str) -> ZoneInfo:
     try:
         return ZoneInfo(name or "UTC")
     except (ZoneInfoNotFoundError, ValueError, KeyError):
-        raise ImportError_(f"Unknown time zone {name!r}. Use a name like Europe/Berlin.")
+        raise ImportError_(f"Unknown time zone {name!r}. Use a name like Europe/Berlin.") from None
 
 
 def parse_local(text: str, tz: ZoneInfo) -> datetime | None:
@@ -148,12 +155,12 @@ def parse_file(name: str, text: str, tz: ZoneInfo) -> tuple[list[dict], FileRepo
         rep.errors.append("This does not look like a MyŠkoda trip export: missing column(s) "
                           + ", ".join(COLUMNS[k][0] for k in missing) + f". Found: {', '.join(header[:8])}…")
         return [], rep
-    out = []
+    out: list[dict] = []
     for n, row in enumerate(reader, start=2):
         if not any(c.strip() for c in row):
             continue
         rep.rows += 1
-        get = lambda k: (row[idx[k]].strip() if idx[k] is not None and idx[k] < len(row) else "")
+        get = partial(_cell, row, idx)
         start, end = parse_local(get("start"), tz), parse_local(get("end"), tz)
         if start is None or end is None:
             rep.errors.append(f"line {n}: unreadable date {get('start')!r} / {get('end')!r}")
@@ -213,11 +220,11 @@ def find_match(conn, vid: int, r: dict, taken: set[int]) -> dict | None:
         by_time = d0 <= START_TOL_MIN and (_minutes(t["ended_at"], r["end"]) <= END_TOL_MIN
                                            or (t["distance_km"] is not None and abs(t["distance_km"] - r["distance_km"]) <= KM_TOL))
         by_odo = False
-        if None not in (t["odo_start"], t["odo_end"], r["odo_start"], r["odo_end"]):
-            a0, a1, b0, b1 = t["odo_start"], t["odo_end"], r["odo_start"], r["odo_end"]
+        a0, a1, b0, b1 = t["odo_start"], t["odo_end"], r["odo_start"], r["odo_end"]
+        if a0 is not None and a1 is not None and b0 is not None and b1 is not None:
             shortest = min(a1 - a0, b1 - b0)
             by_odo = shortest > 0 and (min(a1, b1) - max(a0, b0)) / shortest >= 0.5
-        if (by_time or by_odo) and (best is None or d0 < best_d):
+        if (by_time or by_odo) and (best_d is None or d0 < best_d):
             best, best_d = dict(t), d0
     return best
 

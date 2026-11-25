@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import hmac
+import json
 import logging
 import os
 import re
@@ -15,14 +16,13 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import __version__
+from . import __version__, commands, costs, ha_mqtt, mqtt_config, recorder, schema
 from . import api as data_api
-from . import commands, costs, ha_mqtt, mqtt_config, recorder, schema
 from .auth import COOKIE, SESSION_TTL, Auth, SetupError, from_private_network, new_setup_code, normalise_setup_code
 from .client import SkodaApi, normalise_vin, valid_vin
 from .config import Config
 from .poller import Poller
-from .secrets_store import (SecretBox, clear_api_login, load_api_login, save_api_login, stored_vins)
+from .secrets_store import SecretBox, clear_api_login, load_api_login, save_api_login, stored_vins
 
 _LOG = logging.getLogger(__name__)
 HERE = Path(__file__).parent
@@ -69,13 +69,15 @@ class BodyLimit:
             return await self.app(scope, receive, send)
         headers = dict(scope.get("headers") or [])
         declared = headers.get(b"content-length")
-        # the session check only runs for bodies a stranger may not send (most requests have none or a small one)
-        limit = lambda: self.limit if self.authorized(Request(scope)) else self.anon_limit  # noqa: E731
+
+        def body_limit() -> int:  # the session check only runs for bodies a stranger may not send
+            return self.limit if self.authorized(Request(scope)) else self.anon_limit
+
         if declared is not None:
-            if not declared.isdigit() or (int(declared) > self.anon_limit and int(declared) > limit()):
+            if not declared.isdigit() or (int(declared) > self.anon_limit and int(declared) > body_limit()):
                 return await self.too_large(scope, send)
         elif b"chunked" in headers.get(b"transfer-encoding", b"").lower():
-            limit, body, more = limit(), bytearray(), True
+            limit, body, more = body_limit(), bytearray(), True
             while more:
                 msg = await receive()
                 if msg["type"] != "http.request":
@@ -98,7 +100,10 @@ class BodyLimit:
 
     @staticmethod
     async def too_large(scope, send):
-        await JSONResponse({"detail": "The request is too large."}, status_code=413)(scope, None, send)
+        body = json.dumps({"detail": "The request is too large."}).encode()
+        await send({"type": "http.response.start", "status": 413,
+                    "headers": [(b"content-type", b"application/json"), (b"content-length", str(len(body)).encode())]})
+        await send({"type": "http.response.body", "body": body})
 
 
 class SecurityHeaders:
@@ -152,9 +157,9 @@ def parse_vins(raw) -> list[str]:
 def create_app(cfg: Config | None = None, conn=None, poller: Poller | None = None, api_factory=SkodaApi) -> FastAPI:
     """`conn`, `poller` and `api_factory` can be injected (tests). Otherwise the dashboard login and the Škoda API key
     come from the database, where the /setup form put them (never from environment variables)."""
-    cfg = cfg or Config.from_env()
-    conn = conn or schema.connect(cfg.db_path)
-    key_path = None if cfg.db_path == ":memory:" else str(Path(cfg.db_path).with_name("secret.key"))
+    conf = cfg or Config.from_env()
+    conn = conn or schema.connect(conf.db_path)
+    key_path = None if conf.db_path == ":memory:" else str(Path(conf.db_path).with_name("secret.key"))
     box = SecretBox(key_path)
     login = Auth(box.key, conn)
     recorder.repair_charge_gaps(conn)  # once: charges recorded before gaps in the readings were handled (issue #8)
@@ -168,7 +173,7 @@ def create_app(cfg: Config | None = None, conn=None, poller: Poller | None = Non
 
     # ------------------------------------------------------------------ cloud lifecycle
     def mqtt_effective() -> dict:
-        return mqtt_config.load(conn, box, cfg)
+        return mqtt_config.load(conn, box, conf)
 
     def mqtt_extras(vin: str) -> dict:
         """Values Mate derives itself, published next to the API's own: the last finished trip and charge."""
@@ -272,18 +277,18 @@ def create_app(cfg: Config | None = None, conn=None, poller: Poller | None = Non
 
     @asynccontextmanager
     async def lifespan(app):
-        if cfg.demo and state["poller"] is None:
+        if conf.demo and state["poller"] is None:
             from . import demo
 
             if not conn.execute("SELECT 1 FROM vehicles WHERE vin=?", (demo.DEMO_VIN,)).fetchone():
                 demo.seed(conn)
-            if cfg.demo_cars >= 2 and not conn.execute("SELECT 1 FROM vehicles WHERE vin=?", (demo.DEMO_VIN2,)).fetchone():
+            if conf.demo_cars >= 2 and not conn.execute("SELECT 1 FROM vehicles WHERE vin=?", (demo.DEMO_VIN2,)).fetchone():
                 demo.seed(conn, rng_seed=11, vin=demo.DEMO_VIN2, name=demo.SECOND["name"], plate=demo.SECOND["plate"], model=demo.SECOND["model"])
             last = recorder.last_snapshot(conn, conn.execute("SELECT id FROM vehicles WHERE vin=?", (demo.DEMO_VIN,)).fetchone()["id"])
             start_cloud(demo.DemoApi(odo=(last["mileage_km"] if last and last["mileage_km"] else 14820),
                                      soc=(last["soc"] if last and last["soc"] is not None else 64.0)),
-                        [demo.DEMO_VIN, *([demo.DEMO_VIN2] if cfg.demo_cars >= 2 else [])])
-        creds = None if (state["poller"] is not None or cfg.demo) else load_api_login(conn, box)
+                        [demo.DEMO_VIN, *([demo.DEMO_VIN2] if conf.demo_cars >= 2 else [])])
+        creds = None if (state["poller"] is not None or conf.demo) else load_api_login(conn, box)
         if creds:
             start_cloud(api_factory(creds[0]), creds[1])
         yield
@@ -293,17 +298,17 @@ def create_app(cfg: Config | None = None, conn=None, poller: Poller | None = Non
     # fresh install first cannot claim it. The code is SETUP_CODE, or generated, logged and written to setup-code.txt in
     # the data folder (for container managers that hide logs). From a private address no code is asked: whoever is on
     # the LAN could equally read the log. `python -m skoda_mate reset-password --email ...` creates the login without it.
-    code_file = None if cfg.db_path == ":memory:" else Path(cfg.db_path).with_name("setup-code.txt")
+    code_file = None if conf.db_path == ":memory:" else Path(conf.db_path).with_name("setup-code.txt")
 
     def forget_setup_code() -> None:
         state["setup_code"] = None
         if code_file is not None:
             code_file.unlink(missing_ok=True)
 
-    if login.enabled or cfg.demo:
+    if login.enabled or conf.demo:
         forget_setup_code()
-    elif cfg.setup_code:
-        state["setup_code"] = normalise_setup_code(cfg.setup_code)
+    elif conf.setup_code:
+        state["setup_code"] = normalise_setup_code(conf.setup_code)
         _LOG.warning("First run: open /setup to create the dashboard login (from outside your network it asks for SETUP_CODE)")
     else:
         c = state["setup_code"] = new_setup_code()
@@ -323,10 +328,10 @@ def create_app(cfg: Config | None = None, conn=None, poller: Poller | None = Non
 
     def has_bearer(request: Request) -> bool:
         h = request.headers.get("authorization", "")
-        return bool(cfg.api_token) and hmac.compare_digest(h.encode(), f"Bearer {cfg.api_token}".encode())
+        return bool(conf.api_token) and hmac.compare_digest(h.encode(), f"Bearer {conf.api_token}".encode())
 
     def authorized(request: Request) -> bool:
-        return cfg.demo or has_session(request) or has_bearer(request)
+        return conf.demo or has_session(request) or has_bearer(request)
 
     def client_ip(request: Request) -> str:
         return request.client.host if request.client else "?"
@@ -342,8 +347,8 @@ def create_app(cfg: Config | None = None, conn=None, poller: Poller | None = Non
             return
         if login.enabled:
             ok = has_session(request) or has_bearer(request)
-        elif cfg.demo:  # demo: a fictional car, nothing to protect
-            ok = request.method in ("GET", "HEAD") or path.startswith("/api/setup/") or not cfg.api_token or has_bearer(request)
+        elif conf.demo:  # demo: a fictional car, nothing to protect
+            ok = request.method in ("GET", "HEAD") or path.startswith("/api/setup/") or not conf.api_token or has_bearer(request)
         else:  # first run, no login yet: only what creating it needs
             ok = ((path == "/api/setup/status" and request.method in ("GET", "HEAD"))
                   or (path == "/api/setup/login" and request.method == "POST") or has_bearer(request))
@@ -369,7 +374,7 @@ def create_app(cfg: Config | None = None, conn=None, poller: Poller | None = Non
         # which looks like "login works, then I am logged out again". COOKIE_SECURE=true forces it (HTTPS-only setups).
         resp = JSONResponse(payload)
         resp.set_cookie(COOKIE, login.make_token(), max_age=SESSION_TTL, httponly=True,
-                        samesite="strict", secure=cfg.cookie_secure or is_https(request), path="/")
+                        samesite="strict", secure=conf.cookie_secure or is_https(request), path="/")
         return resp
 
     def skoda_configured() -> bool:
@@ -378,7 +383,7 @@ def create_app(cfg: Config | None = None, conn=None, poller: Poller | None = Non
     # ------------------------------------------------------------------ pages
     @app.get("/", response_class=HTMLResponse)
     def index(request: Request):
-        if cfg.demo:
+        if conf.demo:
             return INDEX.read_text()
         if not login.enabled:
             return RedirectResponse("/setup", status_code=303)
@@ -443,7 +448,7 @@ def create_app(cfg: Config | None = None, conn=None, poller: Poller | None = Non
         creds = load_api_login(conn, box)
         p = state["poller"]
         vehicles = []
-        for vin in (creds[1] if creds else stored_vins(conn)) if (login.enabled or cfg.demo) else []:  # nothing for strangers
+        for vin in (creds[1] if creds else stored_vins(conn)) if (login.enabled or conf.demo) else []:  # nothing for strangers
             st = p.status(vin) if p else {"known": False}
             vehicles.append({"vin": vin, "name": (conn.execute("SELECT name FROM vehicles WHERE vin=?", (vin,)).fetchone() or [None])[0],
                              "key_expires_at": st.get("key_expires_at"), "error": st.get("error"),
@@ -471,7 +476,7 @@ def create_app(cfg: Config | None = None, conn=None, poller: Poller | None = Non
         try:
             login.set_credentials(conn, body.email, body.password)
         except SetupError as e:
-            raise HTTPException(400, str(e))
+            raise HTTPException(400, str(e)) from e
         login.clear(ip)
         forget_setup_code()  # used up; setup-code.txt goes too
         return session_response({"ok": True}, request)  # signs the caller in with the new credentials
@@ -479,7 +484,7 @@ def create_app(cfg: Config | None = None, conn=None, poller: Poller | None = Non
     @app.post("/api/setup/skoda")
     async def setup_skoda(body: ApiLoginBody):
         """Try the API key against every VIN for real; only a working combination is stored."""
-        if cfg.demo:
+        if conf.demo:
             raise HTTPException(400, "Demo mode: no account needed. Start without DEMO=1 to connect your car.")
         if not login.enabled:
             raise HTTPException(400, "Create the dashboard login first.")
@@ -489,7 +494,7 @@ def create_app(cfg: Config | None = None, conn=None, poller: Poller | None = Non
         try:
             vins = parse_vins(body.vins)
         except ValueError as e:
-            raise HTTPException(400, str(e))
+            raise HTTPException(400, str(e)) from e
         pin = None if body.spin is None else body.spin.strip()
         if pin and not (pin.isdigit() and len(pin) == 4):
             raise HTTPException(400, "The S-PIN is 4 digits (leave it empty if you do not use the auxiliary heater).")
@@ -523,7 +528,7 @@ def create_app(cfg: Config | None = None, conn=None, poller: Poller | None = Non
         try:
             (vin,) = parse_vins(body.get("vin", ""))
         except ValueError as e:
-            raise HTTPException(400, str(e) if "VIN" in str(e) or "valid" in str(e) else "Enter exactly one VIN.")
+            raise HTTPException(400, str(e) if "VIN" in str(e) or "valid" in str(e) else "Enter exactly one VIN.") from e
         if vin in creds[1]:
             raise HTTPException(400, "That car is already connected.")
         if len(creds[1]) >= MAX_VINS:
@@ -599,7 +604,7 @@ def create_app(cfg: Config | None = None, conn=None, poller: Poller | None = Non
         try:
             mqtt_config.save(conn, box, body)
         except mqtt_config.MqttConfigError as e:
-            raise HTTPException(400, str(e))
+            raise HTTPException(400, str(e)) from e
         apply_mqtt()
         return mqtt_payload()
 
@@ -611,7 +616,7 @@ def create_app(cfg: Config | None = None, conn=None, poller: Poller | None = Non
         try:
             clean = mqtt_config.validate({**body, "enabled": False})
         except mqtt_config.MqttConfigError as e:
-            raise HTTPException(400, str(e))
+            raise HTTPException(400, str(e)) from e
         if not clean["host"]:
             raise HTTPException(400, "Enter the broker address first.")
         if body.get("password"):
@@ -627,7 +632,7 @@ def create_app(cfg: Config | None = None, conn=None, poller: Poller | None = Non
         return res
 
     class Ctx:
-        demo = cfg.demo
+        demo = conf.demo
 
         def conn(self):
             return conn

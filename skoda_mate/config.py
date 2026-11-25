@@ -23,7 +23,7 @@ class Config:
     demo: bool = False  # DEMO=1: a fictional car and 60 days of history, no account, no network (try it / develop)
 
     @classmethod
-    def from_env(cls, env=os.environ) -> "Config":
+    def from_env(cls, env=os.environ) -> Config:
         g = env.get
         return cls(
             db_path=g("DB_PATH", "/data/skoda_mate.db"),

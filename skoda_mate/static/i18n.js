@@ -6,7 +6,7 @@ export const getLang = () => lang;
 
 const DE = {
   'Loading…': 'Lädt …', 'Nothing here yet': 'Noch nichts vorhanden', 'Cancel': 'Abbrechen', 'Confirm': 'Bestätigen',
-  'Overview': 'Übersicht', 'Trips': 'Fahrten', 'Charges': 'Ladevorgänge', 'Battery': 'Batterie', 'Control': 'Steuerung',
+  'Overview': 'Übersicht', 'Trips': 'Fahrten', 'Charges': 'Ladevorgänge', 'Prices': 'Preise', 'Battery': 'Batterie', 'Control': 'Steuerung',
   'Statistics': 'Statistik', 'Map': 'Karte', 'Events': 'Ereignisse', 'Settings': 'Einstellungen', 'System': 'System',
   'Refresh now': 'Jetzt aktualisieren', 'Sign out': 'Abmelden', 'Charge limit': 'Ladelimit', 'Battery unknown': 'Batterie unbekannt',
   'Range': 'Reichweite', 'Charging': 'Lädt', 'Parked': 'Geparkt', 'Driving': 'Unterwegs', 'Locked': 'Verriegelt', 'Unlocked': 'Entriegelt',

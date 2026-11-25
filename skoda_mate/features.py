@@ -173,7 +173,12 @@ def capabilities(operations: list[str] | None, part_state: dict | None, sections
     ops = None if operations is None else set(operations)
     op_rows = []
     for o in OPERATIONS_CATALOGUE:
-        supported = None if (ops is None and o["id"] != "getVehicle") else (True if o["id"] == "getVehicle" else o["id"] in ops)
+        if o["id"] == "getVehicle":  # reading is what Mate does for every car
+            supported: bool | None = True
+        elif ops is None:
+            supported = None
+        else:
+            supported = o["id"] in ops
         op_rows.append({**o, "supported": supported})
     parts = []
     for key, (label, fields) in PART_FIELDS.items():
@@ -197,7 +202,7 @@ def capabilities(operations: list[str] | None, part_state: dict | None, sections
 
 def features(operations: list[str] | None, part_state: dict | None) -> dict:
     ops = None if operations is None else set(operations)
-    out = {}
+    out: dict[str, dict] = {}
     for name, needed in OPERATION_FEATURES.items():
         if ops is None:
             out[name] = {"available": None, "reason": "Supported operations not known yet"}

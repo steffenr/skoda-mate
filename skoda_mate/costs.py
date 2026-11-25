@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import math
+from contextlib import suppress
 
 from . import store
 
@@ -13,16 +14,14 @@ DEFAULT_TARIFF = {"currency": "EUR", "home_kwh": 0.30, "public_ac_kwh": 0.55, "p
 
 def load_tariff(conn) -> dict:
     t = dict(DEFAULT_TARIFF)
-    try:
+    with suppress(ValueError, TypeError):
         t.update({k: v for k, v in json.loads(store.setting(conn, "tariff", "{}")).items() if k in DEFAULT_TARIFF})
-    except (ValueError, TypeError):
-        pass
     return t
 
 
 def clean_tariff(raw: dict) -> dict:
     """Validate user input; raises ValueError with a message the dashboard can show."""
-    out = {}
+    out: dict = {}
     for k in ("home_kwh", "public_ac_kwh", "public_dc_kwh"):
         if k in raw and raw[k] not in (None, ""):
             v = float(raw[k])

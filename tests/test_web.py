@@ -5,7 +5,7 @@ import sqlite3
 
 from skoda_mate import recorder
 
-from .fixtures import BEV, VIN, bev
+from .fixtures import VIN, bev
 from .helpers import FakeApi, client_for, make_app, sign_up
 
 KEY = "sk-live-0123456789abcdef"
@@ -34,7 +34,8 @@ def connected(api=None, charging=False, **kw):
 
 
 def seed_trip(conn, vid, day="2027-02-10"):
-    s = lambda h, m, **k: {"ts": f"{day}T{h:02d}:{m:02d}:00+00:00", "charging": False, **k}
+    def s(h, m, **k):
+        return {"ts": f"{day}T{h:02d}:{m:02d}:00+00:00", "charging": False, **k}
     recorder.upsert_vehicle(conn, VIN, battery_kwh=77.0)
     recorder.ingest(conn, vid, s(8, 0, soc=90, in_motion=False, mileage_km=2000, lat=50.0, lon=8.0, address="Home"))
     recorder.ingest(conn, vid, s(8, 10, soc=88, in_motion=True, mileage_km=2005))
@@ -201,7 +202,8 @@ def test_battery_history_draws_a_drive_even_without_readings_during_it():
     from datetime import UTC, datetime, timedelta
 
     c, conn, api, vid = connected()  # one reading, 55 %, stamped "now" by the poller
-    ago = lambda h: (datetime.now(UTC) - timedelta(hours=h)).isoformat()
+    def ago(h):
+        return (datetime.now(UTC) - timedelta(hours=h)).isoformat()
     conn.execute("INSERT INTO trips(vehicle_id,cloud_id,started_at,ended_at,start_soc,end_soc,distance_km) VALUES(?,?,?,?,?,?,?)",
                  (vid, "x", ago(3), ago(2.5), 47, 36, 32))
     conn.execute("INSERT INTO charges(vehicle_id,started_at,ended_at,start_soc,end_soc) VALUES(?,?,?,?,?)",
@@ -256,7 +258,8 @@ def test_exports_and_backup():
     assert c.get(f"/api/vehicles/{vid}/export/passwords.csv").status_code == 404
     b = c.get("/api/backup")
     assert b.status_code == 200 and b.content[:15] == b"SQLite format 3"
-    import tempfile, os
+    import os
+    import tempfile
 
     with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
         f.write(b.content)

@@ -12,6 +12,7 @@ import json
 import logging
 import threading
 import time
+from contextlib import suppress
 
 _LOG = logging.getLogger(__name__)
 
@@ -252,10 +253,8 @@ class Publisher:
         self.c.will_set(f"{prefix}/status", "offline", retain=True)
         self.c.on_connect, self.c.on_disconnect, self.c.on_message = self._on_connect, self._on_disconnect, self._msg
         self.c.on_connect_fail = self._on_fail
-        try:
+        with suppress(Exception):
             self.c.reconnect_delay_set(1, 30)
-        except Exception:
-            pass
         self.c.connect_async(host, port, keepalive=30)
         self.c.loop_start()
 

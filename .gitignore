@@ -12,3 +12,4 @@ build/
 
 # Version stamp written by the Docker build (see Dockerfile); never part of the source.
 skoda_mate/BUILD_VERSION
+.coverage
