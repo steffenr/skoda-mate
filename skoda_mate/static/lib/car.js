@@ -27,7 +27,6 @@ export function carView(o) {
     img.addEventListener('error', fallback);
     box.append(img);
   } else box.append(silhouette());
-  box.append(h('div', { class: 'glow' }));
 
   // ---- vehicle status: one summary line + four cells. Calm when all is well, loud only where something needs attention.
   // The API says "unknown" by omitting a value; that must never be shown as closed or locked.

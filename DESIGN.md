@@ -42,27 +42,32 @@ System font stack (`system-ui`, -apple-system, Segoe UI, Roboto); no web fonts. 
 
 | Element | Size | Weight | Notes |
 |---|---|---|---|
-| `h1` | 24px | 650 | one per page |
-| `h2` | 19px | 650 | card titles |
-| `h3` | 14px | 600 | muted, uppercase, letter-spaced section labels |
-| stat value | large, with a 14px muted unit | 600+ | |
+| `h1` | 24px | 600 | one per page |
+| `h2` | 19px | 600 | card titles |
+| `h3` | 13px | 600 | muted, sentence case, no letterspacing |
+| stat value | large, with a 14px muted unit | 600 | |
 | `.small` / `.tiny` | 13px / 12px | | hints, meta, chips |
 | car name in the header | 21px (18px on phones) | | |
 
-Headings use a slight negative letter-spacing (-.01em) and line-height 1.2. Headings follow document order: no skipped levels.
+No uppercase micro-labels and no letter-spacing on small text; hierarchy comes from size and colour, not weight. The scale is
+24 / 21 / 19 / 15 / 13 / 12 / 11px over two weights, 400 and 500, with 600 for headings, figures and the label of a primary
+action. Numbers are `tabular-nums` (set on `body`) and formatted the same way everywhere. Headings follow document order:
+no skipped levels.
 
 ## Shape, space, depth
 
-- Radius: `--radius` 14px for cards, `--radius-sm` 9px for banners and insets, 10px for buttons, pill (`99px`) for chips.
-- Spacing: `--gap` 16px between cards; cards pad 18px. Settings forms use one spacing scale with section dividers, inline form
-  rows with aligned buttons, and capped field widths.
-- Depth: one soft `--shadow` on cards, heavier in dark mode. No stacked shadows.
+- Radius: `--radius` 12px for cards, `--radius-sm` 8px for inputs, banners and insets; buttons and chips 6 to 8px. Pills are
+  reserved for the car switcher and the battery bar, not for every label.
+- Spacing: 4px grid. `--gap` 16px between cards; cards pad 20px, the page 24px (16px on phones), sidebar rows 8px by 12px.
+  Settings forms use one spacing scale with section dividers, inline form rows with aligned buttons, and capped field widths.
+- Depth: the hairline edge does the work on cards (`--shadow` is a 1px whisper, `none` in dark mode); `--shadow-float` is for
+  things that truly float above the page (dialogs, sheets, toasts, sticky bars). Depth in dark mode comes from surface steps.
 - Cards in a grid row share their height; toggles and actions sit at the card's bottom. A last stat tile that would sit alone
   on a phone row spans the full width instead.
 
 ## Layout
 
-- Desktop: a 236px sidebar (`--sidebar`) and a 60px header (`--header`) with car name, plate, health dot, request-budget meter
+- Desktop: a 248px sidebar (`--sidebar`) and a 60px header (`--header`) with car name, plate, health dot, request-budget meter
   and theme switch. With several cars a car switcher shows in the header.
 - Below 960px the sidebar becomes a bottom tab bar with 5 entries and a "More" sheet; toasts move above it.
 - Grids: `.g2/.g3/.g4` drop to two columns below 960px and to one below 560px.
@@ -77,7 +82,7 @@ confirmDialog, toast) so they share these looks:
   disabled while busy. Save and Set buttons stay disabled until something changed.
 - **Start/Stop controls**: one toggle per function with optimistic state; it explains why it is disabled (e.g. charging while
   unplugged).
-- **Chips**: small pills for state (good / warn / bad / info), always with text.
+- **Chips**: small rounded labels (6px) for state (good / warn / bad / info), always with text, never icon-only.
 - **Banners**: for page-level problems or notices, with a soft background, a tinted border and an action link where one helps.
 - **Empty, loading and error states** exist for every fetch.
 - **Destructive actions** go through `confirmDialog`.
@@ -86,9 +91,11 @@ confirmDialog, toast) so they share these looks:
 
 ## Motion
 
-Small and quick: `--t-fast` 120ms for colour and transform, `--t-med` 200ms for shadows and toasts, easing `--ease`
-(`cubic-bezier(.16, 1, .3, 1)`). Motion confirms an action (toast in, button press, bar width). Decorative motion such as a
-rolling car was tried and removed. Everything animated turns off under `prefers-reduced-motion`.
+Small and quick: `--t-fast` 120ms for colour and transform, `--t-med` 200ms for entrances, easing `--ease`
+(`cubic-bezier(.16, 1, .3, 1)`). Motion explains something and nothing else: one entrance per navigation (`.page`), a press
+scale of .98, dialogs and toasts arriving from where they sit, a bar that grows because its value changed. No looping
+decoration — no pulsing glows, shimmer, drifting stripes, hover lifts or attention shakes; a poll refresh must not animate.
+Everything animated turns off under `prefers-reduced-motion`.
 
 ## Interaction and accessibility
 

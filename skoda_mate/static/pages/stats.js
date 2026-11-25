@@ -144,7 +144,7 @@ export default async function stats(root, ctx) {
 
     const charts = h('div', { class: 'grid g2' },
       card(`${t('Distance')} (${unit})`, barChart({ categories: cats((r) => [toD(r.km || 0)]), series: [{ name: t('Distance') }], fmt: (v) => f.num(v, 0), height: 210 }), { ic: 'route', actions: infoBtn() }),
-      card(`${t('Energy charged')} (kWh)`, barChart({ categories: cats((r) => [r.ac_kwh || 0, r.dc_kwh || 0, r.inferred_kwh || 0]), series: [{ name: t('AC') }, { name: t('DC') }, { name: t('inferred (from battery level)'), color: 'var(--chart-4)' }], stacked: true, fmt: (v) => f.num(v, 0), height: 210 }), { ic: 'bolt' }),
+      card(`${t('Energy charged')} (kWh)`, barChart({ categories: cats((r) => [r.ac_kwh || 0, r.dc_kwh || 0, r.inferred_kwh || 0]), series: [{ name: t('AC') }, { name: t('DC') }, { name: t('inferred (from battery level)'), color: 'var(--muted)' }], stacked: true, fmt: (v) => f.num(v, 0), height: 210 }), { ic: 'bolt' }),
       card(`${t('Charging cost')} (${cur})`, barChart({ categories: cats((r) => [r.cost || 0]), series: [{ name: t('Charging cost'), color: 'var(--chart-3)' }], fmt: (v) => f.num(v, 0), height: 210 }), { ic: 'coin' }),
       card(`${t('Consumption')} (${f.consUnit()})`, barChart({ categories: cats((r) => [r.kwh_100km != null ? conv(r.kwh_100km) : 0]), series: [{ name: t('Consumption'), color: 'var(--chart-2)' }], fmt: (v) => f.num(v, 1), height: 210 }), { ic: 'gauge' }));
 
