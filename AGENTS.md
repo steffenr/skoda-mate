@@ -14,6 +14,7 @@
 
 - Tests: `uv run --extra dev pytest -q` (in DDEV: `ddev test`). Keep the suite green; every fix gets a test.
 - Lint and types, both gates: `uv run --extra dev ruff check` and `uv run --extra dev mypy` (37 source files).
+- Node 26 for everything under `scripts/dom-smoke` (`.nvmrc`; CI reads the same file). The app itself ships no Node code.
 - Demo server (fictional car, no account, no network):
   `DEMO=1 DB_PATH=<scratch>/demo.db uv run uvicorn --factory skoda_mate.web:app --port 8766` (add `DEMO_CARS=2` for two cars).
 - Frontend checks, against a demo server, from `scripts/dom-smoke` (`npm install` once; Chromium at

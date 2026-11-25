@@ -50,9 +50,9 @@ Mobile first (360 px), keyboard operable, visible focus, labels on inputs, colou
 for every fetch, destructive actions confirmed. Look at `pages/overview.js` for the house style.
 
 ## Verifying without a browser
-`scripts/dom-smoke/run.mjs` renders routes in jsdom against a running server (see its header) and reports console errors,
-error banners and the rendered text. Use `FULL=1` to print complete page text. It does not run Leaflet or layout, so also
-read your own code critically for layout and a11y.
+`scripts/dom-smoke` needs Node 26 (`.nvmrc`, `nvm use`) and one `npm ci`. `run.mjs` renders routes in jsdom against a
+running server (see its header) and reports console errors, error banners and the rendered text. Use `FULL=1` to print
+complete page text. It does not run Leaflet or layout, so also read your own code critically for layout and a11y.
 
 ## API (see `skoda_mate/routers/`, shapes in `tests/test_web.py`)
 One module per area: `pages`, `auth`, `setup`, `mqtt`, `vehicles`, `trips`, `charges`, `reports`, `settings`. They share
