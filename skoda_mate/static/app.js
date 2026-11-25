@@ -35,14 +35,15 @@ export const api = {
 };
 
 // ------------------------------------------------------------------ routes
-// One table drives the sidebar, the router, the page modules and which nav entry is highlighted. A page without a
-// label is a detail view (no nav entry) and names the section it belongs to.
+// One table drives the sidebar, the router, the page modules and which nav entry is highlighted. `path` is the route a
+// link points at (`:id` is a number); `pattern` overrides what the router matches when a page owns several routes. A page
+// without a label is a detail view (no nav entry) and names the section it belongs to.
 export const PAGES = [
   { path: '', name: 'overview', label: 'Overview', icon: 'overview' },
   { path: 'trips', name: 'trips', label: 'Trips', icon: 'route' },
-  { path: 'trips/(\\d+)', name: 'trip', section: 'trips' },
+  { path: 'trips/:id', name: 'trip', section: 'trips' },
   { path: 'charges', name: 'charges', label: 'Charges', icon: 'plug' },
-  { path: 'charges/(\\d+)', name: 'charge', section: 'charges' },
+  { path: 'charges/:id', name: 'charge', section: 'charges' },
   { path: 'prices', name: 'prices', label: 'Prices', icon: 'coin' },
   { path: 'battery', name: 'battery', label: 'Battery', icon: 'battery' },
   { path: 'control', name: 'control', label: 'Control', icon: 'sliders' },
@@ -50,14 +51,15 @@ export const PAGES = [
   { path: 'map', name: 'map', label: 'Map', icon: 'map' },
   { path: 'events', name: 'events', label: 'Events', icon: 'activity' },
   { path: 'settings', name: 'settings', label: 'Settings', icon: 'settings', sepBefore: true },
-  { path: 'system(?:/(status|capabilities|calls|diagnostics))?', name: 'system', label: 'System', icon: 'shield' },
+  { path: 'system', name: 'system', label: 'System', icon: 'shield', pattern: 'system(?:/(status|capabilities|calls|diagnostics))?' },
   { path: 'import', name: 'import', section: 'trips' },
   { path: 'capabilities', name: 'capabilities', section: 'system' },  // old link, redirected in route()
 ];
 export const NAV = PAGES.filter((p) => p.label);
 const sectionOf = (page) => page.section ?? page.path;
+const patternOf = (page) => page.pattern ?? page.path.replace(/\/:id/g, '/(\\d+)');
 const pageByPath = (path) => PAGES
-  .map((p) => [new RegExp(`^${p.path}$`).exec(path), p])
+  .map((p) => [new RegExp(`^${patternOf(p)}$`).exec(path), p])
   .find(([m]) => m);
 
 // ------------------------------------------------------------------ state
@@ -118,13 +120,15 @@ function paintShell() {
   const { path } = parseHash();
   const match = pageByPath(path);
   const section = match ? sectionOf(match[1]) : '';
-  const brand = h('a', { class: 'brand', href: '#/', 'aria-label': `Škoda Mate, ${t('Overview')}` }, h('div', { class: 'mark' }, icon('car', { size: 20 })), h('div', null, 'Škoda Mate', h('small', null, 'v' + (S.version || ''))));
+  // The name comes from the visible text (WCAG 2.5.3): no aria-label that drops it, the version is decoration.
+  const brand = h('a', { class: 'brand', href: '#/' }, h('div', { class: 'mark' }, icon('car', { size: 20 })),
+    h('div', null, 'Škoda Mate', h('small', { 'aria-hidden': 'true' }, 'v' + (S.version || ''))));
   mount(els.sidebar, brand, h('nav', { class: 'nav', 'aria-label': 'Main' },
     ...NAV.map((page) => [page.sepBefore ? h('div', { class: 'sep' }) : null, navLink(page.path, page.label, page.icon, page.path === section)]),
     // Sign out is the last entry of the same list: same shape, same alignment as the links above
     h('div', { class: 'sep' }),
     h('button', { class: 'signout', type: 'button', onclick: signOut }, icon('logout', { size: 19 }), h('span', null, t('Sign out')))),
-    S.overview?.demo ? h('div', { class: 'foot' }, h('span', { class: 'badge-demo' }, 'DEMO')) : null);
+    S.overview?.demo ? h('div', { class: 'foot' }, h('span', { class: 'badge-demo' }, t('Demo'))) : null);
   const tab = (p, l, i) => h('a', { href: `#/${p}`, 'aria-current': p === section ? 'page' : null }, icon(i, { size: 21 }), t(l));
   mount(els.tabbar, tab('', 'Overview', 'overview'), tab('trips', 'Trips', 'route'), tab('charges', 'Charges', 'plug'), tab('control', 'Control', 'sliders'),
     h('button', { type: 'button', onclick: moreMenu }, icon('menu', { size: 21 }), t('More')));
@@ -176,7 +180,7 @@ function paintHeader() {
   // A link, not a bare number: it says what it counts and leads to the details.
   const meter = b ? h('a', { class: ['chip', b.remaining <= 0 ? 'warn' : ''], href: '#/system',
     title: `${t('Requests to Škoda used this hour')}: ${b.used} ${t('of')} ${b.limit - b.reserve} ${t('for reading')} (${t('the rest is kept for commands')}). ${t('Details on the System page.')}`,
-    'aria-label': `${t('Requests used this hour')}: ${b.used} ${t('of')} ${b.limit - b.reserve}` }, icon('signal', { size: 13 }), `${b.used}/${b.limit - b.reserve}`) : null;
+    'aria-label': `${b.used}/${b.limit - b.reserve} ${t('requests used this hour')}` }, icon('signal', { size: 13 }), `${b.used}/${b.limit - b.reserve}`) : null;
   mount(els.topbar, title, pick, meter, refreshBtn,
     h('button', { class: 'btn ghost sm', type: 'button', title: dark ? t('Switch to light theme') : t('Switch to dark theme'),
       'aria-label': dark ? t('Switch to light theme') : t('Switch to dark theme'), onclick: toggleTheme }, icon(dark ? 'sun' : 'moon', { size: 18 })));

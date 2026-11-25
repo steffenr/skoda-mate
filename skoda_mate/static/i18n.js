@@ -13,7 +13,7 @@ const DE = {
   'Today': 'Heute', 'Yesterday': 'Gestern', 'Distance': 'Strecke', 'Duration': 'Dauer', 'Energy': 'Energie', 'Consumption': 'Verbrauch',
   'Cost': 'Kosten', 'Start': 'Start', 'End': 'Ende', 'Home': 'Zuhause', 'Public': 'Öffentlich', 'Save': 'Speichern',
   'Key expires': 'Schlüssel läuft ab', 'Not available': 'Nicht verfügbar', 'Odometer': 'Kilometerstand', 'Climate': 'Klima',
-  'Doors': 'Türen', 'Windows': 'Fenster', 'Last update from the car': 'Letzte Meldung des Autos', 'Updated': 'Aktualisiert',
+  'Doors': 'Türen', 'Windows': 'Fenster', 'Demo': 'Demo', 'requests used this hour': 'Anfragen in dieser Stunde', 'Last update from the car': 'Letzte Meldung des Autos', 'Updated': 'Aktualisiert',
 };
 export function t(en) { return (lang === 'de' && DE[en]) || en; }
 export function extendDE(entries) { Object.assign(DE, entries); }
