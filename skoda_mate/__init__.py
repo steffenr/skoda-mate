@@ -2,7 +2,7 @@
 from pathlib import Path
 
 # The source version. release.yml rewrites this line and checks it verbatim: keep it exactly `__version__ = "X.Y.Z"`.
-__version__ = "0.1.3"
+__version__ = "0.1.4"
 
 
 def _read_version(stamp: Path, source: str) -> str:
