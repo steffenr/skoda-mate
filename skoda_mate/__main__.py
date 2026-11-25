@@ -11,7 +11,7 @@ import sys
 
 from . import auth, schema
 from .config import Config
-from .secrets_store import get_setting
+from .store import get_setting
 
 
 def reset_password(email: str | None, db_path: str, ask=getpass.getpass, say=print) -> int:

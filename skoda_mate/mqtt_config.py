@@ -9,7 +9,8 @@ import json
 import re
 
 from .config import Config
-from .secrets_store import SecretBox, get_setting, set_setting
+from .secrets_store import SecretBox
+from .store import get_setting, set_setting
 
 KEY = "mqtt"
 # "commands": accept car commands from MQTT. Off unless the user ticks it: anyone who can publish to the broker could use them.

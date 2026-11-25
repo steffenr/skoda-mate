@@ -6,7 +6,7 @@ import json
 import math
 from contextlib import suppress
 
-from . import store
+from .store import get_setting
 
 DEFAULT_TARIFF = {"currency": "EUR", "home_kwh": 0.30, "public_ac_kwh": 0.55, "public_dc_kwh": 0.79,
                   "home_lat": None, "home_lon": None, "home_radius_m": 150}
@@ -15,7 +15,7 @@ DEFAULT_TARIFF = {"currency": "EUR", "home_kwh": 0.30, "public_ac_kwh": 0.55, "p
 def load_tariff(conn) -> dict:
     t = dict(DEFAULT_TARIFF)
     with suppress(ValueError, TypeError):
-        t.update({k: v for k, v in json.loads(store.setting(conn, "tariff", "{}")).items() if k in DEFAULT_TARIFF})
+        t.update({k: v for k, v in json.loads(get_setting(conn, "tariff", "{}")).items() if k in DEFAULT_TARIFF})
     return t
 
 

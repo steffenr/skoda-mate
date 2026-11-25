@@ -11,6 +11,8 @@ from pathlib import Path
 
 from cryptography.fernet import Fernet, InvalidToken
 
+from .store import del_setting, get_setting, set_setting
+
 
 class SecretBox:
     def __init__(self, key_path: str | None):
@@ -41,23 +43,6 @@ class SecretBox:
             return self._f.decrypt(token.encode()).decode()
         except InvalidToken:
             return None
-
-
-def get_setting(conn, key: str, default: str | None = None) -> str | None:
-    row = conn.execute("SELECT value FROM settings WHERE key=?", (key,)).fetchone()
-    return row["value"] if row else default
-
-
-def set_setting(conn, key: str, value: str) -> None:
-    conn.execute("INSERT INTO settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
-                 (key, value))
-    conn.commit()
-
-
-def del_setting(conn, *keys: str) -> None:
-    for k in keys:
-        conn.execute("DELETE FROM settings WHERE key=?", (k,))
-    conn.commit()
 
 
 def save_api_login(conn, box: SecretBox, api_key: str, vins: list[str], spin: str | None = None) -> None:

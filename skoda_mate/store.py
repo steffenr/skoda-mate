@@ -1,7 +1,8 @@
-"""Latest-copy storage of the API sections (`vehicle_state`) and the persisted request ledger."""
+"""Storage helpers: the key/value `settings` table, the latest copy of each API section and the request ledger."""
 from __future__ import annotations
 
 import json
+from typing import overload
 
 
 def save_sections(conn, vid: int, sections: dict, at: str) -> None:
@@ -39,13 +40,33 @@ def recent_calls(conn, vid: int | None, since: float) -> list[float]:
     return [r["at"] for r in conn.execute(q, args)]
 
 
-def setting(conn, key: str, default=None):
+@overload
+def get_setting(conn, key: str, default: str) -> str: ...
+
+
+@overload
+def get_setting(conn, key: str, default: None = None) -> str | None: ...
+
+
+def get_setting(conn, key: str, default: str | None = None) -> str | None:
     r = conn.execute("SELECT value FROM settings WHERE key=?", (key,)).fetchone()
     return r["value"] if r else default
 
 
+def set_setting(conn, key: str, value: str) -> None:
+    conn.execute("INSERT INTO settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+                 (key, value))
+    conn.commit()
+
+
+def del_setting(conn, *keys: str) -> None:
+    for k in keys:
+        conn.execute("DELETE FROM settings WHERE key=?", (k,))
+    conn.commit()
+
+
 def int_setting(conn, key: str, default: int, lo: int, hi: int) -> int:
     try:
-        return max(lo, min(hi, int(setting(conn, key, default))))
+        return max(lo, min(hi, int(get_setting(conn, key, str(default)))))
     except (TypeError, ValueError):
         return default
