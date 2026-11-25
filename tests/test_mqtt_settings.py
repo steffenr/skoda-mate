@@ -312,6 +312,7 @@ def _wait_for(pred, timeout=3.0):
 def test_mqtt_command_outcomes_reach_home_assistant_and_mates_log(monkeypatch):
     from skoda_mate import commands
     from skoda_mate.client import ApiError
+
     from .fixtures import VIN
 
     c, conn, api, vid = connected()

@@ -10,6 +10,7 @@ import asyncio
 import json
 import logging
 import time
+from contextlib import suppress
 from dataclasses import dataclass, field
 
 from . import commands, normalise, recorder, store
@@ -169,10 +170,8 @@ class Poller:
                 _LOG.exception("tick failed")
             due = [r.next_poll for r in self.rt.values() if not r.blocked]
             timeout = 30.0 if not due else max(1.0, min(30.0, min(due) - self.clock()))
-            try:
+            with suppress(TimeoutError):
                 await asyncio.wait_for(self.wake.wait(), timeout=timeout)
-            except asyncio.TimeoutError:
-                pass
             self.wake.clear()
 
     def stop(self) -> None:

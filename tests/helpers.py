@@ -7,7 +7,7 @@ from skoda_mate.client import ApiError, ApiResult, RateInfo
 from skoda_mate.config import Config
 from skoda_mate.web import create_app
 
-from .fixtures import BEV, VIN
+from .fixtures import BEV
 
 
 class Clock:

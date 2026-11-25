@@ -44,19 +44,22 @@ COMMANDS: dict[str, dict] = {
 }
 
 
-def _num(params: dict, key: str, lo: float, hi: float, required: bool = True) -> float | None:
+def _num(params: dict, key: str, lo: float, hi: float) -> float:
     v = params.get(key)
     if v is None or v == "":
-        if required:
-            raise CommandError(f"'{key}' is required")
-        return None
+        raise CommandError(f"'{key}' is required")
     try:
         f = float(v)
     except (TypeError, ValueError):
-        raise CommandError(f"'{key}' must be a number")
+        raise CommandError(f"'{key}' must be a number") from None
     if not lo <= f <= hi:
         raise CommandError(f"'{key}' must be between {lo:g} and {hi:g}")
     return f
+
+
+def _opt_num(params: dict, key: str, lo: float, hi: float) -> float | None:
+    """A number the caller may leave out (None then), as opposed to one the operation needs."""
+    return None if params.get(key) in (None, "") else _num(params, key, lo, hi)
 
 
 def check_supported(name: str, operations: list[str] | None) -> None:
@@ -86,18 +89,18 @@ def build(name: str, params: dict | None, *, spin: str = "", raw_profiles: dict 
         return op, {"chargeMode": mode}, {}
     if name == "start_climate":
         t = _num(params, "temperature", 15.5, 30)
-        body = {"targetTemperature": {"value": round(t * 2) / 2, "unit": "CELSIUS"}}
+        body: dict = {"targetTemperature": {"value": round(t * 2) / 2, "unit": "CELSIUS"}}
         if params.get("without_external_power") is not None:
             body["airConditioningWithoutExternalPower"] = bool(params["without_external_power"])
         return op, body, {}
     if name == "start_aux_heating":
         if not spin:
             raise CommandError("The auxiliary heater needs your S-PIN. Add it under Settings.")
-        body: dict = {"spin": spin}
-        t = _num(params, "temperature", 15.5, 30, required=False)
-        if t is not None:
-            body["targetTemperature"] = {"value": round(t * 2) / 2, "unit": "CELSIUS"}
-        d = _num(params, "duration_min", 5, 60, required=False)
+        body = {"spin": spin}
+        temp = _opt_num(params, "temperature", 15.5, 30)
+        if temp is not None:
+            body["targetTemperature"] = {"value": round(temp * 2) / 2, "unit": "CELSIUS"}
+        d = _opt_num(params, "duration_min", 5, 60)
         if d is not None:
             body["durationInSeconds"] = int(d) * 60
         if params.get("mode"):
@@ -119,7 +122,7 @@ def _profile_body(params: dict, raw_profiles: dict | None) -> tuple[dict, dict]:
     try:
         pid = int(pid)
     except (TypeError, ValueError):
-        raise CommandError("'profile_id' must be an integer")
+        raise CommandError("'profile_id' must be an integer") from None
     current = next((p for p in (raw_profiles or {}).get("profiles", []) if p.get("id") == pid), None)
     if current is None:
         raise CommandError("Unknown charging profile; refresh the data first.")
@@ -130,7 +133,7 @@ def _profile_body(params: dict, raw_profiles: dict | None) -> tuple[dict, dict]:
         if not name:
             raise CommandError("'name' must not be empty")
         p["name"] = name[:60]
-    t = _num(params, "target_soc", 1, 100, required=False)
+    t = _opt_num(params, "target_soc", 1, 100)
     if t is not None:
         s["targetStateOfChargeInPercent"] = int(t)
     if params.get("max_current") is not None:
@@ -145,7 +148,7 @@ def _profile_body(params: dict, raw_profiles: dict | None) -> tuple[dict, dict]:
         m = s.setdefault("minBatteryStateOfCharge", {})
         if params.get("min_soc_enabled") is not None:
             m["enabled"] = bool(params["min_soc_enabled"])
-        ms = _num(params, "min_soc", 1, 100, required=False)
+        ms = _opt_num(params, "min_soc", 1, 100)
         if ms is not None:
             m["minimumBatteryStateOfChargeInPercent"] = int(ms)
     if params.get("charging_times") is not None:

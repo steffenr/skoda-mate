@@ -4,7 +4,8 @@ from skoda_mate import costs, recorder, schema, stats
 def test_odometer_distance_per_month_counts_drives_that_were_never_a_trip():
     conn = schema.connect(":memory:")
     vid = recorder.upsert_vehicle(conn, "TMBJB9NY5RF999999", "Enyaq", None, 77.0)
-    rd = lambda ts, odo: recorder.ingest(conn, vid, {"ts": ts, "soc": 50, "charging": False, "mileage_km": odo})
+    def rd(ts, odo):
+        recorder.ingest(conn, vid, {"ts": ts, "soc": 50, "charging": False, "mileage_km": odo})
     rd("2027-01-10T08:00:00+00:00", 1000)
     rd("2027-01-31T20:00:00+00:00", 1100)
     rd("2027-02-02T08:00:00+00:00", 1180)  # the 80 km between 31 Jan and 2 Feb belong to February

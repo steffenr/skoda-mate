@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import re
 
+from .config import Config
 from .secrets_store import SecretBox, get_setting, set_setting
 
 KEY = "mqtt"
@@ -35,7 +36,7 @@ def validate(data: dict) -> dict:
         raw_port = data.get("port", 1883)
         port = 1883 if raw_port in (None, "") else int(raw_port)
     except (TypeError, ValueError):
-        raise MqttConfigError("The port must be a number between 1 and 65535.")
+        raise MqttConfigError("The port must be a number between 1 and 65535.") from None
     if not 1 <= port <= 65535:
         raise MqttConfigError("The port must be a number between 1 and 65535.")
     out["port"] = port
@@ -53,7 +54,7 @@ def validate(data: dict) -> dict:
     return out
 
 
-def load(conn, box: SecretBox, cfg=None) -> dict:
+def load(conn, box: SecretBox, cfg: Config | None = None) -> dict:
     """The effective config incl. the password, and where it came from: 'db', 'env' or 'none'."""
     raw = get_setting(conn, KEY)
     if raw:
@@ -67,7 +68,7 @@ def load(conn, box: SecretBox, cfg=None) -> dict:
         out["password_unreadable"] = bool(enc) and not out["password"]
         out["source"] = "db"
         return out
-    if cfg is not None and getattr(cfg, "mqtt_host", ""):
+    if cfg is not None and cfg.mqtt_host:
         return {**DEFAULTS, "enabled": True, "host": cfg.mqtt_host, "port": cfg.mqtt_port, "user": cfg.mqtt_user, "password": cfg.mqtt_password,
                 "prefix": cfg.mqtt_prefix, "password_unreadable": False, "source": "env"}
     return {**DEFAULTS, "password": "", "password_unreadable": False, "source": "none"}

@@ -38,14 +38,14 @@ def merge(conn, vid: int, ids: list[int]) -> int:
     if any(r["ended_at"] is None or not r["started_at"] for r in rows):
         raise MergeError("A trip that is still running cannot be merged.")
     rows.sort(key=lambda r: r["started_at"])
-    for a, b in zip(rows, rows[1:]):
+    for a, b in zip(rows, rows[1:], strict=False):
         gap = (_dt(b["started_at"]) - _dt(a["ended_at"])).total_seconds() / 3600
         if gap < -0.05:
             raise MergeError("These trips overlap in time.")
         if gap > MAX_GAP_H:
             raise MergeError(f"These trips are more than {MAX_GAP_H:.0f} hours apart: that was a separate trip.")
     first, last = rows[0], rows[-1]
-    parts = []
+    parts: list[dict] = []
     for r in rows:
         merged_before = json.loads(r["merged_json"]) if r.get("merged_json") else None
         parts += merged_before if merged_before else [{k: r.get(k) for k in PART_COLS}]
