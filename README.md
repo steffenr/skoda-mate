@@ -1,23 +1,37 @@
 # Škoda Mate
 
-Self-hosted trip tracking, charge logging and remote control for Škoda cars: *TeslaMate for Škoda*, inspired by
-[leapmotor-mate](https://github.com/ProtossBlaster/leapmotor-mate), maintained by Silvio Bressani. It runs on Škoda's
-**official public API** (`public.api.connect.skoda-auto.cz`), signs in with an **API key** you create in the MyŠkoda app
-(no e-mail or password of your Škoda account), and keeps the history in a local SQLite database.
+Self-hosted trip tracking, charge logging and remote control for Škoda cars — *TeslaMate for Škoda*. It uses Škoda's
+official public API (`public.api.connect.skoda-auto.cz`) with an **API key** from the MyŠkoda app, so no Škoda account
+password is involved, derives trips and charges from its own readings, and keeps the history in a local SQLite database.
 
-> **Personal use only.** Škoda licenses the public API for private use; it must not be used for commercial services.
+Inspired by [leapmotor-mate](https://github.com/ProtossBlaster/leapmotor-mate) by Silvio Bressani. Independent project,
+no shared code.
 
-## Support
+> **Personal use only.** Škoda licenses the public API for private use; not for commercial services.
 
-Škoda Mate is a spare-time project and stays free software (AGPL). If it is useful to you, you can buy me a coffee:
+[Features](#features) · [Screenshots](#screenshots) · [Install](#install) · [Setup](#first-run-setup) ·
+[API limits](#what-the-api-can-and-cannot-do) · [Configuration](#configuration) · [Security](#security) ·
+[Home Assistant](#home-assistant) · [Development](#development) · [License](#license)
 
-<a href="https://buymeacoffee.com/steffenr"><img
-  src="https://camo.githubusercontent.com/c28781810ec561314c0480f2a773391df0006ce9f6fc92c1e36dee408ab2869e/68747470733a2f2f63646e2e6275796d6561636f666665652e636f6d2f627574746f6e732f76322f64656661756c742d79656c6c6f772e706e67"
-  alt="Buy Me a Coffee" width="150" height="42"></a>
+## Features
+
+| Page | Content |
+|---|---|
+| **Overview** | Car render, battery, range, charging state, doors/windows/lock, climate, position, last trip and charge, 48 h chart |
+| **Trips** | Derived trips, day/month views, search, map, notes, cost, CSV export |
+| **Charges** | Sessions with energy, AC/DC, Home/Public, charging curve, cost, CSV export |
+| **Prices** | Your kWh prices (home, public AC, public DC) and home position; costs recalculate everywhere |
+| **Battery** | SoC history, charging settings and profiles, capacity estimate from charges |
+| **Control** | Charging on/off, charge limit and mode, charging profiles, climate, auxiliary heater, ventilation |
+| **Statistics** | Monthly distance, energy, cost and consumption |
+| **Map · Events** | Places the car stood and charged; everything that happened, including every command |
+| **Settings · System** | Units, language, capacity, polling, API-key status, request budget, data parts, raw data, redacted diagnostics |
+
+Also: Home Assistant via MQTT Discovery, a JSON API, CSV export, database backup, demo mode, English and German.
 
 ## Screenshots
 
-Taken in the built-in demo mode (`DEMO=1`): a fictional Enyaq with 60 days of history, no account and no network.
+From the built-in demo (`DEMO=1`): a fictional Enyaq with 60 days of history, no account and no network.
 
 | Overview | Trips |
 |:--:|:--:|
@@ -29,248 +43,225 @@ Taken in the built-in demo mode (`DEMO=1`): a fictional Enyaq with 60 days of hi
 | **Map** | **System** |
 | ![Map](docs/screenshots/map.jpg) | ![System](docs/screenshots/system.jpg) |
 
-## What it does
+## Install
 
-| Page | Content |
-|---|---|
-| **Overview** | Car picture (Škoda's render), battery, range, charging state, doors/windows/lock, climate, position, last trip and charge, 48 h battery chart |
-| **Trips** | Derived trips with day/month views, search, map, notes, cost, CSV export |
-| **Charges** | Detected sessions: energy, AC/DC, Home vs Public, charging curve, cost (your prices or manual), CSV export |
-| **Prices** | What a kWh costs at home, on public AC and public DC, plus your home place on a map; one save bar, costs recalculate everywhere |
-| **Battery** | SoC history, charging settings and profiles, capacity *estimate* from charges |
-| **Control** | Start/stop charging, charge limit and mode, edit charging profiles, climate, auxiliary heater, ventilation |
-| **Statistics** | Monthly distance, energy, cost and consumption |
-| **Map · Events** | Where the car stood and charged; everything that happened, including every command |
-| **Settings · System** | Units, language, battery capacity, polling, API-key status; request budget, data parts, raw data, redacted diagnostics |
+Docker is the recommended way. DDEV is for working on the code. A host install works but needs manual supervision.
 
-Also: Home Assistant via MQTT Discovery, JSON API, CSV export, database backup, a **demo mode**, English and German.
+### Docker
 
-## What the official API can and cannot do (read this)
+The image is published as [`steffenr/skoda-mate`](https://hub.docker.com/r/steffenr/skoda-mate) for `linux/amd64` and
+`linux/arm64`, tagged `latest`, `X.Y` and `X.Y.Z`. Nothing is built locally.
 
-The API offers **one live reading per request** and a short list of commands. There is **no history**. So:
-
-- **Trips and charges are derived by Mate** from its own readings: a trip from the odometer and the *parked/driving* state,
-  a charge from the charging state and the reported power. Times are accurate to the poll interval, very short trips can
-  only be found through an odometer jump (marked **≈**), and there is no route line, because the position is not reported
-  while driving. When Mate took no readings for a while during a charge (it was not running, or could not reach Škoda), the
-  curve leaves that stretch open, the energy for it comes from the rise in battery level, and an end Mate did not see is
-  estimated from the last reading before it (marked **≈**).
-- **Restarts do not poll early.** After a restart, Mate waits the usual interval since its last request before it reads
-  the car again, so restarting several times in a row does not use up the quota.
-- **Quota: about 20 requests per hour per car.** Mate reads the car every 20 minutes when parked and every 5 minutes while
-  charging, climatising or driving (tunable in Settings, never faster than Škoda allows) and keeps 4 requests free for
-  commands and the *Refresh now* button. The server's `RateLimit-*` headers are authoritative.
-- **Not available**, and therefore not in Mate: lock/unlock, honk/flash, wake-up, outside temperature, maintenance and
-  warning lights, battery health (an estimate is shown instead), push updates, sending a destination to the car.
-- **Battery capacity** is not reported: enter it in Settings to get energy, consumption and costs.
-- **Costs** come from the prices you set under Prices; they are estimates unless you type the real total for a charge.
-- The API key **expires**; Mate shows the date and warns two weeks before.
-
-## Run
-
-Pick one: **Docker** with the Compose plugin (recommended), **DDEV** for local testing, or a host `uv` install (not
-recommended, see below). Everything after that happens in the browser: no secrets in environment variables, no edits to
-the database.
-
-### With Docker (recommended)
-The image is published on Docker Hub as [`steffenr/skoda-mate`](https://hub.docker.com/r/steffenr/skoda-mate) for
-`linux/amd64` and `linux/arm64`, tagged `latest`, `X.Y` and `X.Y.Z`. Nothing is built on your machine:
 ```bash
 mkdir -p ~/skoda-mate && cd ~/skoda-mate
 curl -LO https://raw.githubusercontent.com/steffenr/skoda-mate/main/docker-compose.yml
-docker compose up -d     # http://localhost:8080 -> the setup form opens
+docker compose up -d          # http://localhost:8080 → setup form
 docker compose logs -f skoda-mate
 ```
-Without Compose (a NAS GUI, a script, `docker run`), the same container by hand:
+
+Without Compose (NAS, script, `docker run`):
+
 ```bash
 docker run -d --name skoda-mate -p 8080:8080 -v "$PWD/data:/data" --restart unless-stopped \
   steffenr/skoda-mate:latest
 ```
-Optional settings are environment variables in a **`.env` file next to `docker-compose.yml`** (compose reads it
-automatically) or exported in your shell before `docker compose up -d`. Compose forwards only the variables in its
-`environment:` block — `COOKIE_SECURE`, `API_TOKEN`, `SETUP_CODE`, `MQTT_HOST`, `MQTT_PORT`, `MQTT_USER`,
-`MQTT_PASSWORD`, `MQTT_PREFIX`, `DEMO`, `DEMO_CARS` — see [Optional environment variables](#optional-environment-variables).
-Anything else in `.env` does not reach the container.
 
-To serve it on another host port, change the left side of `ports: ["8080:8080"]` in `docker-compose.yml` (for example
-`"9000:8080"`), or the `-p` value in the `docker run` line above. To pin a version instead of following `latest`, set
-`image: steffenr/skoda-mate:0.1.0`.
+- **Port:** change the left side of `ports: ["8080:8080"]`, or `-p` above.
+- **Version:** pin it with `image: steffenr/skoda-mate:<version>` instead of `latest`.
+- **Update:** `docker compose pull && docker compose up -d`. `./data` survives; the schema migrates on start.
+- **Backup:** `docker compose stop`, then copy `./data` (database, `secret.key`, and `setup-code.txt` on a first run).
+- **From source:** `docker compose up -d --build` builds this checkout instead. Dependencies stay pinned by `uv.lock`.
 
-**Updating:** `docker compose pull && docker compose up -d`. `./data` survives the update and the database schema is
-migrated automatically on start. Coming from an install that built the image locally? `docker-compose.yml` now names the
-published image, so the first `docker compose pull && docker compose up -d` after `git pull` switches the container over;
-same port, same `./data`. **Backing up:** stop the container (`docker compose stop`) and copy `./data`; never
-delete it, it holds the database, `secret.key` and, on a first run, `setup-code.txt`.
+Optional settings go in a **`.env` file next to `docker-compose.yml`**, or are exported before `docker compose up -d`.
+Compose forwards only its listed variables (`COOKIE_SECURE`, `API_TOKEN`, `SETUP_CODE`, `MQTT_*`, `DEMO`, `DEMO_CARS`);
+see [Configuration](#configuration).
 
-**Building from source** still works and is what contributors use: `docker compose up -d --build` builds this checkout
-instead of pulling (compose only builds by itself when the pull fails). Dependencies stay pinned by `uv.lock` either way.
+The container runs as uid 10001. On start it makes `./data` writable for that user, so older root-run folders keep
+working; new database files are mode 0600. Where `chown` is not allowed (some NAS/NFS shares), run
+`sudo chown -R 10001:10001 ./data` once, or set `user: "10001:10001"`. Use `docker compose exec -u 10001 skoda-mate …`
+for commands, so no root-owned files end up in `data/`.
 
-The app in the container runs as an unprivileged user (uid 10001), with dependency versions pinned by `uv.lock` when the
-image is built. On start the container makes `./data` writable for that user (`chown` to 10001), so a `./data` folder
-from an older, root-run version keeps working without manual steps; new database files are created mode 0600. On a volume where `chown` is not
-allowed (some NAS/NFS shares), run `sudo chown -R 10001:10001 ./data` once on the host, or set `user: "10001:10001"` in
-`docker-compose.yml`. For commands inside the container, add `-u 10001`
-(e.g. `docker compose exec -u 10001 skoda-mate python -m skoda_mate reset-password`) so no root-owned files end up in `data/`.
+### Unraid
 
-### On Unraid
-Unraid has no Docker Compose support of its own, so the repository ships two files for it: `unraid/skoda-mate.xml` (an
-Unraid template for the **Docker** tab) and `unraid/docker-compose.yml` (for the **Docker Compose Manager** plugin).
-Both files pull the published image (`steffenr/skoda-mate:latest`), so nothing is built on the server:
+The repository ships `unraid/skoda-mate.xml` (Docker tab template) and `unraid/docker-compose.yml` (Compose Manager
+plugin). Both pull the published image.
 
 ```bash
 curl -L -o /boot/config/plugins/dockerMan/templates-user/my-skoda-mate.xml \
   https://raw.githubusercontent.com/steffenr/skoda-mate/main/unraid/skoda-mate.xml
 ```
-Then *Docker → Add Container → Template: skoda-mate → Apply*. Data lives in `/mnt/user/appdata/skoda-mate`, the port is
-`8080`. Step by step, including reverse proxies, backups and the uid 10001 note: [docs/UNRAID.md](docs/UNRAID.md).
 
-### With DDEV (local testing)
-The repository ships its DDEV config (nothing to create by hand): `.ddev/config.yaml` (generic project),
-`.ddev/config.skoda-mate.yaml` (the app as a daemon in the web container, routed by ddev-router),
-`.ddev/web-build/Dockerfile.uv` (installs `uv` and Python 3.15 in the image) and `.ddev/commands/web/test` (`ddev test`).
-No host Python is needed, and SQLite means no database container.
+Then *Docker → Add Container → Template: skoda-mate → Apply*. Data: `/mnt/user/appdata/skoda-mate`, port `8080`.
+Reverse proxies, backups and the uid note: [docs/UNRAID.md](docs/UNRAID.md).
+
+### DDEV (local development)
+
+The repo ships its DDEV config (`.ddev/config.yaml`, `config.skoda-mate.yaml`, the uv/Python image, `ddev test`). No host
+Python needed; SQLite means no database container.
+
 ```bash
-ddev start                # first start builds the image (uv + Python 3.15), ~1 min
-ddev launch               # https://skoda-mate.ddev.site -> the setup form opens
-ddev logs -f              # app log (also where the first-run setup code appears)
-ddev test                 # pytest inside the container (pass pytest args: ddev test -k recorder)
-ddev ssh                  # shell in the web container, project at /var/www/html
+ddev start          # first start builds the image, ~1 min
+ddev launch         # https://skoda-mate.ddev.site → setup form
+ddev logs -f        # app log, including the first-run setup code
+ddev test           # pytest in the container (args: ddev test -k recorder)
+ddev ssh            # shell, project at /var/www/html
 ```
-uvicorn runs with `--reload` inside the container, so Python changes restart the app; static files are served directly.
-Data lives in `./data/` on the host (SQLite database, `secret.key`, `setup-code.txt` during the first run), so it is the
-same folder Docker uses — **the DDEV site is not a throwaway sandbox**, it opens the real data of this checkout. For demo
-data, run the demo command below against a scratch database instead. `ddev stop` stops the containers, `ddev restart` is
-needed after changing `.ddev` config.
 
-### Try it first (no account needed)
+uvicorn runs with `--reload`. Data lives in `./data/` on the host — **the DDEV site opens the real data of this
+checkout**, not a sandbox. For demo data use a scratch database (below). `ddev restart` after changing `.ddev`.
+
+### Try it first (no account)
+
 ```bash
 uv venv --python 3.15 && uv pip install -e '.[dev]'
 DEMO=1 DB_PATH=/tmp/demo.db .venv/bin/uvicorn --factory skoda_mate.web:app
 ```
+
 Open http://localhost:8000: a fictional Enyaq with 60 days of history.
 
-### Without Docker or DDEV (not recommended)
-Installing with `uv` on the host works, but it is **a lot of manual work** for a permanent installation: you create and
-update the virtualenv yourself, start and supervise uvicorn, keep the data folder writable and backed up, and arrange
-HTTPS plus a restart on boot if Mate should stay reachable. Use Docker or DDEV for anything long-running; the host
-install is for development and experiments (the demo command above is the quickest variant).
+### Without Docker or DDEV
 
-If you still want it, `DB_PATH` must point at a folder you own — the default `/data/skoda_mate.db` is the container path:
+Works, but you own the virtualenv, the uvicorn process, the data folder, HTTPS and start-on-boot. Use it for development
+or experiments only. `DB_PATH` must be a writable path you own; the default `/data/skoda_mate.db` is the container path.
+
 ```bash
 uv venv --python 3.15 && uv pip install -e '.[dev]'
 mkdir -p data && DB_PATH=./data/skoda_mate.db .venv/bin/uvicorn --factory skoda_mate.web:app --port 8000
 ```
-Then open http://localhost:8000/setup and finish the setup below.
 
-### First-run setup (in the browser, no secrets in environment variables)
-1. **Dashboard login:** choose an e-mail and password (8+ characters). Stored as a salted PBKDF2 hash.
-2. **API key:** in the MyŠkoda app create an API key for your car ([go.skoda.eu/api-keys](https://go.skoda.eu/api-keys)),
-   paste it with your VIN(s). Mate tests it against Škoda immediately and stores it only if it works. Optional: the 4-digit
-   S-PIN, needed only to start the auxiliary heater.
+Then open http://localhost:8000/setup.
 
-The key and the S-PIN are encrypted with a per-install key in `data/secret.key` (mode 0600); a copy of the database alone is
-useless, but **back up and protect `data/` as a whole**. Until step 1 is done, nothing but the setup form is reachable;
-from outside your home network it also asks for a one-time **setup code** (see [Security](#security)). Scripts can send
-`Authorization: Bearer $API_TOKEN` if you set the optional `API_TOKEN` variable.
+## First-run setup
 
-### Forgot the dashboard password?
-Reset it on the command line, where the data lives. The password is asked for twice at a hidden prompt (never as an argument, so it stays out of your shell history). The running app notices at once and signs every old session out; no restart.
+1. **Dashboard login:** an e-mail and a password of 8+ characters, stored as a salted PBKDF2 hash.
+2. **API key:** create one in the MyŠkoda app ([go.skoda.eu/api-keys](https://go.skoda.eu/api-keys)) and paste it with
+   your VIN(s). Mate tests it against Škoda and stores only a working combination. Optionally the 4-digit S-PIN, needed
+   only to start the auxiliary heater.
 
+Key and S-PIN are encrypted with a per-install `data/secret.key` (mode 0600). A stolen database alone is useless, but
+**protect `data/` as a whole**. Until the login exists, only the setup form is reachable; from a public address it also
+asks for a one-time setup code (see [Security](#security)). Scripts can use `Authorization: Bearer $API_TOKEN`.
+
+### Forgot the password?
+
+The password is read twice at a hidden prompt, never from an argument. The running app notices at once and signs every
+old session out.
+
+```bash
+ddev exec uv run --python 3.15 python -m skoda_mate reset-password           # DDEV
+docker compose exec -u 10001 skoda-mate python -m skoda_mate reset-password  # Docker
+.venv/bin/python -m skoda_mate reset-password                                # host install, same DB_PATH
 ```
-ddev exec uv run --python 3.15 python -m skoda_mate reset-password          # DDEV
-docker compose exec -u 10001 skoda-mate python -m skoda_mate reset-password # Docker
-.venv/bin/python -m skoda_mate reset-password                               # host install: same DB_PATH as the app
-```
 
-The sign-in e-mail stays as it is. Add `--email you@example.com` to change it, or to create the login if there is none yet. The Škoda API key is not affected.
+Add `--email you@example.com` to change the address or to create the login when there is none. The Škoda API key is not
+affected.
 
-### Optional environment variables
+## What the API can and cannot do
+
+The API returns **one live reading per request** and a short command list. It has **no history**, which shapes the app:
+
+- **Trips and charges are derived** from the odometer, the parked/driving state, the charging state and reported power.
+  Times are accurate to the poll interval. Very short trips appear only as an odometer jump (marked **≈**). There is no
+  route line, because the car reports no position while driving. Gaps in the readings leave the charge curve open; the
+  energy comes from the rise in battery level, and an unseen end is estimated from the last reading (marked **≈**).
+- **Restarts do not poll early:** Mate waits the normal interval since its last request.
+- **Quota: about 20 requests per hour per car.** Parked: every 20 minutes. Charging, climatising or driving: every 5
+  minutes. Settings can change the intervals, never below what Škoda allows. 4 requests stay reserved for commands and
+  *Refresh now*. Škoda's `RateLimit-*` headers are authoritative.
+- **Not offered, because the API cannot:** lock/unlock, honk/flash, wake-up, outside temperature, maintenance and
+  warning lights, battery health (an estimate is shown instead), push updates, sending a destination to the car.
+- **Battery capacity** is not reported; enter it in Settings to get energy, consumption and costs.
+- **Costs** come from your prices; they are estimates unless you enter a charge's real total.
+- **The API key expires.** Mate shows the date and warns two weeks ahead.
+
+## Configuration
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `DB_PATH` | `/data/skoda_mate.db` | SQLite database. The Docker image sets `/data/...`; host installs must set a writable path. |
+| `DB_PATH` | `/data/skoda_mate.db` | SQLite database. The image sets `/data/...`; host installs must set a writable path. |
 | `COOKIE_SECURE` | off | `true` forces the `Secure` flag on the session cookie (HTTPS). |
 | `API_TOKEN` | unset | Bearer token so scripts can call the JSON API without a session. |
-| `SETUP_CODE` | generated | Your own first-run setup code. Then no `setup-code.txt` is written. |
+| `SETUP_CODE` | generated | Your own first-run setup code; then no `setup-code.txt` is written. |
 | `DEMO` / `DEMO_CARS` | off / `1` | Fictional car(s) with 60 days of history, no account, no network. `DEMO_CARS=2` adds a second car. |
-| `MQTT_HOST`, `MQTT_PORT`, `MQTT_USER`, `MQTT_PASSWORD` | unset, `1883`, empty, empty | Home Assistant via MQTT Discovery. Dashboard settings replace these; they are a fallback for older installs. |
-| `MQTT_PREFIX` | `skoda_mate` | Discovery/topic prefix. |
+| `MQTT_HOST`, `MQTT_PORT`, `MQTT_USER`, `MQTT_PASSWORD` | unset, `1883`, empty | Home Assistant fallback for older installs; dashboard settings win. |
+| `MQTT_PREFIX` | `skoda_mate` | Discovery and topic prefix. |
 
-In Docker, set these in `.env` next to `docker-compose.yml` (all except `DB_PATH` are forwarded). On Unraid, use the
-template fields or `unraid/docker-compose.yml` (see [docs/UNRAID.md](docs/UNRAID.md)). In DDEV, `DB_PATH` lives in
+In Docker, set them in `.env` next to `docker-compose.yml` (all except `DB_PATH` are forwarded). On Unraid use the
+template fields or `unraid/docker-compose.yml` ([docs/UNRAID.md](docs/UNRAID.md)). In DDEV, `DB_PATH` is in
 `.ddev/config.skoda-mate.yaml`. Logins and Škoda keys are never read from the environment.
 
-### Security
-- **First run / setup code.** Before a login exists, only the setup form and its two API calls are reachable. From
-  this machine or a private address (127/8, 10/8, 172.16/12, 192.168/16, link-local, IPv6 ULA) the login can be created
-  right away. From a public address, or through a proxy that forwards a public client (`X-Forwarded-For`), the form
-  also asks for a one-time setup code. Mate logs it at start (`docker compose logs skoda-mate`, `ddev logs`) and writes
-  it to `setup-code.txt` next to the database (mode 0600; deleted once the login exists). Set `SETUP_CODE=...` to choose
-  the code yourself; then no file is written. Alternative: create the login on the command line with
-  `python -m skoda_mate reset-password --email you@example.com` (see above).
-- **Keep the data folder private.** Do not put `data/` (database, `secret.key`, and `setup-code.txt` during the first
-  run) on a network share (SMB/NFS on a NAS that other household users or devices can open) or in a widely readable
-  backup location: whoever can read that folder can read the setup code and decrypt the stored Škoda API key and S-PIN.
-  Use a private folder only the container uses, and set `SETUP_CODE` if no code file should be written at all.
-- **Changing the login** needs the current password, even in a signed-in browser.
-- **Signing out signs out every browser and device** (sessions are signed tokens; signing out changes their key).
-  Changing the password does the same.
-- **Brute force:** 5 wrong passwords or setup codes per address in 5 minutes, and 30 across all addresses, give
-  "too many attempts" for 5 minutes. Requests larger than 64 KB are refused before sign-in (12 MB after).
-- **HTTPS:** whenever Mate is reachable from beyond your home LAN, put it behind HTTPS (a TLS proxy such as Caddy,
-  nginx or Traefik, or the DDEV site). The session cookie gets the `Secure` flag automatically when the proxy sends
-  `X-Forwarded-Proto: https`; `COOKIE_SECURE=true` forces it.
-- **Behind a reverse proxy**, start uvicorn with `--proxy-headers --forwarded-allow-ips=<proxy ip>` so the brute-force
-  limit and the setup-code check see the real client address. Never use `--forwarded-allow-ips='*'`: anyone could then
-  pretend to be any address.
-- `/health` answers `{"ok": true}` to everyone (for Docker's health check); version and error details only with a
-  session or the API token. Every response carries a Content-Security-Policy, `X-Frame-Options: DENY`, `nosniff` and
-  `Referrer-Policy: strict-origin-when-cross-origin` (other sites see only Mate's address, never a page path;
-  OpenStreetMap's tile servers refuse requests without it).
+## Security
 
-## Several cars
-One installation tracks **up to 5 cars** with one API key (the key must cover all of them: choose all cars when you create it in the MyŠkoda app). Enter the VINs on the setup page, or add and remove cars later under Settings. Each car has its own data, request quota (Škoda counts per car) and battery capacity. As soon as there are two or more, a car switcher appears in the header. Try it without a car: `DEMO=1 DEMO_CARS=2`.
+- **Setup code.** Before a login exists, only the setup form and its two calls are reachable. From this machine or a
+  private address (127/8, 10/8, 172.16/12, 192.168/16, link-local, IPv6 ULA) the login is created directly. From a
+  public address, or through a proxy forwarding a public client, the form asks for a one-time code: in the log and in
+  `setup-code.txt` (mode 0600, deleted once the login exists). `SETUP_CODE` sets your own and writes no file. Or create
+  the login on the command line (above).
+- **Keep `data/` private.** No SMB/NFS share that other household users can open, no widely readable backup. Whoever
+  reads that folder can decrypt the API key and S-PIN, and read the setup code on a first run.
+- **Changing the login** needs the current password, even in a signed-in browser.
+- **Signing out signs out every browser.** Sessions are signed tokens; signing out or changing the password rotates
+  their key.
+- **Brute force:** 5 wrong passwords or codes per address in 5 minutes, 30 across all addresses; then 5 minutes of
+  "too many attempts". Bodies over 64 KB are refused before sign-in (12 MB after).
+- **HTTPS** whenever Mate is reachable beyond the LAN (Caddy, nginx, Traefik or the DDEV site). The session cookie gets
+  `Secure` when the proxy sends `X-Forwarded-Proto: https`; `COOKIE_SECURE=true` forces it.
+- **Behind a reverse proxy**, start uvicorn with `--proxy-headers --forwarded-allow-ips=<proxy ip>`, so throttling and
+  the setup-code check see the real client. Never use `--forwarded-allow-ips='*'`.
+- **Headers:** every response carries a Content-Security-Policy, `X-Frame-Options: DENY`, `nosniff` and
+  `Referrer-Policy: strict-origin-when-cross-origin` (other sites see Mate's address, never a path; OpenStreetMap's tile
+  servers refuse requests without it). `/health` answers `{"ok": true}` to everyone for Docker's check; details need a
+  session or the API token.
 
 ## Home Assistant
-Set it up in the dashboard under **Settings → MQTT → Home Assistant**: broker address, port, user and password (stored encrypted), a **Test connection** button and a live status, no restart. Mate then creates a device for each car in Home Assistant through MQTT discovery, with about 40 entities: battery, range, charging, odometer, doors and windows, a map position, Mate's own last trip and last charge values. Control buttons and a charge-limit slider are opt-in: tick **Allow commands from Home Assistant** under Settings → MQTT (starting the auxiliary heater is not available via MQTT). There is deliberately no lock entity: the API cannot lock or unlock.
 
-**Step-by-step instructions, entity list, dashboard and automation examples, troubleshooting: [docs/HOME-ASSISTANT.md](docs/HOME-ASSISTANT.md).**
+Set it up under **Settings → MQTT**: broker address, port, user, password (encrypted), **Test connection**, live status,
+no restart. Mate then creates a device per car through MQTT discovery with about 40 entities: battery, range, charging,
+odometer, doors and windows, position, Mate's last trip and last charge. Control buttons and a charge-limit slider are
+opt-in (**Allow commands from Home Assistant**); starting the auxiliary heater is not available over MQTT. There is no
+lock entity, because the API cannot lock.
 
-The `MQTT_*` environment variables still work as a fallback for existing installs; settings saved in the dashboard replace them. Running Mate in Docker or DDEV? Use Home Assistant's IP address as the broker, not `localhost`.
+Entities, dashboard and automation examples, troubleshooting: [docs/HOME-ASSISTANT.md](docs/HOME-ASSISTANT.md).
+
+## Several cars
+
+Up to **5 cars** with one API key that covers all of them (choose all cars when creating it). Add VINs during setup, or
+add and remove cars under Settings. Each car has its own data, quota (Škoda counts per car) and battery capacity. With
+two or more a car switcher appears in the header. Try it: `DEMO=1 DEMO_CARS=2`.
 
 ## Development
-- Backend: Python 3.12+, FastAPI, httpx, SQLite. `pytest` runs ~235 tests against fixtures shaped like the official OpenAPI schema.
-- Frontend: vanilla ES modules, no build step, see [docs/DASHBOARD.md](docs/DASHBOARD.md); the visual design system is in [DESIGN.md](DESIGN.md).
-- Working with an AI coding agent: [AGENTS.md](AGENTS.md) lists the commands, checks and project rules.
-- `scripts/dom-smoke` renders every dashboard page in jsdom against a running (demo) server.
-- `scripts/dom-smoke/a11y_axe.mjs` and `a11y_contrast.mjs` are the accessibility checks (WCAG 2.2 AA with axe-core, and the real contrast ratio of every text element, light and dark). Run them against a demo server after UI changes.
-- Feature comparison with leapmotor-mate: [docs/FEATURE-PARITY.md](docs/FEATURE-PARITY.md)
-- Design notes: [docs/superpowers/specs](docs/superpowers/specs).
+
+- Backend: Python 3.15, FastAPI, httpx, SQLite. `pytest` runs against fixtures shaped like the official OpenAPI schema;
+  `ruff` and `mypy` are the gates.
+- Frontend: vanilla ES modules, no build step ([docs/DASHBOARD.md](docs/DASHBOARD.md)); design system in
+  [DESIGN.md](DESIGN.md).
+- Checks: `uv run --extra dev pytest -q`, `uv run --extra dev ruff check`, `uv run --extra dev mypy`.
+  `scripts/dom-smoke` renders every page in jsdom against a demo server; `a11y_axe.mjs` and `a11y_contrast.mjs` are the
+  accessibility checks. CI runs all of it.
+- Agent instructions: [AGENTS.md](AGENTS.md). Feature comparison: [docs/FEATURE-PARITY.md](docs/FEATURE-PARITY.md).
 
 ### Releasing
-Maintainers only: **Actions → Release → Run workflow** and pick `patch`, `minor` or `major`. The workflow runs the test
-suite, bumps the version in `pyproject.toml`, `uv.lock` and `skoda_mate/__init__.py`, commits `chore(release): X`,
-pushes the commit together with the `vX` tag in one atomic push, and publishes the GitHub release with generated notes.
-Nothing is tagged unless the tests pass. The tag must point at `main`.
 
-The published release then builds and pushes the image to Docker Hub (`.github/workflows/docker-publish.yml`):
-[`steffenr/skoda-mate`](https://hub.docker.com/r/steffenr/skoda-mate) tagged `X.Y.Z`, `X.Y` and, for non-prereleases,
-`latest`, for `linux/amd64` and `linux/arm64`. Building it yourself with `docker compose up -d --build` keeps working and
-needs no secrets.
+Maintainers only: **Actions → Release → Run workflow**, pick `patch`, `minor` or `major`. It runs the tests, bumps the
+version in `pyproject.toml`, `uv.lock` and `skoda_mate/__init__.py`, commits `chore(release): X`, pushes commit and tag
+atomically, and publishes the release. Nothing is tagged unless the tests pass; the tag must point at `main`. The
+release then publishes the image as `X.Y.Z`, `X.Y` and (non-prereleases) `latest`, with the tag's version stamped in, so
+sidebar, System page and `/health` agree even for a release created by hand in the GitHub UI.
 
-The image always reports its release's version (sidebar, System page, `/health`): the build stamps the tag's version
-into it. A release created by hand in the GitHub UI therefore still gets a correctly versioned image, but it doesn't
-bump the version in the code, so source and DDEV installs keep showing the old one until the next workflow release. The
-workflow starts from the highest existing release tag, so such a release doesn't get its version picked twice.
+Needs three repository secrets: `RELEASE_PAT` (fine-grained, **Contents: Read & write**; `GITHUB_TOKEN` cannot be used
+because its pushes and releases trigger no further workflows), `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN` (read/write).
 
-Three repository secrets are required. `RELEASE_PAT`: a fine-grained token with **Contents: Read & write** on this
-repository (classic: `repo` scope) — the built-in `GITHUB_TOKEN` cannot be used, because a push or release made with it
-does not trigger further workflows, so neither CI nor the image build would start. `DOCKERHUB_USERNAME` and
-`DOCKERHUB_TOKEN`: the Docker Hub account name and an access token with read/write permission.
+## Support
+
+Škoda Mate is a spare-time project and stays free software. If it is useful to you:
+
+<a href="https://buymeacoffee.com/steffenr"><img
+  src="https://camo.githubusercontent.com/c28781810ec561314c0480f2a773391df0006ce9f6fc92c1e36dee408ab2869e/68747470733a2f2f63646e2e6275796d6561636f666665652e636f6d2f627574746f6e732f76322f64656661756c742d79656c6c6f772e706e67"
+  alt="Buy Me a Coffee" width="150" height="42"></a>
 
 ## License
 
-Copyright (C) 2026 Steffen Rühlmann. The code is licensed under the **[GNU Affero General Public License v3.0](LICENSE)**
+Copyright (C) 2026 Steffen Rühlmann. Licensed under the [GNU Affero General Public License v3.0](LICENSE)
 (`AGPL-3.0-only`): modified versions that are distributed or offered over a network must publish their source under the
 same license.
 
