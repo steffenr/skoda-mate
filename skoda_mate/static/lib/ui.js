@@ -99,9 +99,25 @@ export function table(columns, rows, { onRow, emptyNode, label } = {}) {
 
 // ---- modal / confirm / toast
 export function modal(title, body, actions) {
+  const opener = document.activeElement;  // focus returns here when the dialog closes
   const scrim = h('div', { class: 'scrim', onclick: (e) => { if (e.target === scrim) close(); } });
-  const close = () => { scrim.remove(); document.removeEventListener('keydown', onKey); };
-  const onKey = (e) => { if (e.key === 'Escape') close(); };
+  const focusables = () => [...m.querySelectorAll('a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])')]
+    .filter((el) => el.getClientRects().length > 0);
+  const close = () => {
+    scrim.remove();
+    document.removeEventListener('keydown', onKey);
+    if (opener && opener.isConnected) opener.focus();
+  };
+  // Escape closes; Tab cycles inside the dialog (aria-modal alone does not stop assistive tech from leaving it).
+  const onKey = (e) => {
+    if (e.key === 'Escape') return close();
+    if (e.key !== 'Tab') return;
+    const items = focusables();
+    if (!items.length) return;
+    const first = items[0], last = items[items.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  };
   document.addEventListener('keydown', onKey);
   const m = h('div', { class: 'modal', role: 'dialog', 'aria-modal': 'true', 'aria-label': title },
     h('h2', null, title), body, h('div', { class: 'actions' }, ...(typeof actions === 'function' ? actions(close) : actions || [])));

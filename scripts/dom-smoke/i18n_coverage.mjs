@@ -10,12 +10,12 @@ const files = ['app.js', ...fs.readdirSync(`${STATIC}/lib`).map((f) => `lib/${f}
   .filter((f) => f.endsWith('.js'));
 for (const f of files) if (f.startsWith('pages/') || f === 'app.js') await import(`${STATIC}/${f}`).catch(() => {});  // pages call extendDE on import
 
-// Navigation labels are passed to t() as variables, so a literal scan cannot see them: read them off the NAV table.
-const navSrc = fs.readFileSync(`${STATIC}/app.js`, 'utf8');
-for (const m of navSrc.matchAll(/\[\s*'[^']*',\s*'([^']+)',\s*'[^']+'\s*\]/g)) {
+// Navigation labels are passed to t() as variables, so a literal scan cannot see them: read them off the PAGES table.
+const appSrc = fs.readFileSync(`${STATIC}/app.js`, 'utf8');
+for (const m of appSrc.matchAll(/label:\s*'([^']+)'/g)) {
   const key = m[1];
   if (i18n.hasDE(key)) continue;
-  (missing.get(key) || missing.set(key, new Set()).get(key)).add('app.js (NAV)');
+  (missing.get(key) || missing.set(key, new Set()).get(key)).add('app.js (nav)');
 }
 
 // t('...') with a plain single-quoted or double-quoted literal (template strings are dynamic and skipped)
