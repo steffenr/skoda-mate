@@ -354,20 +354,20 @@ def test_pages_have_no_inline_scripts():
 
 
 def test_oversized_bodies_are_refused_before_parsing():
-    from skoda_mate import web
+    from skoda_mate import middleware
 
     app, _ = make_app()
     with client_for(app) as c:
-        big = "x" * (web.MAX_ANON_BODY + 10)
+        big = "x" * (middleware.MAX_ANON_BODY + 10)
         assert c.post("/api/login", json={"email": big, "password": "x"}).status_code == 413  # a stranger: small limit
         sign_up(c)
-        r = c.put("/api/settings", content=b"{" + b" " * (web.MAX_ANON_BODY + 10) + b"}", headers={"content-type": "application/json"})
+        r = c.put("/api/settings", content=b"{" + b" " * (middleware.MAX_ANON_BODY + 10) + b"}", headers={"content-type": "application/json"})
         assert r.status_code != 413  # signed in: room for the history import
         assert c.post("/api/login", headers={"content-length": "abc"}).status_code in (400, 413)
 
 
 def test_chunked_bodies_are_counted_too():
-    from skoda_mate import web
+    from skoda_mate import middleware
 
     app, _ = make_app()
 
@@ -379,7 +379,7 @@ def test_chunked_bodies_are_counted_too():
         assert c.post("/api/login", content=chunks(20), headers={"content-type": "application/json"}).status_code == 413
         r = c.post("/api/login", content=iter([b'{"email":"a@b.io",', b'"password":"x"}']), headers={"content-type": "application/json"})
         assert r.status_code == 404  # small chunked body passes through intact (no login yet: 404)
-        assert web.MAX_BODY > 8_000_000 * 1.2
+        assert middleware.MAX_BODY > 8_000_000 * 1.2
 
 
 def test_bruteforce_lockout():

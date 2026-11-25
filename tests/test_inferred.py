@@ -86,7 +86,7 @@ def test_idempotent_and_user_edits_survive():
 
 def test_an_inferred_charge_has_no_average_power_only_a_typical_wallbox_estimate():
     """Regression: 24.8 kWh over a 12.5 h overnight window was shown as '2.0 kW average power' for an 11 kW charger."""
-    from skoda_mate.api import TYPICAL_WALLBOX_KW
+    from skoda_mate.presenters import TYPICAL_WALLBOX_KW
 
     from .test_web import connected
 

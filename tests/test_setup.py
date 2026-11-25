@@ -163,7 +163,7 @@ def test_forget_account():
 
 
 def test_vin_parsing_accepts_common_separators():
-    from skoda_mate.web import parse_vins
+    from skoda_mate.routers.setup import parse_vins
 
     assert parse_vins(f"{VIN.lower()}\n tmbjb9ny5rf111111;{VIN}") == [VIN, "TMBJB9NY5RF111111"]  # normalised, de-duplicated
     assert parse_vins([VIN]) == [VIN]
