@@ -11,7 +11,7 @@ from datetime import UTC, datetime, timedelta
 
 from fastapi import HTTPException
 
-from . import costs, recorder
+from . import costs, places, recorder
 
 INFERRED_SOURCES = ("inferred", "import-trip")  # charges that were read off other data, not measured while charging
 TYPICAL_WALLBOX_KW = 11.0  # a home AC charger: only used to say how long an inferred charge probably took
@@ -117,8 +117,10 @@ def trip_out(t: dict, tariff: dict, detail: bool = False) -> dict:
 
 
 def charge_out(c: dict, tariff: dict, conn) -> dict:
-    cc = costs.charge_cost(c, tariff)
+    place = places.get(conn, c["geofence_id"]) if c.get("geofence_id") else None
+    cc = costs.charge_cost(c, tariff, place)
     c["cost"], c["cost_basis"], c["place_kind_resolved"] = cc["amount"], cc["basis"], cc["kind"]
+    c["place"] = {"id": place["id"], "name": place["name"], "kind": place["kind"]} if place else None
     c["open"] = c["ended_at"] is None
     c["inferred"] = c.get("source") in INFERRED_SOURCES  # read off the battery level / a trip export, not measured live
     # A charge imported from a trip export knows only how much the level ROSE, not the levels before and after.

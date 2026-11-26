@@ -302,7 +302,7 @@ def detail(conn, place_id: int, now_iso: str, tz_offset: int = 0) -> dict | None
     amounts: list = []
     energies: list = []
     for charge in charges:
-        cost = costs.charge_cost(charge, tariff)["amount"]
+        cost = costs.charge_cost(charge, tariff, place)["amount"]
         amounts.append(cost)
         energies.append(charge["energy_kwh"])
         if len(recent) < DETAIL_CHARGE_LIMIT:
