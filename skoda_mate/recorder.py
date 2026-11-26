@@ -13,6 +13,7 @@ import json
 import sqlite3
 from datetime import datetime, timedelta
 
+from . import places
 from .store import set_setting
 
 MAX_GAP_H = 1.0  # never integrate power over a longer hole than this
@@ -156,11 +157,12 @@ def _charge(conn, vid, prev, s):
         start_soc = s.get("soc")
         if prev is not None and not prev["charging"] and prev["soc"] is not None and _hours(prev["recorded_at"], ts) <= 0.5:
             start_soc = prev["soc"]  # the SoC just before we noticed the charge starting
+        place = places.match(conn, s.get("lat"), s.get("lon"))
         conn.execute(
             "INSERT INTO charges(vehicle_id,started_at,start_soc,end_soc,max_power_kw,charge_type,lat,lon,address,"
-            "target_soc,source) VALUES(?,?,?,?,?,?,?,?,?,?,'detected')",
+            "target_soc,source,geofence_id) VALUES(?,?,?,?,?,?,?,?,?,?,'detected',?)",
             (vid, ts, start_soc, s.get("soc"), power, s.get("charge_type"), s.get("lat"), s.get("lon"),
-             s.get("address"), s.get("target_soc")))
+             s.get("address"), s.get("target_soc"), place["id"] if place else None))
         _event(conn, vid, ts, "charge_start", s.get("charge_type"))
         return
     if cur is None:
@@ -345,15 +347,17 @@ def infer_charges(conn, vid: int, days: int = INFER_WINDOW_DAYS) -> int:
         if any(rs <= t1 and re >= t0 for rs, re in real):  # a live-detected charge already explains this rise
             continue
         batt = round(c["rise"] * kwh / 100, 2) if kwh else None
+        place = places.match(conn, c["a"]["lat"], c["a"]["lon"])
         vals = (t1, c["a"]["soc"], c["b"]["soc"], None if batt is None else round(batt / eff, 2), batt,
-                round((_dt(t1) - _dt(t0)).total_seconds() / 60), c["a"]["lat"], c["a"]["lon"], c["a"]["place"])
+                round((_dt(t1) - _dt(t0)).total_seconds() / 60), c["a"]["lat"], c["a"]["lon"], c["a"]["place"],
+                place["id"] if place else None)
         existing = conn.execute("SELECT id FROM charges WHERE vehicle_id=? AND source='inferred' AND started_at=?", (vid, t0)).fetchone()
         if existing:
             conn.execute("UPDATE charges SET ended_at=?, start_soc=?, end_soc=?, energy_kwh=?, energy_battery_kwh=?, duration_min=?, "
-                         "lat=?, lon=?, address=? WHERE id=?", (*vals, existing["id"]))
+                         "lat=?, lon=?, address=?, geofence_id=? WHERE id=?", (*vals, existing["id"]))
         else:
             conn.execute("INSERT INTO charges(vehicle_id,started_at,source,ended_at,start_soc,end_soc,energy_kwh,energy_battery_kwh,"
-                         "duration_min,lat,lon,address) VALUES(?,?,'inferred',?,?,?,?,?,?,?,?,?)", (vid, t0, *vals))
+                         "duration_min,lat,lon,address,geofence_id) VALUES(?,?,'inferred',?,?,?,?,?,?,?,?,?,?)", (vid, t0, *vals))
             n += 1
         keep.add(t0)
     # inferred rows that no longer hold (a real charge now covers them, or the readings changed), unless the user edited them
@@ -396,12 +400,15 @@ def _trips(conn, vid, prev, s, snap_id):
         if open_ is None:
             ref = _last_parked(conn, vid, snap_id)
             started = _drive_start(ref, s)
+            start_lat, start_lon = (ref["lat"], ref["lon"]) if ref else (None, None)
+            place = places.match(conn, start_lat, start_lon)
             conn.execute(
                 "INSERT INTO trips(vehicle_id,cloud_id,started_at,start_soc,start_fuel_pct,start_place,start_lat,start_lon,"
-                "odo_start,approx) VALUES(?,?,?,?,?,?,?,?,?,0)",
+                "odo_start,approx,start_geofence_id) VALUES(?,?,?,?,?,?,?,?,?,0,?)",
                 (vid, f"drv-{ts}", started, ref["soc"] if ref else s.get("soc"), ref["fuel_pct"] if ref else s.get("fuel_pct"),
-                 ref["address"] if ref else None, ref["lat"] if ref else None, ref["lon"] if ref else None,
-                 (ref["mileage_km"] if ref and ref["mileage_km"] is not None else s.get("mileage_km"))))
+                 ref["address"] if ref else None, start_lat, start_lon,
+                 (ref["mileage_km"] if ref and ref["mileage_km"] is not None else s.get("mileage_km")),
+                 place["id"] if place else None))
             _event(conn, vid, started, "trip_start")
         else:
             conn.execute("UPDATE trips SET end_soc=COALESCE(?,end_soc) WHERE id=?", (s.get("soc"), open_["id"]))
@@ -478,17 +485,22 @@ def _finish(conn, vid, trip_id, s, *, start_iso, end_iso, km, odo_start, start_s
     route = [{"lat": start[1], "lon": start[2], "place": start[0], "soc": start_soc},
              {"lat": s.get("lat"), "lon": s.get("lon"), "place": s.get("address"), "soc": end_soc}]
     route = [p for p in route if p["lat"] is not None and p["lon"] is not None]
+    start_place = places.match(conn, start[1], start[2])
+    end_place = places.match(conn, s.get("lat"), s.get("lon"))
+    links = (start_place["id"] if start_place else None, end_place["id"] if end_place else None)
     vals = (end_iso, km, minutes, round(km / minutes * 60, 1) if km else None, per100, energy, basis, end_soc,
             s.get("fuel_pct"), s.get("address"), s.get("lat"), s.get("lon"), s.get("mileage_km"), json.dumps(route), approx)
     if trip_id is not None:
         conn.execute(
             "UPDATE trips SET ended_at=?,distance_km=?,duration_min=?,avg_speed_kmh=?,avg_kwh_100km=?,energy_kwh=?,"
-            "energy_basis=?,end_soc=?,end_fuel_pct=?,end_place=?,end_lat=?,end_lon=?,odo_end=?,route_json=?,approx=? WHERE id=?",
-            (*vals, trip_id))
+            "energy_basis=?,end_soc=?,end_fuel_pct=?,end_place=?,end_lat=?,end_lon=?,odo_end=?,route_json=?,approx=?,"
+            "start_geofence_id=?,end_geofence_id=? WHERE id=?",
+            (*vals, *links, trip_id))
     else:
         conn.execute(
             "INSERT INTO trips(ended_at,distance_km,duration_min,avg_speed_kmh,avg_kwh_100km,energy_kwh,energy_basis,end_soc,"
             "end_fuel_pct,end_place,end_lat,end_lon,odo_end,route_json,approx,vehicle_id,cloud_id,started_at,odo_start,"
-            "start_soc,start_fuel_pct,start_place,start_lat,start_lon) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-            (*vals, vid, f"odo-{start_iso}", start_iso, odo_start, start_soc, start_fuel, start[0], start[1], start[2]))
+            "start_soc,start_fuel_pct,start_place,start_lat,start_lon,start_geofence_id,end_geofence_id) "
+            "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            (*vals, vid, f"odo-{start_iso}", start_iso, odo_start, start_soc, start_fuel, start[0], start[1], start[2], *links))
     _event(conn, vid, end_iso, "trip_end", f"{km:.1f} km" if km is not None else None)

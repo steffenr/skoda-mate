@@ -23,7 +23,7 @@ from datetime import UTC, datetime, timedelta
 from functools import partial
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from . import merge, recorder
+from . import merge, places, recorder
 
 
 def _cell(row: list[str], idx: dict[str, int | None], key: str) -> str:
@@ -357,6 +357,7 @@ def run(conn, vid: int, vin: str, files: list[dict], tz_name: str, dry_run: bool
     elif actions:
         counts = apply(conn, vid, actions)
         inferred = recorder.infer_charges(conn, vid, days=3650)  # overnight charges can now be read off the whole history
+        places.assign_all(conn)  # link every written trip to the places its coordinates fall in
     skipped = sum(r.skipped_no_distance for r in reports)
     preview = [{"start": _iso(a["row"]["start"]), "from": a["row"]["start_place"], "to": a["row"]["end_place"], "km": a["row"]["distance_km"],
                 "kwh": a["row"]["energy_kwh"], "status": a["status"]} for a in actions[-12:][::-1]]

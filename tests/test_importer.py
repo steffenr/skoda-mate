@@ -1,6 +1,6 @@
 import pytest
 
-from skoda_mate import importer, recorder, schema
+from skoda_mate import importer, places, recorder, schema
 
 from .fixtures import VIN
 from .test_web import connected
@@ -164,6 +164,15 @@ def test_without_battery_capacity_energy_is_unknown_but_nothing_breaks():
     conn, vid = setup(kwh=None)
     r = run(conn, vid, [f("t.csv", csv(D))])
     assert r["new"] == 1 and conn.execute("SELECT energy_kwh FROM charges WHERE source='import-trip'").fetchone()[0] is None
+
+
+def test_an_imported_trip_is_linked_to_the_places_it_touched():
+    conn, vid = setup()
+    home = places.create(conn, {"name": "Home", "kind": "home", "lat": 50.1, "lon": 8.6, "radius_m": 150})
+    work = places.create(conn, {"name": "Work", "kind": "work", "lat": 50.2, "lon": 8.7, "radius_m": 150})
+    run(conn, vid, [f("t.csv", csv(A))])
+    t = trips(conn)[0]
+    assert (t["start_geofence_id"], t["end_geofence_id"]) == (home["id"], work["id"])
 
 
 # ------------------------------------------------------------------ through the API

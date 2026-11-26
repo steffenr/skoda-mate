@@ -13,7 +13,7 @@ from pathlib import Path
 from fastapi import Depends, FastAPI
 from fastapi.staticfiles import StaticFiles
 
-from . import demo, recorder, schema
+from . import demo, places, recorder, schema
 from .auth import Auth
 from .client import SkodaApi
 from .cloud import Cloud
@@ -40,6 +40,7 @@ def create_app(cfg: Config | None = None, conn=None, poller: Poller | None = Non
     recorder.repair_charge_gaps(conn)  # once: charges recorded before gaps in the readings were handled (issue #8)
     for v in conn.execute("SELECT id FROM vehicles").fetchall():  # backfill charges that can be read off existing trips/readings
         recorder.infer_charges(conn, v["id"])
+    places.assign_all(conn)  # once per start: link rows stored before places existed (or before a place was moved)
 
     ctx = AppContext(
         conn=conn, cfg=cfg, auth=login, box=box, cloud=Cloud(conn, box, cfg, poller), api_factory=api_factory,
