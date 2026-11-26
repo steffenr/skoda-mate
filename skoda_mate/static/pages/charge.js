@@ -52,6 +52,8 @@ extendDE({
   'Charge target': 'Ladeziel', 'Charge details': 'Details', 'Previous charge': 'Vorheriger Ladevorgang',
 });
 
+// The demo's home place is stored as the English name; show it in the reader's language like the map and places pages.
+const displayName = (p) => (p.kind === 'home' && p.name === 'Home' ? t('Home') : p.name);
 const R = 6371000;
 const dist = (a, b, c, d) => {
   const rad = Math.PI / 180, dLat = (c - a) * rad, dLon = (d - b) * rad;
@@ -105,7 +107,7 @@ export default async function charge(root, ctx) {
     const clearCost = c.cost_manual != null ? asyncButton(t('Clear manual cost'), () => patch({ clear_cost: true }, t('Manual cost removed')), { ic: 'x' }) : null;
     // The place a charge is linked to, with the same detail link the map uses.
     const placeLink = c.place ? h('div', { class: 'small' }, icon('pin', { size: 14 }), ' ',
-      h('a', { href: `#/places/${c.place.id}` }, c.place.name || t('Unknown place'))) : null;
+      h('a', { href: `#/places/${c.place.id}` }, displayName(c.place) || t('Unknown place'))) : null;
     return card(t('Cost'), h('div', { class: 'stack' },
       h('div', { class: 'a-bigcost' }, c.cost != null ? `${basis === 'tariff-guess' ? '≈ ' : ''}${f.money(c.cost, ctx.currency)}` : '–'), explain, placeLink,
       h('div', null, h('div', { class: 'a-label' }, t('Where was this charged?')), placeSeg, h('div', { class: 'tiny muted', style: { marginTop: '4px' } }, t('Auto uses your home place from Charge prices.'))),
