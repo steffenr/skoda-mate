@@ -7,7 +7,7 @@ import puppeteer from 'puppeteer-core';
 const BASE = process.env.BASE || 'http://localhost:8765';
 const SHOTS = process.env.SHOTS || '';
 const CHROME = process.env.CHROME || '/Applications/Chromium.app/Contents/MacOS/Chromium';
-const ROUTES = ['', 'trips', 'trips/5', 'charges', 'charges/3', 'battery', 'control', 'stats', 'map', 'places', 'events', 'settings', 'system'];
+const ROUTES = ['', 'trips', 'trips/5', 'charges', 'charges/3', 'battery', 'control', 'stats', 'map', 'places', 'places/1', 'events', 'settings', 'system'];
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 let failed = 0;
 const check = (name, ok, extra = '') => { if (!ok) failed++; console.log(`${ok ? 'ok  ' : 'FAIL'} ${name}${extra ? '  ' + extra : ''}`); };
@@ -49,6 +49,26 @@ for (const r of ROUTES) {
   check(`phone #/${r || 'overview'} fits`, m.scrollW <= m.vw + 1 && m.over.length === 0 && m.text > 40, `scrollWidth=${m.scrollW}/${m.vw} ${m.over.join(' ')}`);
   if (SHOTS && ['', 'control', 'trips'].includes(r)) await phone.screenshot({ path: `${SHOTS}/phone-${r || 'overview'}.png` });
 }
+await phone.goto(`${BASE}/#/places/1`, { waitUntil: 'networkidle0' });
+await sleep(1800);
+const pd = await phone.evaluate(() => {
+  const text = document.getElementById('main').innerText;
+  const visitsCard = [...document.querySelectorAll('#main .card')].find((c) => /Recent visits/.test(c.querySelector('h2')?.textContent || ''));
+  return {
+    visits: visitsCard ? visitsCard.querySelectorAll('tbody tr').length : 0,
+    stats: ['Visits', 'Days', 'Parked time', 'Charged', 'Cost'].every((s) => text.includes(s)),
+    charges: /Recent charges/.test(text),
+    chargeLink: !!document.querySelector('#main a[href^="#/charges/"]'),
+    back: !!document.querySelector('#main a[href="#/places"]'),
+    nav: document.querySelector('.sidebar .nav a[aria-current="page"]')?.textContent?.trim() || '',
+  };
+});
+check('place detail shows stats, visits and charges', pd.stats && pd.visits > 0 && pd.charges && pd.chargeLink, `${pd.visits} visits, stats=${pd.stats}, charges=${pd.charges}, link=${pd.chargeLink}`);
+check('place detail links back and keeps Places highlighted', pd.back && pd.nav === 'Places', `back=${pd.back} nav=${pd.nav}`);
+await phone.goto(`${BASE}/#/places/999999`, { waitUntil: 'networkidle0' });
+await sleep(1400);
+const pdMissing = await phone.evaluate(() => ({ text: document.getElementById('main').innerText, tables: document.querySelectorAll('#main table').length }));
+check('place detail handles an unknown id', /Place not found\./.test(pdMissing.text) && pdMissing.tables === 0, `${pdMissing.tables} tables, text=${pdMissing.text.slice(0, 60)}`);
 const tabs = await phone.$$('.tabbar a, .tabbar button');
 check('phone bottom tab bar has 5 entries', tabs.length === 5, String(tabs.length));
 await phone.goto(`${BASE}/#/`, { waitUntil: 'networkidle0' });
@@ -252,6 +272,13 @@ for (const r of ['trips', 'charges', 'control', 'stats', 'settings', 'system']) 
   const eng = ['Export CSV', 'Total distance', 'Start charging', 'Request budget', 'Home position', 'How these numbers are made'].filter((s) => t.includes(s));
   check(`German #/${r}`, eng.length === 0, eng.join(', '));
 }
+await d.goto(`${BASE}/#/places/1`, { waitUntil: 'networkidle0' }); await sleep(1500);
+const pde = await d.evaluate(() => document.getElementById('main').innerText);
+const pEng = ['Recent visits', 'Recent charges', 'Parked time', 'Back to places', 'Arrival', 'Departure', 'Edit place', 'Date', 'Charged', 'Visits', 'Days'].filter((s) => pde.includes(s));
+check('German #/places/1', pEng.length === 0, pEng.join(', '));
+await d.goto(`${BASE}/#/places/999999`, { waitUntil: 'networkidle0' }); await sleep(1200);
+const pdeMissing = await d.evaluate(() => document.getElementById('main').innerText);
+check('German place not found', /Ort nicht gefunden\./.test(pdeMissing) && !/Place not found/.test(pdeMissing), pdeMissing.slice(0, 80));
 await d.goto(`${BASE}/#/trips`, { waitUntil: 'networkidle0' }); await sleep(1500);
 if (SHOTS) await d.screenshot({ path: `${SHOTS}/german-trips.png` });
 // restore and finish

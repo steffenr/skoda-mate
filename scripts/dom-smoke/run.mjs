@@ -31,7 +31,7 @@ const { start } = await import(`${STATIC}/app.js`);
 start(document.getElementById('root'));
 await sleep(2500);
 
-const routes = process.argv.slice(2).length ? process.argv.slice(2) : ['', 'trips', 'charges', 'battery', 'control', 'stats', 'map', 'places', 'events', 'settings', 'system'];
+const routes = process.argv.slice(2).length ? process.argv.slice(2) : ['', 'trips', 'charges', 'battery', 'control', 'stats', 'map', 'places', 'places/1', 'events', 'settings', 'system'];
 const full = !!process.env.FULL;
 let failed = 0;
 
