@@ -1,7 +1,7 @@
 
 import pytest
 
-from skoda_mate import importer, merge, recorder, schema
+from skoda_mate import importer, merge, places, recorder, schema
 
 from .fixtures import VIN
 from .test_importer import A, csv, f
@@ -36,6 +36,23 @@ def test_merge_sums_keeps_first_id_and_can_be_undone():
     rows = [dict(r) for r in conn.execute("SELECT * FROM trips ORDER BY started_at")]
     assert len(rows) == 2 and ids[0] == a and rows[0]["distance_km"] == 20 and rows[1]["distance_km"] == 10 and rows[1]["note"] == "second"
     assert rows[0]["merged_json"] is None and rows[0]["ended_at"].startswith("2026-07-01T08:30")
+
+
+def test_merge_keeps_the_first_start_and_last_end_place():
+    conn, vid = setup()
+    home = places.create(conn, {"name": "Home", "kind": "home", "lat": 50.0, "lon": 8.0, "radius_m": 150})
+    work = places.create(conn, {"name": "Work", "kind": "work", "lat": 50.1, "lon": 8.1, "radius_m": 150})
+    a = conn.execute("INSERT INTO trips(vehicle_id,cloud_id,started_at,ended_at,distance_km,start_lat,start_lon,end_lat,end_lon) "
+                     "VALUES(?,?,?,?,?,?,?,?,?)",
+                     (vid, "a", "2026-07-01T08:00:00+00:00", "2026-07-01T08:30:00+00:00", 20, 50.0, 8.0, 50.05, 8.05)).lastrowid
+    b = conn.execute("INSERT INTO trips(vehicle_id,cloud_id,started_at,ended_at,distance_km,start_lat,start_lon,end_lat,end_lon) "
+                     "VALUES(?,?,?,?,?,?,?,?,?)",
+                     (vid, "b", "2026-07-01T08:45:00+00:00", "2026-07-01T09:15:00+00:00", 10, 50.05, 8.05, 50.1, 8.1)).lastrowid
+    conn.commit()
+    places.assign_all(conn)  # what the writers did before the merge
+    keep = merge.merge(conn, vid, [a, b])
+    t = conn.execute("SELECT start_geofence_id, end_geofence_id FROM trips WHERE id=?", (keep,)).fetchone()
+    assert (t["start_geofence_id"], t["end_geofence_id"]) == (home["id"], work["id"])
 
 
 def test_merge_refuses_unsafe_requests():

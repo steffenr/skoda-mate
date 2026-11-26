@@ -7,6 +7,8 @@ from __future__ import annotations
 import json
 from datetime import datetime
 
+from . import places
+
 MAX_GAP_H = 6.0
 MAX_PARTS = 12
 PART_COLS = ("cloud_id", "started_at", "ended_at", "distance_km", "duration_min", "avg_speed_kmh", "avg_kwh_100km", "energy_kwh", "start_soc",
@@ -72,6 +74,7 @@ def merge(conn, vid: int, ids: list[int]) -> int:
     except Exception:
         conn.rollback()
         raise
+    places.assign_all(conn)  # the merged row now ends where the last part ended
     return first["id"]
 
 
@@ -96,6 +99,7 @@ def unmerge(conn, vid: int, trip_id: int) -> list[int]:
     except Exception:
         conn.rollback()
         raise
+    places.assign_all(conn)  # the restored parts carry their own coordinates again
     return ids
 
 

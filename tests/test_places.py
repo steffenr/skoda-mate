@@ -2,7 +2,10 @@ import json
 
 import pytest
 
-from skoda_mate import places, schema
+from skoda_mate import places, recorder, schema
+
+from .helpers import make_app
+from .test_web import VIN
 
 
 def test_schema_adds_place_columns_and_indexes():
@@ -334,3 +337,38 @@ def test_detail_prices_a_charge_with_the_rate_of_its_place():
     places.assign_all(conn)
     d = places.detail(conn, work["id"], "2027-02-10T19:00:00+00:00")
     assert d["charges"][0]["cost"] == 5.0 and d["cost"] == 5.0  # 10 kWh at the place's 0.50, not the 0.30 tariff
+
+
+def test_ingest_links_a_charge_to_its_place():
+    conn = schema.connect(":memory:")
+    home = places.create(conn, {"name": "Home", "kind": "home", "lat": 50.0, "lon": 8.0, "radius_m": 150})
+    vid = recorder.upsert_vehicle(conn, VIN, battery_kwh=77.0)
+    recorder.ingest(conn, vid, {"ts": "2027-02-10T19:00:00+00:00", "soc": 40.0, "charging": True,
+                                "charge_state": "CHARGING", "charge_power_kw": 11.0, "lat": 50.0, "lon": 8.0})
+    assert conn.execute("SELECT geofence_id FROM charges").fetchone()[0] == home["id"]
+
+
+def test_ingest_links_trip_start_and_end():
+    conn = schema.connect(":memory:")
+    home = places.create(conn, {"name": "Home", "kind": "home", "lat": 50.0, "lon": 8.0, "radius_m": 150})
+    work = places.create(conn, {"name": "Work", "kind": "work", "lat": 50.1, "lon": 8.1, "radius_m": 150})
+    vid = recorder.upsert_vehicle(conn, VIN, battery_kwh=77.0)
+    recorder.ingest(conn, vid, {"ts": "2027-02-10T08:00:00+00:00", "soc": 90.0, "charging": False,
+                                "in_motion": False, "mileage_km": 2000.0, "lat": 50.0, "lon": 8.0})
+    recorder.ingest(conn, vid, {"ts": "2027-02-10T08:10:00+00:00", "soc": 88.0, "charging": False,
+                                "in_motion": True, "mileage_km": 2005.0})
+    recorder.ingest(conn, vid, {"ts": "2027-02-10T08:40:00+00:00", "soc": 78.0, "charging": False,
+                                "in_motion": False, "mileage_km": 2010.0, "lat": 50.1, "lon": 8.1})
+    trip = conn.execute("SELECT start_geofence_id, end_geofence_id FROM trips").fetchone()
+    assert (trip["start_geofence_id"], trip["end_geofence_id"]) == (home["id"], work["id"])
+
+
+def test_app_start_backfills_place_links():
+    conn = schema.connect(":memory:")
+    home = places.create(conn, {"name": "Home", "kind": "home", "lat": 50.0, "lon": 8.0, "radius_m": 150})
+    vid = recorder.upsert_vehicle(conn, VIN, battery_kwh=77.0)
+    conn.execute("INSERT INTO trips(vehicle_id,cloud_id,started_at,start_lat,start_lon) VALUES(?,?,?,?,?)",
+                 (vid, "old", "2027-02-09T08:00:00+00:00", 50.0, 8.0))
+    conn.commit()
+    make_app(conn=conn)
+    assert conn.execute("SELECT start_geofence_id FROM trips").fetchone()[0] == home["id"]
