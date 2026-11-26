@@ -24,7 +24,7 @@ Status per leapmotor-mate feature (from its README), checked against the officia
 | Battery health (SoH) | Capacity estimate from long AC charges | Adapted (Škoda reports no health value) |
 | Charging-station names, find chargers | – | Not possible (not in the API) |
 | Wallbox integration, V2L | – | Not possible |
-| Home position | Map picker with locate button, radius | Done |
+| Home position | Home place on Prices: radius, visits, Use current parking position; edited on Places | Done |
 | Named places with per-place prices and visit history | Places page and detail: name, kind, radius, colour, per-place prices; visits, days, parked time, energy and cost | Done (new) |
 | Remote control: locks, windows, trunk, find car | – | Not possible (no lock/unlock/honk in the API) |
 | Climate | Start/stop with temperature, without-external-power option | Done |
