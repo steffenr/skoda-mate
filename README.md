@@ -33,6 +33,7 @@ no shared code.
 | **Control** | Charging on/off, charge limit and mode, charging profiles, climate, auxiliary heater, ventilation |
 | **Statistics** | Monthly distance, energy, cost and consumption |
 | **Map · Events** | Places the car stood and charged; everything that happened, including every command |
+| **Places** | Named places with radius, colour and per-place prices; visits, days, parked time and cost per place ([how places work](docs/PLACES.md)) |
 | **Settings · System** | Units, language, capacity, polling, API-key status, request budget, data parts, raw data, redacted diagnostics |
 
 Also: Home Assistant via MQTT Discovery, a JSON API, CSV export, database backup, demo mode, English and German.

@@ -28,14 +28,16 @@ one entry plus its `pages/<name>.js`. Detail routes reuse a page module with a d
 (`trips/:id` → `trip` in section `trips`).
 
 `''` overview · `trips` · `trips/:id` → `trip` · `charges` · `charges/:id` → `charge` · `battery` · `control` ·
-`prices` · `stats` · `map` · `events` · `import` · `settings` · `system` · `system/:tab` → `system`
-(`status|capabilities|calls|diagnostics`). The old `#/capabilities` link redirects to `system/capabilities`.
+`prices` · `stats` · `map` · `places` · `places/:id` → `place` · `events` · `import` · `settings` · `system` ·
+`system/:tab` → `system` (`status|capabilities|calls|diagnostics`). The old `#/capabilities` link redirects to
+`system/capabilities`.
 
 ## Libraries (`static/lib/`)
 `dom.js` h()/svg()/mount()/clear() — **no innerHTML, ever** (names, addresses and notes come from outside).
 `ui.js` card, stat, chip, button, asyncButton, banner, empty, loading, field, seg, kv, socBar, table, modal,
 confirmDialog, toast. `charts.js` lineChart (`gaps: [{from, to}]` shades stretches without data and draws no line across
-them), barChart, sparkline. `mapview.js` mapView (Leaflet from CDN, offline fallback).
+them), barChart, sparkline. `mapview.js` mapView (Leaflet from cdnjs, OpenStreetMap tiles, optional marker
+clustering, offline fallback).
 `car.js` carView. `icons.js` icon(name) (see ICON_NAMES). `format.js` km/mi aware formatters (`f.km`, `f.cons`, `f.kwh`,
 `f.money`, `f.duration`, `f.dateTime`, `f.dayLabel`, `f.shortPlace`, …). `i18n.js` `t('English')`; add German with
 `extendDE({...})` at the top of your page file. `style.css` holds tokens and components; page styles live in
@@ -43,6 +45,29 @@ them), barChart, sparkline. `mapview.js` mapView (Leaflet from CDN, offline fall
 
 `setup.js` with `setup.html` / `login.html` is the one deliberate exception: it renders before a session (and before
 the language setting) exists, so it is English-only and outside `t()` coverage.
+
+## Places and the map
+`places.py` owns the geofences, matching, assignment and summaries; `routers/places.py` exposes CRUD, and the map
+endpoint in `routers/reports.py` reads them. Trips store `start_geofence_id`/`end_geofence_id`, charges `geofence_id`.
+Matching is backend work, never a page: it runs when those rows are written and when a place is created or edited. One
+home row (a partial unique index), radius 20–5000 m, smallest radius wins, ties go to the lower id. `assign_all()`
+rewrites every trip and charge after a place is created or edited (and once per start), so a moved or shrunk place
+never leaves stale links; deleting a place clears the links to it.
+
+`GET /api/places` returns summaries (`visit_count`, `day_count`, `charge_count`, `last_seen`);
+`GET /api/places/{id}` adds visits, the newest 100 charges and their totals. Both take `tz_offset` so day counts use the
+viewer's local day. The pages are `pages/places.js` (map, list, detected clusters, form exported for reuse) and
+`pages/place.js` (detail, reusing that form).
+
+`GET /api/vehicles/{vid}/map?limit=` (1–2000, default 1000) returns `parked`, `charges`, `trips`, `places`, `limit`,
+`current` and `tariff`. Parked clusters carry `place_id`; charges and trips carry their geofence ids. The map page asks
+for 1000; **Show all** asks for 2000, each layer newest first. `mapView({...})` draws one circle per place, and only a
+circle with an `id` is clickable — the legacy ownerless `circle` stays passive. Focusing an item in the list paints
+only that item's place circle (none when it has no place); **Show everything** restores all of them. Pins cluster by
+default through leaflet.markercluster 1.5.3 (cdnjs, SRI): markers are drawn immediately, the cluster group replaces
+them only once the plugin loads, and a failed load leaves the plain pins in place. Markers with `noCluster` (trip
+endpoints) or `draggable` stay in a separate plain layer above the clusters. Circles and lines sit in their own layer
+under the clusters.
 
 ## Quality bar
 Mobile first (360 px), keyboard operable, visible focus, labels on inputs, colour never the only signal, respects
@@ -55,10 +80,12 @@ running server (see its header) and reports console errors, error banners and th
 complete page text. It does not run Leaflet or layout, so also read your own code critically for layout and a11y.
 
 ## API (see `skoda_mate/routers/`, shapes in `tests/test_web.py`)
-One module per area: `pages`, `auth`, `setup`, `mqtt`, `vehicles`, `trips`, `charges`, `reports`, `settings`. They share
-`AppContext` (`context.py`, via `deps.ContextDep`) for auth, the current vehicle and derived values.
+One module per area: `pages`, `auth`, `setup`, `mqtt`, `vehicles`, `trips`, `charges`, `reports`, `places`,
+`settings`. They share `AppContext` (`context.py`, via `deps.ContextDep`) for auth, the current vehicle and derived
+values.
 
 `GET /api/vehicles` · `GET|PUT /api/settings` · `GET|PUT /api/settings/mqtt` · `POST /api/settings/mqtt/test` ·
+`GET|POST /api/places` · `GET|PUT|DELETE /api/places/{id}` ·
 `GET /api/vehicles/{id}/overview|capabilities|stats|battery|history|events|map|commands|raw|calls|diagnostics` ·
 `GET /api/vehicles/{id}/trips|trips/{tid}|charges|charges/{cid}` · `POST …/refresh` · `POST …/command {name, params}` ·
 `POST …/trips/merge` · `POST …/trips/{tid}/unmerge` · `POST …/import/trips` · `PATCH …/charges/{cid}` ·
