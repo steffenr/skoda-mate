@@ -412,7 +412,8 @@ a.card:hover { border-color: var(--control-line); }
 .pl-det-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); }
 .pl-det-row:last-child { border-bottom: 0; }
 .pl-det-main { min-width: 0; }
-.pl-coords { display: flex; align-items: flex-start; gap: 8px; padding: 10px 12px; background: var(--surface-2); border-radius: var(--radius-sm); font-variant-numeric: tabular-nums; }
+.pl-coords { display: flex; align-items: flex-start; flex-wrap: wrap; gap: 8px; padding: 10px 12px; background: var(--surface-2); border-radius: var(--radius-sm); font-variant-numeric: tabular-nums; }
+.pl-coords > div { flex: 1; min-width: 0; }
 .pl-coords .icon { color: var(--muted); margin-top: 2px; }
 .pl-check { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 14px; min-height: 38px; cursor: pointer; }
 .pl-check input { width: 18px; height: 18px; accent-color: var(--accent); flex: none; }

@@ -2,7 +2,7 @@
 //   BASE=http://localhost:8793 node german_leaks.mjs      (needs a DEMO server; changes the demo's language setting)
 import puppeteer from 'puppeteer-core';
 const BASE = process.env.BASE || 'http://localhost:8793';
-const ROUTES = ['', 'trips', 'trips/5', 'charges', 'charges/3', 'battery', 'control', 'stats', 'map', 'events', 'settings', 'system', 'system/capabilities', 'system/calls', 'system/diagnostics', 'import'];
+const ROUTES = ['', 'trips', 'trips/5', 'charges', 'charges/3', 'battery', 'control', 'stats', 'map', 'places', 'events', 'settings', 'system', 'system/capabilities', 'system/calls', 'system/diagnostics', 'import'];
 const b = await puppeteer.launch({ executablePath: process.env.CHROME || '/Applications/Chromium.app/Contents/MacOS/Chromium', headless: 'new', args: ['--no-sandbox'], defaultViewport: { width: 1280, height: 900 } });
 const p = await b.newPage();
 await p.goto(BASE + '/', { waitUntil: 'networkidle0' });
