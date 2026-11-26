@@ -267,7 +267,7 @@ def test_detail_lists_visits_charges_and_totals():
     assert len(d["charges"]) == 1 and d["charges"][0]["cost"] == 3.0
 
 
-def test_detail_does_not_treat_a_departure_after_twelve_hours_as_a_visit():
+def test_detail_uses_a_next_trip_start_more_than_twelve_hours_later():
     conn = schema.connect(":memory:")
     home = places.create(conn, {"name": "Home", "kind": "home", "lat": 50.0, "lon": 8.0})
     vid = _vid(conn)
@@ -278,8 +278,23 @@ def test_detail_does_not_treat_a_departure_after_twelve_hours_as_a_visit():
     places.assign_all(conn)
     d = places.detail(conn, home["id"], "2027-02-10T22:00:00+00:00")
     visit = d["visits"][0]
-    assert visit["open"] is False and visit["left_at"] is None and visit["minutes"] is None
-    assert d["parked_minutes"] is None
+    assert visit["open"] is False and visit["left_at"] == "2027-02-10T21:00:00+00:00"
+    assert visit["minutes"] == 780
+    assert d["parked_minutes"] == 780
+
+
+def test_detail_counts_an_overnight_home_visit_until_the_next_trip():
+    conn = schema.connect(":memory:")
+    home = places.create(conn, {"name": "Home", "kind": "home", "lat": 50.0, "lon": 8.0})
+    vid = _vid(conn)
+    conn.execute("INSERT INTO trips(vehicle_id,cloud_id,started_at,ended_at,end_lat,end_lon) VALUES(?,?,?,?,?,?)",
+                 (vid, "t1", "2027-02-10T18:30:00+00:00", "2027-02-10T19:00:00+00:00", 50.0, 8.0))
+    conn.execute("INSERT INTO trips(vehicle_id,cloud_id,started_at,ended_at,end_lat,end_lon) VALUES(?,?,?,?,?,?)",
+                 (vid, "t2", "2027-02-11T07:30:00+00:00", "2027-02-11T08:00:00+00:00", 51.0, 9.0))
+    places.assign_all(conn)
+    d = places.detail(conn, home["id"], "2027-02-11T09:00:00+00:00")
+    assert d["visits"][0]["minutes"] == 750
+    assert d["parked_minutes"] is not None
 
 
 def test_detail_ignores_missing_timestamps_and_returns_none_for_unknown_place():

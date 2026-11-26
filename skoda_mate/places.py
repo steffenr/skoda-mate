@@ -18,7 +18,6 @@ MAX_RADIUS_M = 5000
 # The chart palette the dashboard offers for a place colour.
 COLORS = ("#0b7a52", "#1d5fa8", "#b86e00", "#7a3fa8", "#b3261e", "#0e7a7a")
 
-VISIT_GAP_H = 12  # a later departure than this is not the end of a parked visit any more
 DETAIL_CHARGE_LIMIT = 100
 
 
@@ -261,8 +260,10 @@ def _trip_starts(conn, trips: list[dict]) -> dict[int, list[str]]:
     if not vids:
         return out
     marks = ",".join("?" * len(vids))
-    for row in conn.execute(f"SELECT vehicle_id, started_at FROM trips WHERE vehicle_id IN ({marks}) "
-                            "AND started_at IS NOT NULL ORDER BY started_at", vids):
+    rows = list(conn.execute(f"SELECT vehicle_id, started_at FROM trips WHERE vehicle_id IN ({marks}) "
+                             "AND started_at IS NOT NULL", vids))
+    rows.sort(key=lambda row: _dt(row["started_at"]))
+    for row in rows:
         out.setdefault(row["vehicle_id"], []).append(row["started_at"])
     return out
 
@@ -279,15 +280,16 @@ def detail(conn, place_id: int, now_iso: str, tz_offset: int = 0) -> dict | None
     starts = _trip_starts(conn, trips)
     visits = []
     for trip in trips:
-        departures = starts.get(trip["vehicle_id"], [])
-        index = bisect_right(departures, trip["ended_at"])
-        next_start = departures[index] if index < len(departures) else None
+        raw_starts = starts.get(trip["vehicle_id"], [])
+        departures = [_dt(start) for start in raw_starts]
+        index = bisect_right(departures, _dt(trip["ended_at"]))
+        next_start = raw_starts[index] if index < len(raw_starts) else None
         left_at = None
         minutes = None
         open_visit = next_start is None
         if next_start is None:
             minutes = max(0, round(_hours(trip["ended_at"], now_iso) * 60))
-        elif _hours(trip["ended_at"], next_start) <= VISIT_GAP_H:
+        else:
             left_at = next_start
             minutes = max(0, round(_hours(trip["ended_at"], next_start) * 60))
         visits.append({"arrived_at": trip["ended_at"], "left_at": left_at, "minutes": minutes,
