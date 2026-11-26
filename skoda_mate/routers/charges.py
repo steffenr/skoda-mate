@@ -107,7 +107,7 @@ def home_here(vid: int, ctx: ContextDep, charge_id: int | None = None):
         pos = {"lat": c["lat"], "lon": c["lon"]}
     else:
         pos = (store.load_sections(ctx.conn, vid).get("position") or {})
-    if pos.get("lat") is None:
+    if pos.get("lat") is None or pos.get("lon") is None:
         raise HTTPException(400, "The car's position is not known yet (it is moving or not reported).")
     set_setting(ctx.conn, "tariff", json.dumps({**ctx.tariff(), "home_lat": pos["lat"], "home_lon": pos["lon"]}))
     places.upsert_home(ctx.conn, pos["lat"], pos["lon"])  # no radius: the home place keeps the one it has

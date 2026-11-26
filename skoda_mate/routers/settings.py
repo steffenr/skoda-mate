@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import math
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -48,10 +49,10 @@ def put_settings(body: SettingsBody, ctx: ContextDep):
         except (ValueError, TypeError) as e:
             raise HTTPException(400, str(e)) from e
         set_setting(conn, "tariff", json.dumps({**ctx.tariff(), **new}))
-        # Legacy clients still send the home coordinates with the tariff; keep the home place in step. An omitted or
-        # cleared coordinate is not a home: it leaves the place alone instead of moving or deleting it.
+        # Legacy clients still send the home coordinates with the tariff; keep the home place in step. An omitted,
+        # cleared or non-finite coordinate is not a home: it leaves the place alone (SQLite stores NaN as NULL).
         lat, lon = new.get("home_lat"), new.get("home_lon")
-        if lat is not None and lon is not None:
+        if lat is not None and lon is not None and math.isfinite(lat) and math.isfinite(lon):
             places.upsert_home(conn, lat, lon, new.get("home_radius_m"))
     for key, val, lo, hi in (("poll_idle_s", body.poll_idle_s, 180, 6 * 3600), ("poll_active_s", body.poll_active_s, 180, 3600),
                              ("command_reserve", body.command_reserve, 0, 10)):

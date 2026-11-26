@@ -3,7 +3,8 @@ import io
 import json
 import sqlite3
 
-from skoda_mate import recorder
+from skoda_mate import recorder, store
+from skoda_mate.routers.settings import SettingsBody, put_settings
 
 from .fixtures import VIN, bev
 from .helpers import FakeApi, client_for, make_app, sign_up
@@ -198,6 +199,29 @@ def test_home_here_keeps_the_home_radius():
     c.post(f"/api/vehicles/{vid}/home-here")
     home = conn.execute("SELECT * FROM geofences WHERE kind='home'").fetchone()
     assert (home["lat"], home["lon"], home["radius_m"]) == (50.11, 8.68, 300)
+
+
+def test_home_here_needs_both_coordinates():
+    """normalise.py writes lat and lon independently; a one-sided position must be a 400, not float(None)."""
+    c, conn, api, vid = connected()
+    store.save_sections(conn, vid, {"position": {"state": "PARKED", "lat": 50.11, "lon": None}},
+                        "2027-02-10T08:00:00+00:00")
+    conn.commit()
+    r = c.post(f"/api/vehicles/{vid}/home-here")
+    assert r.status_code == 400
+    assert r.json()["detail"] == "The car's position is not known yet (it is moving or not reported)."
+    assert conn.execute("SELECT COUNT(*) FROM geofences WHERE kind='home'").fetchone()[0] == 0
+
+
+def test_non_finite_settings_coordinates_keep_the_home_place():
+    """NaN/Infinity pass clean_tariff; SQLite stores NaN as NULL against the NOT NULL coordinates."""
+    c, conn, api, vid = connected()
+    c.put("/api/settings", json={"tariff": {"home_lat": 50.0, "home_lon": 8.0, "home_radius_m": 200}})
+    ctx = c.app.state.ctx
+    for bad in (float("nan"), float("inf")):
+        put_settings(SettingsBody(tariff={"home_lat": bad, "home_lon": 8.0}), ctx)
+        home = conn.execute("SELECT * FROM geofences WHERE kind='home'").fetchone()
+        assert (home["lat"], home["lon"], home["radius_m"]) == (50.0, 8.0, 200)
 
 
 def test_statistics_and_battery_estimate():
