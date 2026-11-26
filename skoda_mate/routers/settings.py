@@ -6,7 +6,7 @@ import json
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from .. import costs, store
+from .. import costs, places, store
 from ..deps import ContextDep
 from ..presenters import rows
 from ..store import get_setting, set_setting
@@ -48,6 +48,11 @@ def put_settings(body: SettingsBody, ctx: ContextDep):
         except (ValueError, TypeError) as e:
             raise HTTPException(400, str(e)) from e
         set_setting(conn, "tariff", json.dumps({**ctx.tariff(), **new}))
+        # Legacy clients still send the home coordinates with the tariff; keep the home place in step. An omitted or
+        # cleared coordinate is not a home: it leaves the place alone instead of moving or deleting it.
+        lat, lon = new.get("home_lat"), new.get("home_lon")
+        if lat is not None and lon is not None:
+            places.upsert_home(conn, lat, lon, new.get("home_radius_m"))
     for key, val, lo, hi in (("poll_idle_s", body.poll_idle_s, 180, 6 * 3600), ("poll_active_s", body.poll_active_s, 180, 3600),
                              ("command_reserve", body.command_reserve, 0, 10)):
         if val is not None:
