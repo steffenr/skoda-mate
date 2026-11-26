@@ -15,7 +15,7 @@ extendDE({
   'Could not load the map data': 'Kartendaten konnten nicht geladen werden', 'Try again': 'Erneut versuchen', 'The car is driving: its position is not reported while moving.': 'Das Auto fährt: Die Position wird während der Fahrt nicht gemeldet.',
   'Dashed lines connect the start and end of a trip. They are straight lines, not the route driven, which the car does not report.': 'Gestrichelte Linien verbinden Start und Ziel einer Fahrt. Es sind Luftlinien, nicht die gefahrene Route, denn diese meldet das Auto nicht.',
   'Places are grouped within about 100 m. The number counts readings taken while parked there, so it grows with parking time, not only with visits.': 'Orte werden im Umkreis von etwa 100 m zusammengefasst. Die Zahl zählt Messungen im Stand an diesem Ort und wächst daher mit der Parkdauer, nicht nur mit der Zahl der Besuche.',
-  'Click a circle on the map to open its place.': 'Klicke auf der Karte auf einen Kreis, um seinen Ort zu öffnen.',
+  'Click a circle on the map, or choose the place from the list with the keyboard, to open it.': 'Klicken Sie auf der Karte auf einen Kreis oder wählen Sie den Ort mit der Tastatur in der Liste aus, um ihn zu öffnen.',
   'Home': 'Zuhause', 'trips': 'Fahrten', 'trip': 'Fahrt', 'Charge': 'Ladevorgang', 'Unknown place': 'Unbekannter Ort', 'Start': 'Start', 'End': 'Ende', 'Position reported': 'Position gemeldet',
   'Showing only the newest {n} per layer.': 'Es werden nur die neuesten {n} je Ebene gezeigt.',
   'Showing the newest {n} per layer.': 'Es werden die neuesten {n} je Ebene gezeigt.',
@@ -67,7 +67,7 @@ export default async function mapPage(root, ctx) {
     const readings = new Map();
     for (const c of clusters) if (c.placeId != null) readings.set(c.placeId, (readings.get(c.placeId) || 0) + c.n);
     const places = (data.places || []).filter((p) => ok(p.lat, p.lon)).map((p) => ({
-      lat: p.lat, lon: p.lon, place: p, n: readings.get(p.id) || 0, href: `#/places/${p.id}`,
+      lat: p.lat, lon: p.lon, place: p, placeId: p.id, n: readings.get(p.id) || 0, href: `#/places/${p.id}`,
       title: displayName(p), home: p.kind === 'home',
       sub: `${p.visit_count ?? 0} ${t('Visits')} · ${p.day_count ?? 0} ${t('Days')} · ${t('last seen')} ${p.last_seen ? f.dateTime(p.last_seen) : '–'}`,
     }));
@@ -76,9 +76,9 @@ export default async function mapPage(root, ctx) {
     items = {
       parked: [...places, ...unmatched],
       charges: (data.charges || []).filter((c) => ok(c.lat, c.lon)).map((c) => {
-        const placeName = nameOf(c.geofence_id);
-        const where = placeName || (c.address ? f.shortPlace(c.address) : t('Unknown place'));
-        return { lat: c.lat, lon: c.lon, kind: 'c', href: `#/charges/${c.id}`, title: where,
+        const place = c.geofence_id != null ? placeById.get(c.geofence_id) : null;
+        const where = place ? displayName(place) : c.address ? f.shortPlace(c.address) : t('Unknown place');
+        return { lat: c.lat, lon: c.lon, kind: 'c', href: `#/charges/${c.id}`, title: where, placeId: place ? place.id : null,
           sub: `${f.dateTime(c.started_at)} · ${f.kwh(c.energy_kwh)}${c.charge_type ? ` · ${c.charge_type}` : ''}`,
           label: `${t('Charge')}: ${where} · ${f.kwh(c.energy_kwh)}`, home: isHome(c.lat, c.lon) };
       }),
@@ -95,16 +95,23 @@ export default async function mapPage(root, ctx) {
     items.trips = [...pairs.values()].map((e) => {
       const from = nameOf(e.start_geofence_id) || (e.start_place ? f.shortPlace(e.start_place) : t('Unknown place'));
       const to = nameOf(e.end_geofence_id) || (e.end_place ? f.shortPlace(e.end_place) : t('Unknown place'));
+      const endPlace = e.end_geofence_id != null ? placeById.get(e.end_geofence_id) : null;
       return { lat: e.end_lat, lon: e.end_lon, kind: 'b', line: [[e.start_lat, e.start_lon], [e.end_lat, e.end_lon]], start: [e.start_lat, e.start_lon], n: e.n,
+        placeId: endPlace ? endPlace.id : null,
         title: `${from} → ${to}`,
         sub: `${e.n} ${e.n === 1 ? t('trip') : t('trips')} · ${f.km(e.km / e.n, 1)} · ${t('last seen')} ${f.date(e.last)}`,
         label: `${t('End')}: ${to}`, startLabel: `${t('Start')}: ${from}`, href: `#/trips/${e.id}` };
     });
   }
 
+  // R12: a focused item fits only its own place's circle; an item without a place gets none. Without focus, every
+  // place keeps its circle. Either way a circle keeps its id and click handler (R8).
   function circles() {
-    return (data.places || []).filter((p) => ok(p.lat, p.lon)).map((p) => ({ lat: p.lat, lon: p.lon, radius: p.radius_m,
+    const all = (data.places || []).filter((p) => ok(p.lat, p.lon)).map((p) => ({ lat: p.lat, lon: p.lon, radius: p.radius_m,
       color: p.color || undefined, label: displayName(p), id: p.id }));
+    if (!focus) return all;
+    const id = items[focus.layer]?.[focus.i]?.placeId;
+    return id == null ? [] : all.filter((c) => c.id === id);
   }
 
   function pushItem(layer, it, m, lines) {
@@ -184,7 +191,7 @@ export default async function mapPage(root, ctx) {
     mount(listBox,
       focus ? h('div', null, button(t('Show everything'), { onClick: () => { focus = null; drawList(); paintMap(true); }, ic: 'map', size: 'sm' })) : null,
       ...sections,
-      h('p', { class: 'tiny muted' }, t('Click a circle on the map to open its place.')),
+      h('p', { class: 'tiny muted' }, t('Click a circle on the map, or choose the place from the list with the keyboard, to open it.')),
       h('p', { class: 'tiny muted' }, t('Places are grouped within about 100 m. The number counts readings taken while parked there, so it grows with parking time, not only with visits.')),
       h('p', { class: 'tiny muted' }, t('Dashed lines connect the start and end of a trip. They are straight lines, not the route driven, which the car does not report.')));
   }

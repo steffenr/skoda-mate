@@ -134,6 +134,43 @@ const circleHash = await d.evaluate(async () => {
   return location.hash;
 });
 check('a map circle opens its place detail', /^#\/places\/\d+$/.test(circleHash), circleHash);
+// R12: focusing one item fits that item, not every place. The focused paint used to pass every place circle, so "Show
+// on map" for a charge or trip zoomed back out to the whole set. Focus a linked charge, then a trip, and check that
+// only the focused place's circle remains and the charge view is centred on the charge and closer than all places.
+await d.goto(`${BASE}/#/map`, { waitUntil: 'networkidle0' });
+await sleep(2500);
+const focusViews = await d.evaluate(async () => {
+  const map = document.querySelector('#main .map')?.map;
+  if (!map) return { error: 'no map' };
+  const filled = () => [...document.querySelectorAll('#main .leaflet-overlay-pane path.leaflet-interactive')]
+    .filter((p) => p.getAttribute('fill') && p.getAttribute('fill') !== 'none');
+  const all = { zoom: map.getZoom(), circles: filled().length };
+  const data = await fetch('/api/vehicles/1/map?limit=1000').then((r) => r.json());
+  const placeIds = new Set((data.places || []).map((p) => p.id));
+  const charges = (data.charges || []).filter((c) => c.lat != null && c.lon != null);
+  const linked = charges.findIndex((c) => placeIds.has(c.geofence_id));
+  const section = (re) => [...document.querySelectorAll('#main section')].find((s) => re.test(s.querySelector('h3')?.textContent || ''));
+  const clickRow = (sec, i = 0) => {
+    const row = [...(sec?.querySelectorAll('button.a-item') || [])][i];
+    if (!row) return false;
+    row.click();
+    return true;
+  };
+  if (linked < 0 || !clickRow(section(/Charge locations/), linked)) return { error: 'no linked charge row' };
+  await new Promise((r) => setTimeout(r, 700));
+  const charge = { zoom: map.getZoom(), circles: filled().length, center: map.getCenter() };
+  const tripBefore = map.getZoom();
+  if (!clickRow(section(/Trip start and end/))) return { error: 'no trip row' };
+  await new Promise((r) => setTimeout(r, 700));
+  const trip = { zoom: map.getZoom(), before: tripBefore, circles: filled().length };
+  return { all, charge, trip, target: charges[linked] };
+});
+check('map focus fits the chosen item, not every place', !!focusViews && !focusViews.error
+  && focusViews.all.circles > 1 && focusViews.charge.circles === 1
+  && Math.abs(focusViews.charge.center.lat - focusViews.target.lat) < 0.02
+  && Math.abs(focusViews.charge.center.lng - focusViews.target.lon) < 0.02
+  && focusViews.charge.zoom > focusViews.all.zoom && focusViews.trip.circles <= 1,
+  focusViews ? (focusViews.error || `all z${focusViews.all.zoom}/${focusViews.all.circles}c charge z${focusViews.charge.zoom}/${focusViews.charge.circles}c trip z${focusViews.trip.before}→${focusViews.trip.zoom}/${focusViews.trip.circles}c`) : 'no result');
 // The plugin is optional: with its files blocked the map must still show plain pins, without an error page or banner.
 const fb = await browser.newPage();
 watch(fb);
