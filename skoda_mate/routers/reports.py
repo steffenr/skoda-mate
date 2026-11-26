@@ -78,10 +78,11 @@ def events(vid: int, ctx: ContextDep, kind: str | None = None, q: str | None = N
 
 
 @router.get("/api/vehicles/{vid}/map")
-def map_(vid: int, ctx: ContextDep, limit: int = Query(1000, ge=1, le=2000)):
+def map_(vid: int, ctx: ContextDep, limit: int = Query(1000, ge=1, le=2000),
+         tz_offset: int = Query(0, ge=-840, le=840)):
     vehicle(ctx.conn, vid)
     sec = store.load_sections(ctx.conn, vid)
-    return {**stats.map_points(ctx.conn, vid, limit), "places": places.summaries(ctx.conn), "limit": limit,
+    return {**stats.map_points(ctx.conn, vid, limit), "places": places.summaries(ctx.conn, tz_offset), "limit": limit,
             "current": sec.get("position"), "tariff": ctx.tariff()}
 
 

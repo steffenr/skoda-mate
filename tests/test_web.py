@@ -272,6 +272,26 @@ def test_map_marks_a_parked_cluster_inside_a_place():
     assert m["limit"] == 1000 and any(p["place_id"] == place["id"] for p in m["parked"])
 
 
+def test_map_place_days_use_the_browser_offset():
+    """R14: the map's place rows count days in the same local day as the places pages."""
+    c, conn, api, vid = connected()
+    seed_trip(conn, vid, day="2027-02-10")
+    seed_trip(conn, vid, day="2027-02-11")
+    conn.execute("UPDATE trips SET ended_at='2027-02-10T23:30:00+00:00' WHERE started_at LIKE '2027-02-10%'")
+    conn.execute("UPDATE trips SET ended_at='2027-02-11T22:30:00+00:00' WHERE started_at LIKE '2027-02-11%'")
+    conn.commit()
+    work = c.post("/api/places", json={"name": "Office", "kind": "work", "lat": 50.4, "lon": 8.4}).json()
+
+    def map_days(tz: int) -> int:
+        places = c.get(f"/api/vehicles/{vid}/map?tz_offset={tz}").json()["places"]
+        return next(p for p in places if p["id"] == work["id"])["day_count"]
+
+    assert map_days(0) == 2  # UTC: one arrival per day
+    assert map_days(-60) == 1  # CET: both arrivals are on the 11th locally
+    assert c.get(f"/api/vehicles/{vid}/map?tz_offset=841").status_code == 422
+    assert c.get(f"/api/vehicles/{vid}/map?tz_offset=-841").status_code == 422
+
+
 def test_places_crud_and_one_home():
     c, conn, api, vid = connected()
     seed_trip(conn, vid)
@@ -284,6 +304,37 @@ def test_places_crud_and_one_home():
     assert edited["name"] == "Office 2" and edited["radius_m"] == 80
     assert c.delete(f"/api/places/{home['id']}").status_code == 400
     assert c.delete(f"/api/places/{work['id']}").json() == {"ok": True, "trips": 1, "charges": 0}
+
+
+def test_moving_the_home_place_mirrors_its_position_into_the_tariff():
+    """R15: the cost engine and the map's near-home fallback read the legacy tariff home position."""
+    c, conn, api, vid = connected()
+    home = c.post("/api/places", json={"name": "Home", "kind": "home", "lat": 50.0, "lon": 8.0,
+                                        "radius_m": 150}).json()
+    c.put(f"/api/places/{home['id']}", json={"name": "Home", "kind": "home", "lat": 50.2, "lon": 8.2,
+                                             "radius_m": 150})
+    tariff = c.get("/api/settings").json()["tariff"]
+    assert (tariff["home_lat"], tariff["home_lon"]) == (50.2, 8.2)
+
+
+def test_resizing_the_home_place_mirrors_its_radius_into_the_tariff():
+    c, conn, api, vid = connected()
+    home = c.post("/api/places", json={"name": "Home", "kind": "home", "lat": 50.0, "lon": 8.0,
+                                        "radius_m": 150}).json()
+    c.put(f"/api/places/{home['id']}", json={"name": "Home", "kind": "home", "lat": 50.0, "lon": 8.0,
+                                             "radius_m": 300})
+    assert c.get("/api/settings").json()["tariff"]["home_radius_m"] == 300
+
+
+def test_converting_a_place_to_home_mirrors_it_into_the_tariff():
+    c, conn, api, vid = connected()
+    place = c.post("/api/places", json={"name": "Casa", "kind": "work", "lat": 51.0, "lon": 9.0,
+                                         "radius_m": 200}).json()
+    assert c.get("/api/settings").json()["tariff"]["home_lat"] is None  # not a home: no mirror
+    c.put(f"/api/places/{place['id']}", json={"name": "Casa", "kind": "home", "lat": 51.0, "lon": 9.0,
+                                              "radius_m": 200})
+    tariff = c.get("/api/settings").json()["tariff"]
+    assert (tariff["home_lat"], tariff["home_lon"], tariff["home_radius_m"]) == (51.0, 9.0, 200)
 
 
 def test_place_validation():
