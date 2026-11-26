@@ -423,3 +423,29 @@ a.card:hover { border-color: var(--control-line); }
   .pl-det-row { flex-direction: column; align-items: stretch; }
   .pl-det-row .btn { width: 100%; }
 }
+/* place detail: title row, compact stats, and the charge cost cell with its basis chip */
+.pd-title { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.pd-title h1 { margin: 0; overflow-wrap: anywhere; }
+.pd-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.pd-date { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.pd-date .icon { color: var(--muted); }
+.pd-when { white-space: nowrap; }
+.pd-when .tiny { display: block; line-height: 1.35; }
+.pd-stats { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.pd-cost { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
+.pd-basis { justify-content: flex-end; }
+.pd-basis .chip { padding: 2px 6px; font-size: 11px; }
+@media (max-width: 1100px) {
+  .pd-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 760px) {
+  .pd-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pd-stats > :last-child:nth-child(odd) { grid-column: 1 / -1; }
+}
+@media (max-width: 560px) {
+  .pd-title h1 { font-size: 26px; }
+  /* four columns with stacked dates: 13px and tighter cells keep the status visible without a sideways swipe */
+  .pd-visits table.t { font-size: 13px; }
+  .pd-visits table.t th, .pd-visits table.t td { padding-left: 6px; padding-right: 6px; }
+  .pd-visits .chip { padding: 2px 4px; font-size: 11px; }
+}
