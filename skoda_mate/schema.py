@@ -5,6 +5,8 @@
 """
 from __future__ import annotations
 
+import json
+import math
 import os
 import sqlite3
 import threading
@@ -12,6 +14,16 @@ from pathlib import Path
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+-- Named geofences: the saved home position, plus places the user adds on the map.
+CREATE TABLE IF NOT EXISTS geofences (
+    id INTEGER PRIMARY KEY, name TEXT NOT NULL, kind TEXT NOT NULL DEFAULT 'place',
+    lat REAL NOT NULL, lon REAL NOT NULL, radius_m INTEGER NOT NULL DEFAULT 150, color TEXT,
+    price_kwh REAL, price_minute REAL, session_fee REAL, free INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%S+00:00','now')),
+    updated_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%S+00:00','now'))
+);
+-- One home place at most: a home is matched by kind, so the database enforces the single row.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_geofences_one_home ON geofences(kind) WHERE kind='home';
 CREATE TABLE IF NOT EXISTS vehicles (
     id INTEGER PRIMARY KEY, vin TEXT UNIQUE NOT NULL, name TEXT, model TEXT,
     battery_kwh REAL, created_at TEXT DEFAULT (datetime('now'))
@@ -76,6 +88,8 @@ EXTRA_COLUMNS: dict[str, dict[str, str]] = {
         "in_motion": "INTEGER", "ignition_on": "INTEGER", "reachable": "INTEGER", "battery_protection": "INTEGER",
         "doors_json": "TEXT", "captured_at": "TEXT",
         "aux_state": "TEXT", "vent_state": "TEXT", "fully_charged_at": "TEXT", "park_captured_at": "TEXT",
+        # Part of the base table; repeated here so the place index can be built on a database that predates it.
+        "lat": "REAL", "lon": "REAL",
     },
     "trips": {
         # Trips are derived by Mate (the official API has no trip data): odometer + PARKED/IN_MOTION snapshots.
@@ -88,6 +102,7 @@ EXTRA_COLUMNS: dict[str, dict[str, str]] = {
         # Provenance and the extra figures of the app's CSV export (see importer.py)
         "source": "TEXT", "driving_min": "INTEGER", "public_stops": "INTEGER", "public_soc_gained": "REAL",
         "merged_json": "TEXT",  # the trips this one was merged from (kept so a merge can be undone and a re-import does not re-add them)
+        "start_geofence_id": "INTEGER", "end_geofence_id": "INTEGER",  # the named place a trip started/ended in
     },
     "commands": {"params": "TEXT", "http_status": "INTEGER", "kind": "TEXT", "source": "TEXT"},
     "charges": {
@@ -95,8 +110,18 @@ EXTRA_COLUMNS: dict[str, dict[str, str]] = {
         "duration_min": "INTEGER", "address": "TEXT", "target_soc": "REAL",
         "energy_battery_kwh": "REAL",  # soc delta x battery capacity: what reached the pack
         "end_estimated": "INTEGER DEFAULT 0",  # 1 = no reading when it ended: ended_at is worked out from the last one
+        "geofence_id": "INTEGER",  # the named place the charge happened in
     },
 }
+
+# Indexes on columns that arrive through EXTRA_COLUMNS: the column has to exist before its index, so these run
+# after the ALTER loop instead of in SCHEMA (which is executed first).
+COLUMN_INDEXES = """
+CREATE INDEX IF NOT EXISTS idx_snapshots_place ON snapshots(vehicle_id, lat, lon) WHERE lat IS NOT NULL AND lon IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_trips_start_geofence ON trips(start_geofence_id);
+CREATE INDEX IF NOT EXISTS idx_trips_end_geofence ON trips(end_geofence_id);
+CREATE INDEX IF NOT EXISTS idx_charges_geofence ON charges(geofence_id);
+"""
 
 
 class _Result:
@@ -190,7 +215,9 @@ def migrate(conn) -> None:
         for col, typ in cols.items():
             if col not in have:
                 conn.execute(f"ALTER TABLE {table} ADD COLUMN {col} {typ}")
+    conn.executescript(COLUMN_INDEXES)
     dedupe_trips(conn)
+    _seed_home_geofence(conn)
     conn.commit()
 
 
@@ -213,3 +240,27 @@ def dedupe_trips(conn) -> int:
                            (d["vehicle_id"], d["started_at"], d["ended_at"], d["keep"]))
         removed += cur.rowcount
     return removed
+
+
+def _seed_home_geofence(conn) -> None:
+    """Give the home position saved in `settings.tariff` its place, exactly once.
+
+    Existing databases already know where home is, so the first migrate after this version turns that into the
+    single home geofence instead of asking the user to set it again. A missing, unreadable or half-written tariff
+    leaves the geofences table alone, and an existing home row is never touched or duplicated."""
+    if conn.execute("SELECT 1 FROM geofences WHERE kind='home' LIMIT 1").fetchone():
+        return
+    try:
+        row = conn.execute("SELECT value FROM settings WHERE key='tariff'").fetchone()
+        tariff = json.loads(row["value"]) if row else {}
+        lat, lon = float(tariff["home_lat"]), float(tariff["home_lon"])
+    except (ValueError, TypeError, KeyError):
+        return
+    if not (math.isfinite(lat) and math.isfinite(lon)):
+        return
+    try:
+        radius = int(tariff.get("home_radius_m") or 150)
+    except (ValueError, TypeError):
+        radius = 150
+    conn.execute("INSERT INTO geofences(name,kind,lat,lon,radius_m) VALUES('Home','home',?,?,?)",
+                 (lat, lon, max(20, min(5000, radius))))
