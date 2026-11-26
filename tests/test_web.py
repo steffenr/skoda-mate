@@ -270,9 +270,11 @@ def test_place_detail_lists_visits_and_charges():
     c, conn, api, vid = connected()
     seed_trip(conn, vid)
     seed_charge(conn, vid, lat=50.4, lon=8.4)
-    work = c.post("/api/places", json={"name": "Office", "kind": "work", "lat": 50.4, "lon": 8.4, "radius_m": 150}).json()
+    work = c.post("/api/places", json={"name": "Office", "kind": "work", "lat": 50.4, "lon": 8.4, "radius_m": 150,
+                                        "price_kwh": 0.50}).json()
     d = c.get(f"/api/places/{work['id']}?tz_offset=0").json()
     assert d["visit_count"] == 1 and len(d["visits"]) == 1 and d["charged_kwh"] > 0
+    assert d["charges"][0]["cost_basis"] == "place" and d["charges"][0]["place_kind_resolved"] == "public"
 
 
 def test_battery_history_draws_a_drive_even_without_readings_during_it():
