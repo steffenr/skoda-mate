@@ -95,6 +95,36 @@ check('map falls back to plain pins without the cluster plugin', fallback.pins >
 if (SHOTS) await fb.screenshot({ path: `${SHOTS}/map-fallback.png` });
 await fb.close();
 
+// ---------------------------------------------------------------- 4. the legacy ownerless circle must not swallow map clicks
+// The prices page draws a bare `circle` (a radius hint, no id) and asks the user to click the map to place the home pin.
+// Under R8 only a circle that identifies a place (id) is interactive, so this one has to stay click-through.
+await d.goto(`${BASE}/#/prices`, { waitUntil: 'networkidle0' });
+await d.waitForSelector('#main .map.leaflet-container', { timeout: 10000 }).catch(() => {});
+await sleep(1200);
+const clickPlace = await d.evaluate(() => {
+  const coords = () => [...document.querySelectorAll('#main .grid.g3 input[type=number]')];
+  const radius = coords()[2];
+  if (!radius) return null;
+  radius.value = '5000';  // cover the whole viewport, so the click below is certainly inside the circle
+  radius.dispatchEvent(new Event('input', { bubbles: true }));
+  const map = document.querySelector('#main .map.leaflet-container');
+  if (!map) return null;
+  map.scrollIntoView({ block: 'center' });
+  const b = map.getBoundingClientRect();
+  return { x: b.left + b.width * 0.7, y: b.top + b.height * 0.7, before: coords().slice(0, 2).map((i) => i.value) };
+});
+await sleep(600);
+if (clickPlace) await d.mouse.click(clickPlace.x, clickPlace.y);
+await sleep(400);
+const placed = await d.evaluate(() => ({
+  latlon: [...document.querySelectorAll('#main .grid.g3 input[type=number]')].slice(0, 2).map((i) => i.value),
+  circles: document.querySelectorAll('#main .leaflet-overlay-pane path').length,
+  interactive: document.querySelectorAll('#main .leaflet-overlay-pane path.leaflet-interactive').length,
+}));
+check('ownerless circle keeps click-to-place on the prices map',
+  !!clickPlace && placed.circles > 0 && placed.interactive === 0 && placed.latlon[0] !== clickPlace.before[0] && placed.latlon[1] !== clickPlace.before[1],
+  `circle=${placed.circles} interactive=${placed.interactive} ${clickPlace?.before.join(',')} → ${placed.latlon.join(',')}`);
+
 const before = await d.evaluate(() => fetch('/health').then((r) => r.json()));
 await d.evaluate(() => [...document.querySelectorAll('.topbar button')].find((b) => /Refresh now/.test(b.textContent)).click());
 await sleep(1800);

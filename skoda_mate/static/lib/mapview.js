@@ -92,6 +92,8 @@ const cssColor = (name, fallback) => getComputedStyle(document.documentElement).
  * mapView({height:'short'|''|'tall', markers:[{lat,lon,kind?,label?,scale?,draggable?,noCluster?,onDrag?}],
  *   lines:[[ [lat,lon], [lat,lon] ]], circles:[{lat,lon,radius,color?,label?,id?}], circle?:{...}, cluster?:false,
  *   onCircleClick?: (id) => void, onMapClick?: (lat, lon) => void, fit?:true})
+ * A circle's `label` becomes a text tooltip; only a circle with an `id` is clickable (onCircleClick) and stops map clicks,
+ * so the legacy ownerless `circle` stays click-through.
  * Returns a container element immediately; the map appears when Leaflet is ready. `.update(opts)` redraws markers.
  */
 export function mapView(opts) {
@@ -120,9 +122,13 @@ export function mapView(opts) {
     if (o.circle && o.circle.lat != null) circles.unshift(o.circle);  // e.g. the home radius; kept for older callers
     for (const c of circles) {
       if (c.lat == null) continue;
+      // Only a circle that identifies a place is interactive: the legacy ownerless `o.circle` (e.g. the prices page's home
+      // radius) stays a passive hint, so a click inside it still reaches the map's click-to-place handler.
+      const place = c.id != null;
       const shape = L.circle([c.lat, c.lon], { radius: c.radius, color: c.color || o.lineColor || cssColor('--accent', '#0b7a52'),
-        weight: 1.5, fillOpacity: 0.08, interactive: true, bubblingMouseEvents: false }).addTo(lineLayer);
-      shape.on('click', (e) => { stopClick(e); if (c.id != null) o.onCircleClick?.(c.id); });
+        weight: 1.5, fillOpacity: 0.08, interactive: place, bubblingMouseEvents: false }).addTo(lineLayer);
+      if (c.label) shape.bindTooltip(h('div', null, String(c.label)));  // a DOM node, never a string: Leaflet parses strings as HTML
+      if (place) shape.on('click', (e) => { stopClick(e); o.onCircleClick?.(c.id); });
       if (o.fit !== false) {  // circle.getBounds() needs a map view that does not exist yet on first paint: do the maths
         const dLat = c.radius / 111320, dLon = dLat / Math.max(0.2, Math.cos((c.lat * Math.PI) / 180));
         bounds.push([c.lat - dLat, c.lon - dLon], [c.lat + dLat, c.lon + dLon]);
