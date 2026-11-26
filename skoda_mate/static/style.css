@@ -394,3 +394,31 @@ a.card:hover { border-color: var(--control-line); }
 .fig .l { font-size: 12px; color: var(--muted); }
 .fig.lead .n { color: var(--good); }
 @media (max-width: 520px) { .figs { grid-template-columns: 1fr !important; } .fig + .fig { border-left: 0; border-top: 1px solid var(--line); } }
+/* places page: named geofences, their map, and parking spots that have no place yet */
+.pl-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.pl-head h1 { margin: 0; }
+.pl-list { display: grid; }
+.pl-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; border-bottom: 1px solid var(--line); }
+.pl-row:last-child { border-bottom: 0; }
+.pl-row:hover { background: var(--surface-2); }
+.pl-row-link { display: grid; grid-template-columns: minmax(0, 1fr) 16px; align-items: center; gap: 10px; min-width: 0; padding: 12px 4px 12px 0; color: inherit; text-decoration: none; }
+.pl-row-link > .icon { color: var(--muted); }
+.pl-row-main { display: grid; grid-template-columns: auto auto; justify-content: start; align-items: center; gap: 4px 8px; min-width: 0; }
+.pl-name { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+.pl-name strong { min-width: 0; overflow-wrap: anywhere; }
+.pl-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); flex: none; }
+.pl-meta { grid-column: 1 / -1; }
+.pl-detected { display: grid; }
+.pl-det-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.pl-det-row:last-child { border-bottom: 0; }
+.pl-det-main { min-width: 0; }
+.pl-coords { display: flex; align-items: flex-start; gap: 8px; padding: 10px 12px; background: var(--surface-2); border-radius: var(--radius-sm); font-variant-numeric: tabular-nums; }
+.pl-coords .icon { color: var(--muted); margin-top: 2px; }
+.pl-check { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 14px; min-height: 38px; cursor: pointer; }
+.pl-check input { width: 18px; height: 18px; accent-color: var(--accent); flex: none; }
+@media (max-width: 560px) {
+  .pl-head { flex-direction: column; align-items: stretch; }
+  .pl-head .btn { width: 100%; }
+  .pl-det-row { flex-direction: column; align-items: stretch; }
+  .pl-det-row .btn { width: 100%; }
+}
