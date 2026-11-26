@@ -77,6 +77,24 @@ await d.evaluate(() => document.querySelector('.brand').click());
 await sleep(900);
 check('clicking "Škoda Mate" opens the Overview', await d.evaluate(() => location.hash === '#/' || location.hash === '' || location.hash === '#'), await d.evaluate(() => location.hash));
 
+// ---------------------------------------------------------------- 3. map clustering and its fallback
+await d.goto(`${BASE}/#/map`, { waitUntil: 'networkidle0' });
+await sleep(2500);
+const clusters = await d.evaluate(() => document.querySelectorAll('.marker-cluster').length);
+check('map clusters crowded pins', clusters > 0, `${clusters} cluster(s)`);
+if (SHOTS) await d.screenshot({ path: `${SHOTS}/map-clusters.png` });
+// The plugin is optional: with its files blocked the map must still show plain pins, without an error page or banner.
+const fb = await browser.newPage();
+watch(fb);
+await fb.setRequestInterception(true);
+fb.on('request', (req) => (req.url().includes('markercluster') ? req.abort() : req.continue()));
+await fb.goto(`${BASE}/#/map`, { waitUntil: 'networkidle0' });
+await sleep(2500);
+const fallback = await fb.evaluate(() => ({ pins: document.querySelectorAll('#main .pin').length, text: document.getElementById('main').innerText }));
+check('map falls back to plain pins without the cluster plugin', fallback.pins > 0 && !/Something went wrong/.test(fallback.text), `${fallback.pins} pin(s)`);
+if (SHOTS) await fb.screenshot({ path: `${SHOTS}/map-fallback.png` });
+await fb.close();
+
 const before = await d.evaluate(() => fetch('/health').then((r) => r.json()));
 await d.evaluate(() => [...document.querySelectorAll('.topbar button')].find((b) => /Refresh now/.test(b.textContent)).click());
 await sleep(1800);
