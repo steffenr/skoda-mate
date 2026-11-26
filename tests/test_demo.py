@@ -30,6 +30,15 @@ def test_demo_mode_needs_no_login_or_account_and_has_history():
         assert c.get(f"/api/vehicles/{vid}/battery").json()["samples"] >= 1
 
 
+def test_demo_has_named_places_and_links():
+    with demo_client() as c:
+        conn = c.app.state.ctx.conn
+        names = {p["name"] for p in c.get("/api/places").json()["items"]}
+        assert {"Home", "Work", "Shop", "Darmstadt"} <= names
+        assert conn.execute("SELECT COUNT(*) FROM trips WHERE start_geofence_id IS NULL").fetchone()[0] == 0
+        assert conn.execute("SELECT COUNT(*) FROM charges WHERE geofence_id IS NULL").fetchone()[0] == 0
+
+
 def test_demo_commands_change_the_demo_car_and_setup_is_refused():
     with demo_client() as c:
         vid = c.get("/api/vehicles").json()[0]["id"]

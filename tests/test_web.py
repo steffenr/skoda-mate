@@ -196,6 +196,25 @@ def test_events_history_and_map():
     assert any(p["address"] == "Work" for p in m["parked"])
 
 
+def test_map_returns_places_and_respects_the_limit():
+    c, conn, api, vid = connected()
+    seed_trip(conn, vid)
+    work = c.post("/api/places", json={"name": "Office", "kind": "work", "lat": 50.4, "lon": 8.4, "radius_m": 150}).json()
+    m = c.get(f"/api/vehicles/{vid}/map?limit=1").json()
+    assert m["limit"] == 1 and len(m["parked"]) <= 1
+    assert any(p["id"] == work["id"] and p["visit_count"] == 1 for p in m["places"])
+    assert c.get(f"/api/vehicles/{vid}/map?limit=0").status_code == 422
+    assert c.get(f"/api/vehicles/{vid}/map?limit=2001").status_code == 422
+    assert m["tariff"]["currency"] == "EUR"  # the map keeps its live position and tariff
+
+
+def test_map_marks_a_parked_cluster_inside_a_place():
+    c, conn, api, vid = connected()
+    place = c.post("/api/places", json={"name": "Parked", "kind": "place", "lat": 50.11, "lon": 8.68, "radius_m": 150}).json()
+    m = c.get(f"/api/vehicles/{vid}/map").json()
+    assert m["limit"] == 1000 and any(p["place_id"] == place["id"] for p in m["parked"])
+
+
 def test_places_crud_and_one_home():
     c, conn, api, vid = connected()
     seed_trip(conn, vid)

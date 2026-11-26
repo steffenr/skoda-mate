@@ -15,7 +15,7 @@ from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
 from starlette.background import BackgroundTask
 
-from .. import __version__, commands, stats, store
+from .. import __version__, commands, places, stats, store
 from ..deps import ContextDep
 from ..presenters import csv_cell, local_bound, redact, rows, snap_out, vehicle
 
@@ -78,10 +78,11 @@ def events(vid: int, ctx: ContextDep, kind: str | None = None, q: str | None = N
 
 
 @router.get("/api/vehicles/{vid}/map")
-def map_(vid: int, ctx: ContextDep):
+def map_(vid: int, ctx: ContextDep, limit: int = Query(1000, ge=1, le=2000)):
     vehicle(ctx.conn, vid)
     sec = store.load_sections(ctx.conn, vid)
-    return {**stats.map_points(ctx.conn, vid), "current": sec.get("position"), "tariff": ctx.tariff()}
+    return {**stats.map_points(ctx.conn, vid, limit), "places": places.summaries(ctx.conn), "limit": limit,
+            "current": sec.get("position"), "tariff": ctx.tariff()}
 
 
 @router.get("/api/vehicles/{vid}/commands")
