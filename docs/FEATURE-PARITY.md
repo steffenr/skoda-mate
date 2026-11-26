@@ -25,6 +25,7 @@ Status per leapmotor-mate feature (from its README), checked against the officia
 | Charging-station names, find chargers | – | Not possible (not in the API) |
 | Wallbox integration, V2L | – | Not possible |
 | Home position | Map picker with locate button, radius | Done |
+| Named places with per-place prices and visit history | Places page and detail: name, kind, radius, colour, per-place prices; visits, days, parked time, energy and cost | Done (new) |
 | Remote control: locks, windows, trunk, find car | – | Not possible (no lock/unlock/honk in the API) |
 | Climate | Start/stop with temperature, without-external-power option | Done |
 | Seat / steering-wheel heating | – | Not possible |
