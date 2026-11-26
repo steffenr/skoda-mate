@@ -1,4 +1,4 @@
-from skoda_mate import costs, recorder, schema, stats
+from skoda_mate import costs, places, recorder, schema, stats
 
 
 def test_odometer_distance_per_month_counts_drives_that_were_never_a_trip():
@@ -19,6 +19,19 @@ def test_odometer_distance_per_month_counts_drives_that_were_never_a_trip():
     assert all(m["km"] <= m["odo_km"] + 1e-6 for m in months.values() if m["odo_km"] is not None)
     t = stats.totals(conn, vid, costs.DEFAULT_TARIFF)
     assert t["odometer_km"] == 1350 and t["odometer_tracked_km"] == 350 and t["odometer_tracked_since"].startswith("2027-01-10")
+
+
+def test_monthly_cost_uses_the_price_of_a_priced_place():
+    conn = schema.connect(":memory:")
+    vid = recorder.upsert_vehicle(conn, "TMBJB9NY5RF999999", "Enyaq")
+    places.create(conn, {"name": "Work", "kind": "work", "lat": 52.5, "lon": 13.4, "price_kwh": 0.50})
+    conn.execute("INSERT INTO charges(vehicle_id,started_at,ended_at,energy_kwh,duration_min,charge_type,lat,lon) "
+                 "VALUES(?,?,?,?,?,?,?,?)",
+                 (vid, "2027-02-10T18:00:00+00:00", "2027-02-10T19:00:00+00:00", 10.0, 60, "AC", 52.5, 13.4))
+    places.assign_all(conn)
+    (m,) = stats.monthly(conn, vid, costs.DEFAULT_TARIFF)
+    # 10 kWh at Work's 0.50 sit in the month's cost bucket, not the 0.55 public AC tariff
+    assert m["cost"] == 5.0 and m["public_kwh"] == 10.0 and m["cost_known"] is True
 
 
 def test_totals_without_any_reading_do_not_crash():
