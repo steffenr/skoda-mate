@@ -125,6 +125,98 @@ check('ownerless circle keeps click-to-place on the prices map',
   !!clickPlace && placed.circles > 0 && placed.interactive === 0 && placed.latlon[0] !== clickPlace.before[0] && placed.latlon[1] !== clickPlace.before[1],
   `circle=${placed.circles} interactive=${placed.interactive} ${clickPlace?.before.join(',')} → ${placed.latlon.join(',')}`);
 
+// ---------------------------------------------------------------- 5. the places form keeps its draft across a map pick
+// R9: the form is modal, so "Pick on the map" closes it and keeps the draft; the next map click reopens the same form at
+// the new point with the name and colour still filled in. This drives the real page, then reads the saved place back.
+const draftName = `Pick test ${Date.now()}`;
+const DRAFT_COLOUR = '#0e7a7a';
+const readForm = (colour) => {
+  const modal = document.querySelector('.modal');
+  if (!modal) return null;
+  return {
+    name: modal.querySelector('input[type=text]')?.value || '',
+    colour: [...modal.querySelectorAll('select')].find((s) => [...s.options].some((o) => o.value === colour))?.value || '',
+    point: modal.querySelector('.pl-coords div div')?.textContent.trim() || '',
+    pick: [...modal.querySelectorAll('button')].some((b) => /Pick on the map/.test(b.textContent)),
+  };
+};
+await d.goto(`${BASE}/#/places`, { waitUntil: 'networkidle0' });
+await sleep(1800);
+const formBefore = await d.evaluate((name, colour) => {
+  [...document.querySelectorAll('#main button')].find((b) => /Add place/.test(b.textContent))?.click();
+  const modal = document.querySelector('.modal');
+  if (!modal) return null;
+  const text = modal.querySelector('input[type=text]');
+  text.value = name; text.dispatchEvent(new Event('input', { bubbles: true }));
+  const select = [...modal.querySelectorAll('select')].find((s) => [...s.options].some((o) => o.value === colour));
+  select.value = colour; select.dispatchEvent(new Event('change', { bubbles: true }));
+  const hint = () => [...modal.querySelectorAll('p.tiny.muted')].find((p) => /free place cannot have a price/i.test(p.textContent));
+  const freeBox = modal.querySelector('input[type=checkbox]');
+  const freeHintOff = hint()?.hidden === true;  // no price warning while the place is not free
+  freeBox.click();
+  const freeHintOn = hint()?.hidden === false;
+  freeBox.click();
+  const kind = [...modal.querySelectorAll('select')].find((s) => [...s.options].some((o) => o.value === 'home'));
+  return {
+    name: text.value, colour: select.value,
+    point: modal.querySelector('.pl-coords div div')?.textContent.trim() || '',
+    pick: [...modal.querySelectorAll('button')].some((b) => /Pick on the map/.test(b.textContent)),
+    homeOff: [...(kind?.options || [])].find((o) => o.value === 'home')?.disabled === true,
+    freeHint: freeHintOff && freeHintOn,
+  };
+}, draftName, DRAFT_COLOUR);
+check('places form offers "Pick on the map"', !!formBefore?.pick, formBefore?.point);
+check('a second home cannot be chosen from the kind selector', !!formBefore?.homeOff);
+check('the free-price warning shows only while Free is checked', !!formBefore?.freeHint);
+let picked = null;
+let picking = null;
+if (formBefore?.pick) {
+  await d.evaluate(() => [...document.querySelectorAll('.modal button')].find((b) => /Pick on the map/.test(b.textContent)).click());
+  await sleep(400);
+  picking = await d.evaluate(() => ({
+    modal: !!document.querySelector('.modal'),
+    hint: document.querySelector('#main .banner.info')?.textContent.trim() || '',
+    map: !!document.querySelector('#main .map.leaflet-container'),
+  }));
+  check('"Pick on the map" closes the form and waits for a map click', !picking.modal && /map/i.test(picking.hint) && picking.map, picking.hint);
+  // Any click on the map is a point; the corners are the emptiest spots, and a retry keeps a stray pin from failing it.
+  for (const [fx, fy] of [[0.12, 0.85], [0.88, 0.15], [0.5, 0.8]]) {
+    const box = await d.evaluate((x, y) => {
+      const map = document.querySelector('#main .map.leaflet-container');
+      if (!map) return null;
+      map.scrollIntoView({ block: 'center' });
+      const b = map.getBoundingClientRect();
+      return { x: b.left + b.width * x, y: b.top + b.height * y };
+    }, fx, fy);
+    if (!box) break;
+    await d.mouse.click(box.x, box.y);
+    await sleep(600);
+    picked = await d.evaluate(readForm, DRAFT_COLOUR);
+    if (picked) break;
+  }
+  check('the next map click reopens the same form with the draft intact',
+    !!picked && picked.name === draftName && picked.colour === DRAFT_COLOUR && picked.point !== formBefore.point,
+    picked ? `${picked.name} / ${picked.colour} / ${formBefore.point} → ${picked.point}` : 'form did not reopen');
+}
+let savedDraft = null;
+if (picked) {
+  await d.evaluate(() => [...document.querySelectorAll('.modal button')].find((b) => b.textContent.trim() === 'Save').click());
+  await sleep(1600);
+  savedDraft = await d.evaluate(async (name) => {
+    const list = await fetch('/api/places').then((r) => r.json());
+    const place = list.items.find((p) => p.name === name);
+    if (!place) return null;
+    const out = { lat: place.lat, lon: place.lon, color: place.color };
+    await fetch(`/api/places/${place.id}`, { method: 'DELETE' });  // keep the demo database as it was
+    return out;
+  }, draftName);
+}
+const pickedLatLon = (picked?.point || '').split(', ').map(Number);
+check('the picked point is saved with the chosen colour',
+  !!savedDraft && Math.abs(savedDraft.lat - pickedLatLon[0]) < 0.001 && Math.abs(savedDraft.lon - pickedLatLon[1]) < 0.001
+    && savedDraft.color === DRAFT_COLOUR,
+  savedDraft ? `${savedDraft.lat},${savedDraft.lon} ${savedDraft.color}` : 'place was not saved');
+
 const before = await d.evaluate(() => fetch('/health').then((r) => r.json()));
 await d.evaluate(() => [...document.querySelectorAll('.topbar button')].find((b) => /Refresh now/.test(b.textContent)).click());
 await sleep(1800);

@@ -24,7 +24,9 @@ extendDE({
   'No places yet': 'Noch keine Orte',
   'Click the map to add the first one.': 'Klicke auf die Karte, um den ersten hinzuzufügen.',
   'Could not load the places': 'Orte konnten nicht geladen werden',
-  'Click a place on the map to edit it. Click an empty spot to add a place.': 'Klicke auf der Karte auf einen Ort, um ihn zu bearbeiten. Klicke auf eine freie Stelle, um einen Ort hinzuzufügen.',
+  'Click a circle on the map to edit its place. Click an empty spot to add a place.': 'Klicke auf der Karte auf einen Kreis, um seinen Ort zu bearbeiten. Klicke auf eine freie Stelle, um einen Ort hinzuzufügen.',
+  'Pick on the map': 'Auf der Karte wählen',
+  'Click the map to choose the new point.': 'Klicke auf die Karte, um den neuen Punkt zu wählen.',
   'The car is not parked. Click the map to choose a place.': 'Das Auto parkt nicht. Klicke auf die Karte, um einen Ort zu wählen.',
   'New place': 'Neuer Ort',
   'Edit place': 'Ort bearbeiten',
@@ -42,6 +44,7 @@ extendDE({
   'Session fee': 'Grundgebühr',
   'Free': 'Kostenlos',
   'A home place keeps its kind.': 'Ein Zuhause behält seine Art.',
+  'A home place already exists.': 'Ein Zuhause gibt es bereits.',
   'Home cannot be deleted.': 'Zuhause kann nicht gelöscht werden.',
   'Choose a point on the map first.': 'Wähle zuerst einen Punkt auf der Karte.',
   'No point chosen': 'Kein Punkt gewählt',
@@ -69,6 +72,8 @@ const displayName = (p) => (p.kind === 'home' && p.name === 'Home' ? t('Home') :
 const kindName = (kind) => t(KINDS.find(([k]) => k === kind)?.[1] || 'Place');
 const radiusText = (m) => { const metres = m ?? 150; return f.km(metres / 1000, metres < 1000 ? 2 : 1); };
 const amount = (v) => (v === '' || v == null || Number.isNaN(Number(v)) ? null : Number(v));
+// Backend messages are English; t() maps them through de_backend.js, so the toast follows the chosen language.
+const asError = (e) => new Error(t(e?.message || String(e)));
 
 function placeRow(p, onEdit) {
   const name = displayName(p);
@@ -94,14 +99,17 @@ function placeRow(p, onEdit) {
 
 /**
  * The create/edit dialog. Exported for the place detail page; `onSaved` runs after a successful save or delete so the
- * caller can refresh. `place` is the stored place, `point` a map position for a new one.
+ * caller can refresh. `place` is the stored place, `point` the chosen map position, `draft` field values carried from
+ * a previous "Pick on the map", `homeExists` disables Home when one already exists, and `onPick` closes the dialog so
+ * the caller can reopen it at the next map click.
  */
-export function placeForm({ place = null, point = null, onSaved } = {}) {
+export function placeForm({ place = null, point = null, draft: carried = null, homeExists = false, onPick = null, onSaved } = {}) {
   const editing = !!place;
   const lockedKind = place?.kind === 'home';
-  const lat = place?.lat ?? point?.lat ?? null;
-  const lon = place?.lon ?? point?.lon ?? null;
-  const draft = {
+  const homeTaken = homeExists && !lockedKind;
+  const lat = point?.lat ?? place?.lat ?? null;
+  const lon = point?.lon ?? place?.lon ?? null;
+  const base = {
     name: place?.name ?? '',
     kind: place?.kind ?? 'place',
     radius_m: place?.radius_m ?? 150,
@@ -111,6 +119,8 @@ export function placeForm({ place = null, point = null, onSaved } = {}) {
     session_fee: place?.session_fee ?? '',
     free: !!place?.free,
   };
+  // A draft carried from "Pick on the map" wins over what is stored, so every field the user typed survives the reopen.
+  const draft = carried ? { ...base, ...carried } : base;
 
   const inputs = {};
   inputs.name = h('input', { type: 'text', maxlength: 60, autocomplete: 'off', value: draft.name,
@@ -122,7 +132,7 @@ export function placeForm({ place = null, point = null, onSaved } = {}) {
       oninput: (e) => { draft[key] = e.target.value; } });
   }
   const kindInput = h('select', { onchange: (e) => { draft.kind = e.target.value; } },
-    ...KINDS.map(([value, label]) => h('option', { value }, t(label))));
+    ...KINDS.map(([value, label]) => h('option', { value, disabled: value === 'home' && homeTaken }, t(label))));
   kindInput.value = draft.kind;
   const colourInput = h('select', { onchange: (e) => { draft.color = e.target.value; } },
     h('option', { value: '' }, t('Default')),
@@ -130,14 +140,21 @@ export function placeForm({ place = null, point = null, onSaved } = {}) {
   colourInput.value = draft.color;
   const freeBox = h('input', { type: 'checkbox', checked: draft.free,
     onchange: (e) => { draft.free = e.target.checked; syncFree(); } });
+  const freeHint = h('p', { class: 'tiny muted', hidden: !draft.free }, t('A free place cannot have a price.'));
   function syncFree() {
     for (const [key] of PRICE_FIELDS) {
       inputs[key].disabled = draft.free;
       if (draft.free) { inputs[key].value = ''; draft[key] = ''; }
     }
+    freeHint.hidden = !draft.free;
   }
   syncFree();
   const pointText = lat == null || lon == null ? t('No point chosen') : `${f.num(lat, 5)}, ${f.num(lon, 5)}`;
+  let closeForm = () => {};
+  const pickBtn = onPick
+    ? button(t('Pick on the map'), { size: 'sm', ic: 'pin',
+      onClick: () => { const fields = { ...draft }; closeForm(); onPick(fields); } })
+    : null;
 
   const body = h('div', { class: 'stack pl-form' },
     lat == null || lon == null ? banner('warn', t('Choose a point on the map first.')) : null,
@@ -145,16 +162,17 @@ export function placeForm({ place = null, point = null, onSaved } = {}) {
     lockedKind
       ? h('div', { class: 'field' }, h('span', null, t('Kind')),
         h('div', { class: 'row tight' }, chip(t('Home'), 'good', 'home'), h('span', { class: 'tiny muted' }, t('A home place keeps its kind.'))))
-      : field(t('Kind'), kindInput),
+      : field(t('Kind'), kindInput, homeTaken ? t('A home place already exists.') : null),
     h('div', { class: 'grid g2' }, field(t('Radius (metres)'), inputs.radius_m), field(t('Colour'), colourInput)),
     h('div', { class: 'pl-coords' }, icon('pin', { size: 16 }),
-      h('div', null, h('span', { class: 'tiny muted' }, t('Position')), h('div', null, pointText))),
+      h('div', null, h('span', { class: 'tiny muted' }, t('Position')), h('div', null, pointText)),
+      pickBtn),
     h('div', { class: 'grid g3' },
       field(t('Price per kWh'), inputs.price_kwh),
       field(t('Price per minute'), inputs.price_minute),
       field(t('Session fee'), inputs.session_fee)),
     h('label', { class: 'pl-check' }, freeBox, h('span', null, t('Free'))),
-    h('p', { class: 'tiny muted' }, t('A free place cannot have a price.')),
+    freeHint,
     lockedKind ? h('p', { class: 'tiny muted' }, t('Home cannot be deleted.')) : null);
 
   function placeBody() {
@@ -177,10 +195,15 @@ export function placeForm({ place = null, point = null, onSaved } = {}) {
     return payload;
   }
 
-  modal(t(editing ? 'Edit place' : 'New place'), body, (close) => {
+  closeForm = modal(t(editing ? 'Edit place' : 'New place'), body, (close) => {
     const save = async () => {
       const payload = placeBody();
-      const saved = editing ? await api.put(`/api/places/${place.id}`, payload) : await api.post('/api/places', payload);
+      let saved;
+      try {
+        saved = editing ? await api.put(`/api/places/${place.id}`, payload) : await api.post('/api/places', payload);
+      } catch (e) {
+        throw asError(e);  // e.g. "Only one home place is allowed." must toast in German
+      }
       toast(t('Place saved'), 'good');
       close();
       await onSaved?.(saved);
@@ -190,7 +213,12 @@ export function placeForm({ place = null, point = null, onSaved } = {}) {
         t('Trips and charges at this place lose their link. This cannot be undone.'),
         { confirmLabel: t('Delete place'), danger: true });
       if (!yes) return;
-      const result = await api.del(`/api/places/${place.id}`);
+      let result;
+      try {
+        result = await api.del(`/api/places/${place.id}`);
+      } catch (e) {
+        throw asError(e);
+      }
       toast(t('Place deleted'), 'good');
       close();
       await onSaved?.(result);
@@ -210,6 +238,8 @@ export default async function placesPage(root, ctx) {
   let state = { places: [], parked: [] };
   let mapBox = null;
   let addBtn = null;
+  let pick = null;  // { place, fields } while "Pick on the map" waits for the next map click
+  const pickHint = h('div');
 
   async function load() {
     const [list, mapData] = await Promise.all([
@@ -223,17 +253,46 @@ export default async function placesPage(root, ctx) {
     };
   }
 
+  const hasHome = (place) => state.places.some((p) => p.kind === 'home' && p.id !== place?.id);
+
+  function openForm({ place = null, point = null, fields = null } = {}) {
+    placeForm({
+      place, point, draft: fields, homeExists: hasHome(place), onSaved: refresh,
+      onPick: (next) => { pick = { place, fields: next }; drawPick(); },
+    });
+  }
+
+  function drawPick() {
+    mount(pickHint, pick ? banner('info', t('Click the map to choose the new point.'),
+      button(t('Cancel'), { size: 'sm', onClick: () => { pick = null; drawPick(); addBtn?.focus(); } })) : null);
+  }
+
+  // Any other opener drops a pending pick: the draft only survives the map click it was made for.
+  function startForm(opts = {}) { pick = null; drawPick(); openForm(opts); }
+
+  function choosePoint(lat, lon) {
+    const held = pick;
+    pick = null;
+    drawPick();
+    openForm({ place: held?.place ?? null, point: { lat, lon }, fields: held?.fields ?? null });
+  }
+
   function mapOptions() {
     return {
       markers: state.places.map((p) => ({ lat: p.lat, lon: p.lon, label: displayName(p) })),
       circles: state.places.map((p) => ({ lat: p.lat, lon: p.lon, radius: p.radius_m, color: p.color || undefined,
         label: displayName(p), id: p.id })),
-      onCircleClick: (id) => { const p = state.places.find((x) => x.id === id); if (p) edit(p); },
-      onMapClick: (lat, lon) => placeForm({ point: { lat, lon }, onSaved: refresh }),
+      // While picking, a click anywhere - a place circle included - only sets the new point for the pending draft.
+      onCircleClick: (id) => {
+        const p = state.places.find((x) => x.id === id);
+        if (!p) return;
+        if (pick) choosePoint(p.lat, p.lon); else startForm({ place: p });
+      },
+      onMapClick: (lat, lon) => (pick ? choosePoint(lat, lon) : startForm({ point: { lat, lon } })),
     };
   }
 
-  function edit(place) { placeForm({ place, onSaved: refresh }); }
+  function edit(place) { startForm({ place }); }
 
   async function refresh() {
     try {
@@ -268,7 +327,7 @@ export default async function placesPage(root, ctx) {
       h('div', { class: 'pl-detected' }, ...state.parked.map((c) => {
         const where = c.address ? f.shortPlace(c.address) : `${f.num(c.lat, 5)}, ${f.num(c.lon, 5)}`;
         const nameIt = button(t('Name this place'), { size: 'sm', ic: 'pin',
-          onClick: () => placeForm({ point: { lat: c.lat, lon: c.lon }, onSaved: refresh }) });
+          onClick: () => startForm({ point: { lat: c.lat, lon: c.lon } }) });
         nameIt.setAttribute('aria-label', `${t('Name this place')}: ${where}`);
         return h('div', { class: 'pl-det-row' },
           h('div', { class: 'pl-det-main' }, h('strong', null, where),
@@ -280,7 +339,8 @@ export default async function placesPage(root, ctx) {
 
   function addPlace() {
     const pos = ctx.overview?.sections?.position;
-    if (pos?.lat != null && pos?.lon != null) placeForm({ point: { lat: pos.lat, lon: pos.lon }, onSaved: refresh });
+    const moving = pos?.state === 'IN_MOTION';  // while driving the position is stale, exactly like pages/map.js
+    if (!moving && pos?.lat != null && pos?.lon != null) startForm({ point: { lat: pos.lat, lon: pos.lon } });
     else toast(t('The car is not parked. Click the map to choose a place.'), 'info');
   }
 
@@ -303,7 +363,8 @@ export default async function placesPage(root, ctx) {
   drawDetected();
   mount(root, head,
     card(null, mapBox, { cls: 'pl-mapcard' }),
-    h('p', { class: 'small muted' }, t('Click a place on the map to edit it. Click an empty spot to add a place.')),
+    pickHint,
+    h('p', { class: 'small muted' }, t('Click a circle on the map to edit its place. Click an empty spot to add a place.')),
     card(t('Your places'), listBody, { ic: 'pin' }),
     card(t('Detected places'), detectedBody, { ic: 'map' }));
 }
