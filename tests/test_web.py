@@ -196,6 +196,85 @@ def test_events_history_and_map():
     assert any(p["address"] == "Work" for p in m["parked"])
 
 
+def test_places_crud_and_one_home():
+    c, conn, api, vid = connected()
+    seed_trip(conn, vid)
+    home = c.post("/api/places", json={"name": "Home", "kind": "home", "lat": 50.0, "lon": 8.0, "radius_m": 150}).json()
+    work = c.post("/api/places", json={"name": "Office", "kind": "work", "lat": 50.4, "lon": 8.4, "radius_m": 150}).json()
+    assert work["visit_count"] == 1 and home["kind"] == "home"
+    assert c.post("/api/places", json={"name": "Second home", "kind": "home", "lat": 51, "lon": 9}).status_code == 409
+    edited = c.put(f"/api/places/{work['id']}",
+                   json={"name": "Office 2", "kind": "work", "lat": 50.4, "lon": 8.4, "radius_m": 80}).json()
+    assert edited["name"] == "Office 2" and edited["radius_m"] == 80
+    assert c.delete(f"/api/places/{home['id']}").status_code == 400
+    assert c.delete(f"/api/places/{work['id']}").json() == {"ok": True, "trips": 1, "charges": 0}
+
+
+def test_place_validation():
+    c, conn, api, vid = connected()
+    for body in ({"name": "", "lat": 50, "lon": 8},
+                 {"name": "X", "lat": 91, "lon": 8},
+                 {"name": "X", "lat": 50, "lon": 8, "radius_m": 5},
+                 {"name": "X", "lat": 50, "lon": 8, "free": True, "price_kwh": 0.5}):
+        assert c.post("/api/places", json=body).status_code == 400
+
+
+def test_place_validation_messages():
+    """The exact English texts the frontend translates (de_backend.js) and the API shows."""
+    c, conn, api, vid = connected()
+    cases = (
+        ({"name": "", "lat": 50, "lon": 8}, "Name must be 1 to 60 characters."),
+        ({"name": "X", "kind": "moon", "lat": 50, "lon": 8}, "Kind must be home, work or place."),
+        ({"name": "X", "lat": 91, "lon": 8}, "Latitude must be between -90 and 90."),
+        ({"name": "X", "lat": 50, "lon": 181}, "Longitude must be between -180 and 180."),
+        ({"name": "X", "lat": 50, "lon": 8, "radius_m": 5}, "Radius must be between 20 and 5000 metres."),
+        ({"name": "X", "lat": 50, "lon": 8, "color": "red"}, "Colour must be a hex colour such as #0b7a52."),
+        ({"name": "X", "lat": 50, "lon": 8, "price_kwh": 11}, "Price per kWh must be between 0 and 10."),
+        ({"name": "X", "lat": 50, "lon": 8, "price_minute": -1}, "Price per minute must be between 0 and 10."),
+        ({"name": "X", "lat": 50, "lon": 8, "session_fee": 1001}, "Session fee must be between 0 and 1000."),
+        ({"name": "X", "lat": 50, "lon": 8, "free": True, "price_kwh": 0.5}, "A free place cannot have a price."),
+    )
+    for body, message in cases:
+        r = c.post("/api/places", json=body)
+        assert r.status_code == 400 and r.json()["detail"] == message
+    assert c.get("/api/places/9999").json()["detail"] == "Place not found."
+
+
+def test_place_day_count_uses_the_browser_offset():
+    """R2: list and detail count days in the browser's local day, not in UTC."""
+    c, conn, api, vid = connected()
+    seed_trip(conn, vid, day="2027-02-10")
+    seed_trip(conn, vid, day="2027-02-11")
+    conn.execute("UPDATE trips SET ended_at='2027-02-10T23:30:00+00:00' WHERE started_at LIKE '2027-02-10%'")
+    conn.execute("UPDATE trips SET ended_at='2027-02-11T22:30:00+00:00' WHERE started_at LIKE '2027-02-11%'")
+    conn.commit()
+    work = c.post("/api/places", json={"name": "Work", "kind": "work", "lat": 50.4, "lon": 8.4}).json()
+    assert work["visit_count"] == 2 and work["day_count"] == 2
+    assert c.get("/api/places?tz_offset=-60").json()["items"][0]["day_count"] == 1
+    assert c.get(f"/api/places/{work['id']}?tz_offset=-60").json()["day_count"] == 1
+
+
+def test_editing_a_place_reassigns_trips_and_charges():
+    c, conn, api, vid = connected()
+    seed_charge(conn, vid, lat=50.001, lon=8.001)
+    place = c.post("/api/places", json={"name": "Edge", "kind": "place", "lat": 50.0, "lon": 8.0,
+                                          "radius_m": 150, "price_kwh": 0.50}).json()
+    linked = c.get(f"/api/vehicles/{vid}/charges").json()["items"][0]
+    assert linked["geofence_id"] == place["id"] and linked["cost_basis"] == "place"
+    c.put(f"/api/places/{place['id']}", json={"name": "Edge", "kind": "place", "lat": 50.0, "lon": 8.0, "radius_m": 20})
+    cleared = c.get(f"/api/vehicles/{vid}/charges").json()["items"][0]
+    assert cleared["geofence_id"] is None and cleared["cost_basis"] == "tariff-guess"
+
+
+def test_place_detail_lists_visits_and_charges():
+    c, conn, api, vid = connected()
+    seed_trip(conn, vid)
+    seed_charge(conn, vid, lat=50.4, lon=8.4)
+    work = c.post("/api/places", json={"name": "Office", "kind": "work", "lat": 50.4, "lon": 8.4, "radius_m": 150}).json()
+    d = c.get(f"/api/places/{work['id']}?tz_offset=0").json()
+    assert d["visit_count"] == 1 and len(d["visits"]) == 1 and d["charged_kwh"] > 0
+
+
 def test_battery_history_draws_a_drive_even_without_readings_during_it():
     """Regression: only readings taken AFTER a drive existed, so the chart was one flat line. A trip's start and end
     charge level are now part of the curve."""
