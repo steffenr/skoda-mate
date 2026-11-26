@@ -43,7 +43,7 @@ export default async function mapPage(root, ctx) {
   const isHome = (lat, lon) => { const hc = homeCoord(); return !!hc && Math.abs(hc[0] - lat) < 0.002 && Math.abs(hc[1] - lon) < 0.002; };
 
   async function fetchData(nextLimit) {
-    const next = await ctx.api.get(`/api/vehicles/${ctx.vid}/map?limit=${nextLimit}`);
+    const next = await ctx.api.get(`/api/vehicles/${ctx.vid}/map?limit=${nextLimit}&tz_offset=${new Date().getTimezoneOffset()}`);
     data = next;
     build();
   }

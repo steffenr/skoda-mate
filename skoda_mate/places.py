@@ -6,11 +6,12 @@ of a `PlaceError` into an HTTP response.
 """
 from __future__ import annotations
 
+import json
 import sqlite3
 from bisect import bisect_right
 from datetime import datetime
 
-from . import costs
+from . import costs, store
 
 KINDS = ("home", "work", "place")
 MIN_RADIUS_M = 20
@@ -140,6 +141,15 @@ def _summary(conn, place: dict, tz_offset: int = 0) -> dict:
     return out
 
 
+def _mirror_home(conn, place: dict) -> None:
+    """Keep the legacy tariff home position in step with the home place; other kinds leave it alone."""
+    if place.get("kind") != "home":
+        return
+    tariff = costs.load_tariff(conn)
+    tariff.update({"home_lat": place["lat"], "home_lon": place["lon"], "home_radius_m": place["radius_m"]})
+    store.set_setting(conn, "tariff", json.dumps(tariff))
+
+
 def summaries(conn, tz_offset: int = 0) -> list[dict]:
     """Every place with its counts, the days counted in the given local offset."""
     return [_summary(conn, place, tz_offset) for place in list_places(conn)]
@@ -165,7 +175,10 @@ def create(conn, data: dict) -> dict:
     place_id = cur.lastrowid
     conn.commit()
     assign_all(conn)
-    return _summary(conn, dict(conn.execute("SELECT * FROM geofences WHERE id=?", (place_id,)).fetchone()))
+    place = dict(conn.execute("SELECT * FROM geofences WHERE id=?", (place_id,)).fetchone())
+    _mirror_home(conn, place)
+    conn.commit()
+    return _summary(conn, place)
 
 
 def update(conn, place_id: int, data: dict) -> dict:
@@ -206,7 +219,10 @@ def update(conn, place_id: int, data: dict) -> dict:
         raise
     conn.commit()
     assign_all(conn)
-    return _summary(conn, dict(conn.execute("SELECT * FROM geofences WHERE id=?", (place_id,)).fetchone()))
+    place = dict(conn.execute("SELECT * FROM geofences WHERE id=?", (place_id,)).fetchone())
+    _mirror_home(conn, place)
+    conn.commit()
+    return _summary(conn, place)
 
 
 def delete(conn, place_id: int) -> dict[str, int]:
@@ -251,7 +267,10 @@ def upsert_home(conn, lat: float, lon: float, radius_m: int | None = None, name:
         conn.execute(f"UPDATE geofences SET {', '.join(sets)} WHERE id=?", values)
     conn.commit()
     assign_all(conn)
-    return _summary(conn, dict(conn.execute("SELECT * FROM geofences WHERE id=?", (place_id,)).fetchone()))
+    place = dict(conn.execute("SELECT * FROM geofences WHERE id=?", (place_id,)).fetchone())
+    _mirror_home(conn, place)
+    conn.commit()
+    return _summary(conn, place)
 
 
 def _trip_starts(conn, trips: list[dict]) -> dict[int, list[str]]:
