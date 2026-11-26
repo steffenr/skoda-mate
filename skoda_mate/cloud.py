@@ -10,7 +10,7 @@ import asyncio
 import logging
 from collections.abc import Callable
 
-from . import commands, costs, ha_mqtt, mqtt_config, recorder
+from . import commands, costs, ha_mqtt, mqtt_config, places, recorder
 from .client import SkodaApi
 from .config import Config
 from .poller import Poller
@@ -113,7 +113,9 @@ class Cloud:
                               "ORDER BY started_at DESC LIMIT 1", (row["id"],)).fetchone()
         if c:
             c = dict(c)
-            out.update(last_charge_kwh=c.get("energy_kwh"), last_charge_cost=(costs.charge_cost(c, tariff) or {}).get("amount"))
+            place = places.get(self.conn, c["geofence_id"]) if c.get("geofence_id") else None
+            out.update(last_charge_kwh=c.get("energy_kwh"),
+                       last_charge_cost=(costs.charge_cost(c, tariff, place) or {}).get("amount"))
         return out
 
     def _make_publisher(self, p: Poller):

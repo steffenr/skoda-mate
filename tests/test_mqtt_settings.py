@@ -344,3 +344,20 @@ def test_mqtt_command_outcomes_reach_home_assistant_and_mates_log(monkeypatch):
     log = conn.execute("SELECT name, ok, kind, source FROM commands WHERE vehicle_id=? ORDER BY id", (vid,)).fetchall()
     assert [tuple(r) for r in log][-3:] == [("stop_charging", 1, None, "mqtt"), ("start_charging", 0, "vehicle-not-accepting-requests", "mqtt"),
                                             ("stop_climate", 0, "rejected", "mqtt")]
+
+
+# ------------------------------------------------------------------ the published extras
+def test_published_last_charge_cost_uses_the_linked_place_price():
+    from skoda_mate import cloud, places, schema
+    from skoda_mate.config import Config
+    conn = schema.connect(":memory:")
+    places.create(conn, {"name": "Work", "kind": "work", "lat": 52.5, "lon": 13.4, "price_kwh": 0.50})
+    conn.execute("INSERT INTO vehicles(vin) VALUES('VIN1')")
+    vid = conn.execute("SELECT id FROM vehicles").fetchone()[0]
+    conn.execute("INSERT INTO charges(vehicle_id,started_at,ended_at,energy_kwh,duration_min,charge_type,lat,lon) "
+                 "VALUES(?,?,?,?,?,?,?,?)",
+                 (vid, "2027-02-10T18:00:00+00:00", "2027-02-10T19:00:00+00:00", 10.0, 60, "AC", 52.5, 13.4))
+    places.assign_all(conn)
+    assert conn.execute("SELECT geofence_id FROM charges").fetchone()[0] is not None   # the charge is linked to Work
+    # 10 kWh at the place's 0.50, not at the 0.55 public AC tariff the portal used before
+    assert cloud.Cloud(conn, SecretBox(None), Config())._extras("VIN1")["last_charge_cost"] == 5.0
