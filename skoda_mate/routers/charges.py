@@ -6,7 +6,7 @@ import json
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
-from .. import store
+from .. import places, store
 from ..deps import ContextDep
 from ..presenters import charge_out, curve_gaps, local_bound, rows, vehicle
 from ..store import set_setting
@@ -110,4 +110,5 @@ def home_here(vid: int, ctx: ContextDep, charge_id: int | None = None):
     if pos.get("lat") is None:
         raise HTTPException(400, "The car's position is not known yet (it is moving or not reported).")
     set_setting(ctx.conn, "tariff", json.dumps({**ctx.tariff(), "home_lat": pos["lat"], "home_lon": pos["lon"]}))
+    places.upsert_home(ctx.conn, pos["lat"], pos["lon"])  # no radius: the home place keeps the one it has
     return {"ok": True, "home_lat": pos["lat"], "home_lon": pos["lon"]}

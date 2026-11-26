@@ -167,6 +167,39 @@ def test_home_can_be_set_from_a_charge():
     assert c.post(f"/api/vehicles/{vid}/home-here?charge_id=9999").status_code == 400
 
 
+def test_home_here_moves_the_home_geofence():
+    c, conn, api, vid = connected()
+    r = c.post(f"/api/vehicles/{vid}/home-here").json()
+    home = conn.execute("SELECT * FROM geofences WHERE kind='home'").fetchone()
+    assert (home["lat"], home["lon"], r["home_lat"], r["home_lon"]) == (50.11, 8.68, 50.11, 8.68)
+
+
+def test_settings_home_coordinates_update_the_home_place():
+    c, conn, api, vid = connected()
+    c.put("/api/settings", json={"tariff": {"home_lat": 50.0, "home_lon": 8.0, "home_radius_m": 200}})
+    home = conn.execute("SELECT * FROM geofences WHERE kind='home'").fetchone()
+    assert (home["lat"], home["lon"], home["radius_m"]) == (50.0, 8.0, 200)
+
+
+def test_saving_prices_keeps_the_home_place():
+    c, conn, api, vid = connected()
+    c.put("/api/settings", json={"tariff": {"home_lat": 50.0, "home_lon": 8.0, "home_radius_m": 200}})
+    c.put("/api/settings", json={"tariff": {"home_kwh": 0.25}})  # prices only: the place stays where it is
+    home = conn.execute("SELECT * FROM geofences WHERE kind='home'").fetchone()
+    assert (home["lat"], home["lon"], home["radius_m"]) == (50.0, 8.0, 200)
+    c.put("/api/settings", json={"tariff": {"home_lat": None, "home_lon": None}})  # old clients may clear the keys
+    homes = conn.execute("SELECT * FROM geofences WHERE kind='home'").fetchall()
+    assert len(homes) == 1 and (homes[0]["lat"], homes[0]["lon"], homes[0]["radius_m"]) == (50.0, 8.0, 200)
+
+
+def test_home_here_keeps_the_home_radius():
+    c, conn, api, vid = connected()
+    c.put("/api/settings", json={"tariff": {"home_lat": 50.0, "home_lon": 8.0, "home_radius_m": 300}})
+    c.post(f"/api/vehicles/{vid}/home-here")
+    home = conn.execute("SELECT * FROM geofences WHERE kind='home'").fetchone()
+    assert (home["lat"], home["lon"], home["radius_m"]) == (50.11, 8.68, 300)
+
+
 def test_statistics_and_battery_estimate():
     c, conn, api, vid = connected()
     seed_trip(conn, vid)

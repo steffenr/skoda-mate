@@ -7,7 +7,7 @@ import puppeteer from 'puppeteer-core';
 const BASE = process.env.BASE || 'http://localhost:8765';
 const SHOTS = process.env.SHOTS || '';
 const CHROME = process.env.CHROME || '/Applications/Chromium.app/Contents/MacOS/Chromium';
-const ROUTES = ['', 'trips', 'trips/5', 'charges', 'charges/3', 'battery', 'control', 'stats', 'map', 'places', 'places/1', 'events', 'settings', 'system'];
+const ROUTES = ['', 'trips', 'trips/5', 'charges', 'charges/3', 'prices', 'battery', 'control', 'stats', 'map', 'places', 'places/1', 'events', 'settings', 'system'];
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 let failed = 0;
 const check = (name, ok, extra = '') => { if (!ok) failed++; console.log(`${ok ? 'ok  ' : 'FAIL'} ${name}${extra ? '  ' + extra : ''}`); };
@@ -212,35 +212,30 @@ if (pricedCharge) {
   check('a place rate explains the charge cost and links the place', false, 'no place-linked charge found');
 }
 
-// ---------------------------------------------------------------- 5. the legacy ownerless circle must not swallow map clicks
-// The prices page draws a bare `circle` (a radius hint, no id) and asks the user to click the map to place the home pin.
-// Under R8 only a circle that identifies a place (id) is interactive, so this one has to stay click-through.
+// ---------------------------------------------------------------- 5. the home place card links to its place
+// The prices page no longer carries a home map or coordinate fields: the home place lives on the Places page, and this
+// card summarizes it (radius, visits) with a link to its detail page plus "Use current parking position".
 await d.goto(`${BASE}/#/prices`, { waitUntil: 'networkidle0' });
-await d.waitForSelector('#main .map.leaflet-container', { timeout: 10000 }).catch(() => {});
-await sleep(1200);
-const clickPlace = await d.evaluate(() => {
-  const coords = () => [...document.querySelectorAll('#main .grid.g3 input[type=number]')];
-  const radius = coords()[2];
-  if (!radius) return null;
-  radius.value = '5000';  // cover the whole viewport, so the click below is certainly inside the circle
-  radius.dispatchEvent(new Event('input', { bubbles: true }));
-  const map = document.querySelector('#main .map.leaflet-container');
-  if (!map) return null;
-  map.scrollIntoView({ block: 'center' });
-  const b = map.getBoundingClientRect();
-  return { x: b.left + b.width * 0.7, y: b.top + b.height * 0.7, before: coords().slice(0, 2).map((i) => i.value) };
+await sleep(1500);
+const homeCard = await d.evaluate(async () => {
+  const list = await fetch('/api/places').then((r) => r.json());
+  const home = (list.items || []).find((p) => p.kind === 'home');
+  const card = [...document.querySelectorAll('#main .card')]
+    .find((c) => /Home place/.test(c.querySelector('h2')?.textContent || ''));
+  const link = card?.querySelector('a[href^="#/places/"]');
+  return {
+    id: home?.id ?? null,
+    href: link?.getAttribute('href') || '',
+    text: card?.innerText || '',
+    button: [...(card?.querySelectorAll('button') || [])].some((b) => /Use current parking position/.test(b.textContent)),
+    map: !!document.querySelector('#main .leaflet-container'),
+    coords: document.querySelectorAll('#main .grid.g3 input[type=number]').length,
+  };
 });
-await sleep(600);
-if (clickPlace) await d.mouse.click(clickPlace.x, clickPlace.y);
-await sleep(400);
-const placed = await d.evaluate(() => ({
-  latlon: [...document.querySelectorAll('#main .grid.g3 input[type=number]')].slice(0, 2).map((i) => i.value),
-  circles: document.querySelectorAll('#main .leaflet-overlay-pane path').length,
-  interactive: document.querySelectorAll('#main .leaflet-overlay-pane path.leaflet-interactive').length,
-}));
-check('ownerless circle keeps click-to-place on the prices map',
-  !!clickPlace && placed.circles > 0 && placed.interactive === 0 && placed.latlon[0] !== clickPlace.before[0] && placed.latlon[1] !== clickPlace.before[1],
-  `circle=${placed.circles} interactive=${placed.interactive} ${clickPlace?.before.join(',')} → ${placed.latlon.join(',')}`);
+check('the prices home card links to the home place',
+  homeCard.id != null && homeCard.href === `#/places/${homeCard.id}` && /Edit home place/.test(homeCard.text)
+  && homeCard.button && !homeCard.map && homeCard.coords === 0,
+  `place=${homeCard.id} link=${homeCard.href} button=${homeCard.button} map=${homeCard.map} coords=${homeCard.coords}`);
 
 // ---------------------------------------------------------------- 6. the places form keeps its draft across a map pick
 // R9: the form is modal, so "Pick on the map" closes it and keeps the draft; the next map click reopens the same form at
