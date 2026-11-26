@@ -303,11 +303,12 @@ def detail(conn, place_id: int, now_iso: str, tz_offset: int = 0) -> dict | None
     amounts: list = []
     energies: list = []
     for charge in charges:
-        cost = costs.charge_cost(charge, tariff, place)["amount"]
-        amounts.append(cost)
+        cc = costs.charge_cost(charge, tariff, place)
+        amounts.append(cc["amount"])
         energies.append(charge["energy_kwh"])
         if len(recent) < DETAIL_CHARGE_LIMIT:
-            recent.append({**charge, "cost": cost})
+            recent.append({**charge, "cost": cc["amount"], "cost_basis": cc["basis"],
+                           "place_kind_resolved": cc["kind"]})
     parked = _total(visit["minutes"] for visit in visits)
     charged = _total(energies)
     total = _total(amounts)
