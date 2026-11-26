@@ -34,6 +34,13 @@ await sleep(2500);
 const routes = process.argv.slice(2).length ? process.argv.slice(2) : ['', 'trips', 'charges', 'battery', 'control', 'stats', 'map', 'events', 'settings', 'system'];
 const full = !!process.env.FULL;
 let failed = 0;
+
+// The markercluster options are exported so pages and checks can rely on them. These two shape the map: without the
+// zoom cut-off every pin stays in one cluster, and a huge radius clusters points that are visibly apart.
+const { CLUSTER_OPTIONS } = await import(`${STATIC}/lib/mapview.js`);
+const clusterOk = CLUSTER_OPTIONS?.maxClusterRadius === 50 && CLUSTER_OPTIONS?.disableClusteringAtZoom === 14;
+if (!clusterOk) failed++;
+console.log(`${clusterOk ? 'ok  ' : 'FAIL'} cluster options maxClusterRadius=${CLUSTER_OPTIONS?.maxClusterRadius} disableClusteringAtZoom=${CLUSTER_OPTIONS?.disableClusteringAtZoom}`);
 for (const r of routes) {
   errors.length = 0;
   w.location.hash = `#/${r}`;

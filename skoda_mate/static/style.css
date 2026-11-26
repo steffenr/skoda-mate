@@ -190,6 +190,8 @@ table.t td.num, table.t th.num { text-align: right; }
 .map-fallback { height: 100%; display: grid; place-items: center; text-align: center; padding: 20px; color: var(--muted); }
 .pin { width: 26px; height: 26px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); background: var(--accent); border: 2px solid #fff; box-shadow: 0 2px 6px rgba(0, 0, 0, .4); }
 .pin.b { background: #1d5fa8; } .pin.c { background: #b86e00; } .pin.d { background: #7a3fa8; }
+.marker-cluster.pin-cluster { width: 100%; height: 100%; box-sizing: border-box; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: var(--accent); color: var(--accent-ink); border: 2px solid #fff; box-shadow: 0 2px 6px rgba(0, 0, 0, .4); font-size: 12px; font-weight: 600; line-height: 1; }
+@media (prefers-reduced-motion: reduce) { .leaflet-cluster-anim .leaflet-marker-icon, .leaflet-cluster-spider-leg { transition: none; } }
 
 .kv { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; font-size: 14px; } .kv dt { color: var(--muted); } .kv dd { margin: 0; text-align: right; font-weight: 600; word-break: break-word; }
 .badge-demo { border: 1px solid var(--line); color: var(--muted); font-weight: 500; font-size: 11px; padding: 1px 6px; border-radius: 4px; }
