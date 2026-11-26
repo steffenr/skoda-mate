@@ -140,8 +140,9 @@ def _summary(conn, place: dict, tz_offset: int = 0) -> dict:
     return out
 
 
-def summaries(conn) -> list[dict]:
-    return [_summary(conn, place) for place in list_places(conn)]
+def summaries(conn, tz_offset: int = 0) -> list[dict]:
+    """Every place with its counts, the days counted in the given local offset."""
+    return [_summary(conn, place, tz_offset) for place in list_places(conn)]
 
 
 def create(conn, data: dict) -> dict:

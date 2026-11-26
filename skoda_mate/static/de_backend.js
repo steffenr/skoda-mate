@@ -9,6 +9,24 @@ extendDE({
   'The request is too large.': 'Die Anfrage ist zu groß.',
 });
 
+// places: validation, the one-home rule and a missing place
+extendDE({
+  'Name must be 1 to 60 characters.': 'Der Name muss 1 bis 60 Zeichen lang sein.',
+  'Kind must be home, work or place.': 'Die Art muss Heimatort, Arbeit oder Ort sein.',
+  'Latitude must be between -90 and 90.': 'Der Breitengrad muss zwischen -90 und 90 liegen.',
+  'Longitude must be between -180 and 180.': 'Der Längengrad muss zwischen -180 und 180 liegen.',
+  'Radius must be between 20 and 5000 metres.': 'Der Radius muss zwischen 20 und 5000 Metern liegen.',
+  'Colour must be a hex colour such as #0b7a52.': 'Die Farbe muss eine Hex-Farbe wie #0b7a52 sein.',
+  'Price per kWh must be between 0 and 10.': 'Der Preis pro kWh muss zwischen 0 und 10 liegen.',
+  'Price per minute must be between 0 and 10.': 'Der Preis pro Minute muss zwischen 0 und 10 liegen.',
+  'Session fee must be between 0 and 1000.': 'Die Grundgebühr muss zwischen 0 und 1000 liegen.',
+  'A free place cannot have a price.': 'Ein kostenloser Ort darf keinen Preis haben.',
+  'Only one home place is allowed.': 'Es ist nur ein Heimatort erlaubt.',
+  'The home place cannot be deleted.': 'Der Heimatort kann nicht gelöscht werden.',
+  'The home place cannot change its kind.': 'Der Heimatort kann seine Art nicht ändern.',
+  'Place not found.': 'Ort nicht gefunden.',
+});
+
 extendDE({
   'AdBlue range': 'AdBlue-Reichweite', 'Address': 'Adresse', 'Allowed without external power': 'Ohne externe Stromversorgung erlaubt', 'At a saved charging location': 'An einem gespeicherten Ladeort',
   'Auxiliary heater': 'Standheizung', 'Battery capacity': 'Batteriekapazität', 'Battery capacity estimate': 'Schätzung der Batteriekapazität', 'Battery care limit': 'Limit der Batterieschonung', 'Battery care mode': 'Batterieschonmodus',
