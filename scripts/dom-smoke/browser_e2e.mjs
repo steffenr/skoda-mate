@@ -103,6 +103,37 @@ await sleep(2500);
 const clusters = await d.evaluate(() => document.querySelectorAll('.marker-cluster').length);
 check('map clusters crowded pins', clusters > 0, `${clusters} cluster(s)`);
 if (SHOTS) await d.screenshot({ path: `${SHOTS}/map-clusters.png` });
+// The map names places: the home place is listed with a link to its detail page, the marker titles carry the place
+// names, and every place has a filled, interactive circle. A circle click opens the place it stands for.
+const mapPlaceInfo = await d.evaluate(async () => {
+  const list = await fetch('/api/places').then((r) => r.json());
+  const home = list.items.find((p) => p.kind === 'home');
+  const text = document.getElementById('main').innerText;
+  const el = document.querySelector('#main .map');
+  const titles = [];
+  el?.map?.eachLayer((layer) => {
+    for (const l of (layer.getLayers ? layer.getLayers() : [layer])) if (l.options?.title) titles.push(l.options.title);
+  });
+  const circles = [...document.querySelectorAll('#main .leaflet-overlay-pane path.leaflet-interactive')]
+    .filter((p) => p.getAttribute('fill') && p.getAttribute('fill') !== 'none');
+  return { home: home?.name || '', count: list.items.length, inText: !!home && text.includes(home.name),
+    link: !!home && !!document.querySelector(`#main a[href="#/places/${home.id}"]`), titles, circles: circles.length };
+});
+check('map list names the home place and links it', mapPlaceInfo.inText && mapPlaceInfo.link,
+  `${mapPlaceInfo.home}: text=${mapPlaceInfo.inText} link=${mapPlaceInfo.link}`);
+check('map markers carry place names', mapPlaceInfo.titles.some((t) => t.includes(mapPlaceInfo.home)),
+  `${mapPlaceInfo.titles.length} title(s)`);
+check('map draws an interactive circle for every place', mapPlaceInfo.circles >= mapPlaceInfo.count && mapPlaceInfo.count > 0,
+  `${mapPlaceInfo.circles}/${mapPlaceInfo.count}`);
+const circleHash = await d.evaluate(async () => {
+  const circle = [...document.querySelectorAll('#main .leaflet-overlay-pane path.leaflet-interactive')]
+    .find((p) => p.getAttribute('fill') && p.getAttribute('fill') !== 'none');
+  if (!circle) return '';
+  circle.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 120, clientY: 120 }));
+  await new Promise((r) => setTimeout(r, 600));
+  return location.hash;
+});
+check('a map circle opens its place detail', /^#\/places\/\d+$/.test(circleHash), circleHash);
 // The plugin is optional: with its files blocked the map must still show plain pins, without an error page or banner.
 const fb = await browser.newPage();
 watch(fb);
@@ -115,7 +146,36 @@ check('map falls back to plain pins without the cluster plugin', fallback.pins >
 if (SHOTS) await fb.screenshot({ path: `${SHOTS}/map-fallback.png` });
 await fb.close();
 
-// ---------------------------------------------------------------- 4. the legacy ownerless circle must not swallow map clicks
+// ---------------------------------------------------------------- 4. a place's own rate explains a charge's cost
+// Give the place of a charge a price for the duration of the check, then read the real charge page and put the price back.
+const pricedCharge = await d.evaluate(async () => {
+  const list = await fetch('/api/vehicles/1/charges?limit=20').then((r) => r.json());
+  const charge = (list.items || []).find((x) => x.place?.id && x.cost_basis === 'tariff');
+  if (!charge) return null;
+  const previous = await fetch(`/api/places/${charge.place.id}`).then((r) => r.json());
+  await fetch(`/api/places/${charge.place.id}`, { method: 'PUT', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ ...previous, price_kwh: 0.42 }) });
+  return { charge: charge.id, place: charge.place.id, name: charge.place.name, before: previous };
+});
+if (pricedCharge) {
+  await d.goto(`${BASE}/#/charges/${pricedCharge.charge}`, { waitUntil: 'networkidle0' });
+  await sleep(1500);
+  const placeCost = await d.evaluate((id, name) => ({
+    text: document.getElementById('main').innerText,
+    link: [...document.querySelectorAll('#main a[href^="#/places/"]')]
+      .some((a) => a.getAttribute('href') === `#/places/${id}` && a.textContent.includes(name)),
+  }), pricedCharge.place, pricedCharge.name);
+  check('a place rate explains the charge cost and links the place',
+    /Cost uses the price of this place\./.test(placeCost.text) && placeCost.link, `place ${pricedCharge.name}`);
+  await d.evaluate(async (id, before) => {
+    await fetch(`/api/places/${id}`, { method: 'PUT', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(before) });
+  }, pricedCharge.place, pricedCharge.before);
+} else {
+  check('a place rate explains the charge cost and links the place', false, 'no place-linked charge found');
+}
+
+// ---------------------------------------------------------------- 5. the legacy ownerless circle must not swallow map clicks
 // The prices page draws a bare `circle` (a radius hint, no id) and asks the user to click the map to place the home pin.
 // Under R8 only a circle that identifies a place (id) is interactive, so this one has to stay click-through.
 await d.goto(`${BASE}/#/prices`, { waitUntil: 'networkidle0' });
@@ -145,7 +205,7 @@ check('ownerless circle keeps click-to-place on the prices map',
   !!clickPlace && placed.circles > 0 && placed.interactive === 0 && placed.latlon[0] !== clickPlace.before[0] && placed.latlon[1] !== clickPlace.before[1],
   `circle=${placed.circles} interactive=${placed.interactive} ${clickPlace?.before.join(',')} → ${placed.latlon.join(',')}`);
 
-// ---------------------------------------------------------------- 5. the places form keeps its draft across a map pick
+// ---------------------------------------------------------------- 6. the places form keeps its draft across a map pick
 // R9: the form is modal, so "Pick on the map" closes it and keeps the draft; the next map click reopens the same form at
 // the new point with the name and colour still filled in. This drives the real page, then reads the saved place back.
 const draftName = `Pick test ${Date.now()}`;
@@ -276,6 +336,10 @@ await d.goto(`${BASE}/#/places/1`, { waitUntil: 'networkidle0' }); await sleep(1
 const pde = await d.evaluate(() => document.getElementById('main').innerText);
 const pEng = ['Recent visits', 'Recent charges', 'Parked time', 'Back to places', 'Arrival', 'Departure', 'Edit place', 'Date', 'Charged', 'Visits', 'Days'].filter((s) => pde.includes(s));
 check('German #/places/1', pEng.length === 0, pEng.join(', '));
+await d.goto(`${BASE}/#/map`, { waitUntil: 'networkidle0' }); await sleep(1600);
+const mde = await d.evaluate(() => document.getElementById('main').innerText);
+const mEng = ['Parked places', 'Charge locations', 'Trip start and end', 'Show on map', 'last seen', 'Visits', 'Days', 'Car now', 'Click a circle'].filter((s) => mde.includes(s));
+check('German #/map', mEng.length === 0, mEng.join(', '));
 await d.goto(`${BASE}/#/places/999999`, { waitUntil: 'networkidle0' }); await sleep(1200);
 const pdeMissing = await d.evaluate(() => document.getElementById('main').innerText);
 check('German place not found', /Ort nicht gefunden\./.test(pdeMissing) && !/Place not found/.test(pdeMissing), pdeMissing.slice(0, 80));

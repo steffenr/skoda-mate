@@ -39,6 +39,7 @@ extendDE({
   'Place saved': 'Ort gespeichert', 'Note': 'Notiz', 'Save note': 'Notiz speichern', 'Note saved': 'Notiz gespeichert', 'Add a note': 'Notiz hinzufügen',
   'How this cost was calculated': 'So wurden die Kosten berechnet', 'Cost entered by you. It replaces the calculation.': 'Von Ihnen eingetragene Kosten. Sie ersetzen die Berechnung.',
   'Calculated: delivered energy × your price': 'Berechnet: gelieferte Energie × Ihr Preis', 'Cost is a guess: the place is unknown, so the home price was used. Choose Home or Public, or tell Mate where home is.': 'Die Kosten sind eine Schätzung: Der Ort ist unbekannt, daher wurde der Heimpreis verwendet. Wählen Sie Zuhause oder Öffentlich oder teilen Sie Mate mit, wo Ihr Zuhause ist.',
+  'Cost uses the price of this place.': 'Die Kosten nutzen den Preis dieses Ortes.',
   'No cost: the delivered energy is unknown.': 'Keine Kosten: Die gelieferte Energie ist unbekannt.', 'home price': 'Heimpreis', 'public AC price': 'Preis öffentlich AC', 'public DC price': 'Preis öffentlich DC', 'per kWh': 'pro kWh',
   'Delivered vs into the battery': 'Geliefert vs. in die Batterie', 'Delivered (from the grid)': 'Geliefert (aus dem Netz)', 'Into the battery': 'In die Batterie', 'Difference': 'Differenz',
   'The difference is charging loss (heat in the charger, cable and car), usually 5 to 15 %. Both values are estimates: delivered energy is integrated from the power readings, battery energy from the change in battery level and your battery capacity.': 'Die Differenz ist Ladeverlust (Wärme in Lader, Kabel und Auto), meist 5 bis 15 %. Beide Werte sind Schätzungen: Die gelieferte Energie wird aus den Leistungswerten integriert, die Batterieenergie aus der Änderung des Batteriestands und Ihrer Batteriekapazität.',
@@ -85,6 +86,7 @@ export default async function charge(root, ctx) {
     let explain;
     if (basis === 'manual') explain = banner('info', t('Cost entered by you. It replaces the calculation.'));
     else if (basis === 'tariff-guess') explain = banner('warn', t('Cost is a guess: the place is unknown, so the home price was used. Choose Home or Public, or tell Mate where home is.'));
+    else if (basis === 'place') explain = banner('info', t('Cost uses the price of this place.'));
     else if (basis === 'tariff') {
       const price = kind === 'home' ? [tar.home_kwh, t('home price')] : c.charge_type === 'DC' ? [tar.public_dc_kwh, t('public DC price')] : [tar.public_ac_kwh, t('public AC price')];
       explain = banner('info', `${t('Calculated: delivered energy × your price')}: ${f.kwh(c.energy_kwh)} × ${price[0] != null ? f.money(price[0], ctx.currency, 3) : '–'} ${t('per kWh')} (${price[1]}).`);
@@ -101,8 +103,11 @@ export default async function charge(root, ctx) {
     }, { kind: 'primary', ic: 'check' });
     setCost.disabled = amount.value.trim() === ''; amount.addEventListener('input', () => { setCost.disabled = amount.value.trim() === ''; });  // no amount, nothing to set
     const clearCost = c.cost_manual != null ? asyncButton(t('Clear manual cost'), () => patch({ clear_cost: true }, t('Manual cost removed')), { ic: 'x' }) : null;
+    // The place a charge is linked to, with the same detail link the map uses.
+    const placeLink = c.place ? h('div', { class: 'small' }, icon('pin', { size: 14 }), ' ',
+      h('a', { href: `#/places/${c.place.id}` }, c.place.name || t('Unknown place'))) : null;
     return card(t('Cost'), h('div', { class: 'stack' },
-      h('div', { class: 'a-bigcost' }, c.cost != null ? `${basis === 'tariff-guess' ? '≈ ' : ''}${f.money(c.cost, ctx.currency)}` : '–'), explain,
+      h('div', { class: 'a-bigcost' }, c.cost != null ? `${basis === 'tariff-guess' ? '≈ ' : ''}${f.money(c.cost, ctx.currency)}` : '–'), explain, placeLink,
       h('div', null, h('div', { class: 'a-label' }, t('Where was this charged?')), placeSeg, h('div', { class: 'tiny muted', style: { marginTop: '4px' } }, t('Auto uses your home place from Charge prices.'))),
       field(`${t('Total cost (manual)')} (${ctx.currency})`, amount), h('div', { class: 'row' }, setCost, clearCost)), { ic: 'coin' });
   }
