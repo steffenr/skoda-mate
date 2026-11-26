@@ -7,7 +7,7 @@ import puppeteer from 'puppeteer-core';
 const BASE = process.env.BASE || 'http://localhost:8765';
 const SHOTS = process.env.SHOTS || '';
 const CHROME = process.env.CHROME || '/Applications/Chromium.app/Contents/MacOS/Chromium';
-const ROUTES = ['', 'trips', 'trips/5', 'charges', 'charges/3', 'battery', 'control', 'stats', 'map', 'events', 'settings', 'system'];
+const ROUTES = ['', 'trips', 'trips/5', 'charges', 'charges/3', 'battery', 'control', 'stats', 'map', 'places', 'events', 'settings', 'system'];
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 let failed = 0;
 const check = (name, ok, extra = '') => { if (!ok) failed++; console.log(`${ok ? 'ok  ' : 'FAIL'} ${name}${extra ? '  ' + extra : ''}`); };
@@ -65,7 +65,7 @@ await d.setViewport({ width: 1280, height: 900 });
 await d.goto(BASE + '/', { waitUntil: 'networkidle0' });
 await sleep(1500);
 console.log('--- desktop click-through');
-const labels = ['Trips', 'Charges', 'Battery', 'Control', 'Statistics', 'Map', 'Events', 'Settings', 'System'];
+const labels = ['Trips', 'Charges', 'Battery', 'Control', 'Statistics', 'Map', 'Places', 'Events', 'Settings', 'System'];
 for (const l of labels) {
   await d.evaluate((txt) => [...document.querySelectorAll('.sidebar .nav a')].find((a) => a.textContent.trim() === txt).click(), l);
   await sleep(1300);
