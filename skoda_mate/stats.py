@@ -5,7 +5,7 @@ from __future__ import annotations
 import statistics
 from datetime import datetime, timedelta
 
-from . import costs, recorder
+from . import costs, places, recorder
 
 
 def _rows(cur):
@@ -29,6 +29,7 @@ def monthly(conn, vid: int, tariff: dict) -> list[dict]:
         if t["energy_kwh"] and t["distance_km"]:
             r["trip_kwh"] += t["energy_kwh"]
             r["trip_kwh_km"] += t["distance_km"]
+    places_by_id = {p["id"]: p for p in places.list_places(conn)}
     for c in _rows(conn.execute("SELECT * FROM charges WHERE vehicle_id=? AND ended_at IS NOT NULL", (vid,))):
         r = m(c["started_at"][:7])
         k = c["energy_kwh"] or 0
@@ -39,7 +40,7 @@ def monthly(conn, vid: int, tariff: dict) -> list[dict]:
             r["inferred_charges"] += 1
         else:
             r["dc_kwh" if c["charge_type"] == "DC" else "ac_kwh"] += k
-        cc = costs.charge_cost(c, tariff)
+        cc = costs.charge_cost(c, tariff, places_by_id.get(c.get("geofence_id")))
         # a place that is neither known home nor known public (no home position set yet) is its own bucket, never "public"
         r[{"home": "home_kwh", "public": "public_kwh"}.get(cc["kind"], "unknown_place_kwh")] += k
         if cc["amount"] is None:

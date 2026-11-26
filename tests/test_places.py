@@ -322,3 +322,15 @@ def test_detail_lists_only_the_last_hundred_charges_but_sums_them_all():
     assert len(d["charges"]) == 100
     assert d["charges"][0]["started_at"] == "2027-02-05T04:00:00+00:00"
     assert d["charged_kwh"] == 101.0 and d["cost"] == 30.3
+
+
+def test_detail_prices_a_charge_with_the_rate_of_its_place():
+    conn = schema.connect(":memory:")
+    work = places.create(conn, {"name": "Work", "kind": "work", "lat": 50.0, "lon": 8.0, "radius_m": 150,
+                                "price_kwh": 0.50})
+    vid = _vid(conn)
+    conn.execute("INSERT INTO charges(vehicle_id,started_at,ended_at,energy_kwh,charge_type,lat,lon) VALUES(?,?,?,?,?,?,?)",
+                 (vid, "2027-02-10T18:30:00+00:00", "2027-02-10T19:00:00+00:00", 10.0, "AC", 50.0, 8.0))
+    places.assign_all(conn)
+    d = places.detail(conn, work["id"], "2027-02-10T19:00:00+00:00")
+    assert d["charges"][0]["cost"] == 5.0 and d["cost"] == 5.0  # 10 kWh at the place's 0.50, not the 0.30 tariff
