@@ -150,13 +150,18 @@ def soc_history(conn, vid: int, hours: int, now_iso: str, max_points: int = 600)
     return rows
 
 
-def map_points(conn, vid: int, limit: int = 300) -> dict:
+def map_points(conn, vid: int, limit: int = 1000) -> dict:
+    all_places = places.list_places(conn)  # one query: every parked cluster matches against the same list
     parked = _rows(conn.execute(
         "SELECT lat, lon, address, MAX(recorded_at) last_seen, MIN(recorded_at) first_seen, COUNT(*) n FROM snapshots "
         "WHERE vehicle_id=? AND lat IS NOT NULL AND in_motion=0 GROUP BY ROUND(lat,3), ROUND(lon,3) ORDER BY last_seen DESC LIMIT ?",
         (vid, limit)))
-    chg = _rows(conn.execute("SELECT id, lat, lon, address, started_at, energy_kwh, charge_type FROM charges WHERE vehicle_id=? "
-                             "AND lat IS NOT NULL ORDER BY started_at DESC LIMIT ?", (vid, limit)))
-    trips = _rows(conn.execute("SELECT id, start_lat, start_lon, end_lat, end_lon, start_place, end_place, started_at, distance_km "
-                               "FROM trips WHERE vehicle_id=? AND end_lat IS NOT NULL ORDER BY started_at DESC LIMIT ?", (vid, limit)))
+    for cluster in parked:
+        place = places.match(conn, cluster["lat"], cluster["lon"], all_places)
+        cluster["place_id"] = place["id"] if place else None
+    chg = _rows(conn.execute("SELECT id, lat, lon, address, started_at, energy_kwh, charge_type, geofence_id FROM charges "
+                             "WHERE vehicle_id=? AND lat IS NOT NULL ORDER BY started_at DESC LIMIT ?", (vid, limit)))
+    trips = _rows(conn.execute("SELECT id, start_lat, start_lon, end_lat, end_lon, start_place, end_place, started_at, distance_km, "
+                               "start_geofence_id, end_geofence_id FROM trips WHERE vehicle_id=? AND end_lat IS NOT NULL "
+                               "ORDER BY started_at DESC LIMIT ?", (vid, limit)))
     return {"parked": parked, "charges": chg, "trips": trips}

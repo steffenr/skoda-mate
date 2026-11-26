@@ -10,7 +10,7 @@ import random
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from . import recorder, store
+from . import places, recorder, store
 from .client import ApiResult, RateInfo
 
 DEMO_VIN = "TMBDEMO0000000001"
@@ -116,6 +116,15 @@ class DemoApi:
         pass
 
 
+def _seed_places(conn) -> None:
+    """The four named places the demo drives between. Created before the first snapshot, so every row links."""
+    places.upsert_home(conn, HOME[0], HOME[1], 180)
+    have = {place["name"] for place in places.list_places(conn)}
+    for place_name, coords, kind in (("Work", WORK, "work"), ("Shop", SHOP, "place"), ("Darmstadt", FAR, "place")):
+        if place_name not in have:
+            places.create(conn, {"name": place_name, "kind": kind, "lat": coords[0], "lon": coords[1], "radius_m": 150})
+
+
 def seed(conn, days: int = 60, now: datetime | None = None, rng_seed: int = 7, vin: str = DEMO_VIN, name: str = "Demo Enyaq",
          plate: str = "F-DM 2026", model: str = "Enyaq 85") -> int:
     """Write believable history through the real recorder. Returns the vehicle id."""
@@ -129,6 +138,7 @@ def seed(conn, days: int = 60, now: datetime | None = None, rng_seed: int = 7, v
     conn.execute("INSERT INTO settings(key,value) VALUES('tariff',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
                  (json.dumps({"home_lat": HOME[0], "home_lon": HOME[1], "home_kwh": 0.28, "public_ac_kwh": 0.52,
                               "public_dc_kwh": 0.74, "currency": "EUR"}),))
+    _seed_places(conn)
     soc, odo = 70.0, 9800.0
     start = (now - timedelta(days=days)).replace(hour=6, minute=0, second=0, microsecond=0)
 
