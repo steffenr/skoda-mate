@@ -29,9 +29,9 @@ no shared code.
 | **Trips** | Derived trips, day/month views, search, map, notes, cost, CSV export |
 | **Charges** | Sessions with energy, AC/DC, Home/Public, charging curve, cost, CSV export |
 | **Prices** | Your kWh prices (home, public AC, public DC) and home position; costs recalculate everywhere |
-| **Battery** | SoC history, charging settings and profiles, capacity estimate from charges |
+| **Battery** | SoC history, charging settings and profiles, capacity estimate from charges, projected range at 100 % ([how it is computed](docs/INSIGHTS.md#projected-range)) |
 | **Control** | Charging on/off, charge limit and mode, charging profiles, climate, auxiliary heater, ventilation |
-| **Statistics** | Monthly distance, energy, cost and consumption; a **Parked** tab with the battery lost while parked ([how it is computed](docs/ACTIVITY.md#parked-loss)) |
+| **Statistics** | Monthly distance, energy, cost and consumption; **Charging** and **Driving** tabs with power, charge curves, destinations and heatmaps ([what they mean](docs/INSIGHTS.md)); a **Parked** tab with the battery lost while parked ([how it is computed](docs/ACTIVITY.md#parked-loss)) |
 | **Map** | Places the car stood and charged |
 | **Activity** | Day timeline (drive, charge, climate, parked) and the event list with every command ([how it reads](docs/ACTIVITY.md#the-timeline)) |
 | **Places** | Named places with radius, colour and per-place prices; visits, days, parked time and cost per place ([how places work](docs/PLACES.md)) |
