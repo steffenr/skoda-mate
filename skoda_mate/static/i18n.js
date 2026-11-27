@@ -4,8 +4,9 @@
 // The translations live in ./i18n/<code>.json.
 
 /** @typedef {Record<string, string | Record<string, string>>} Catalog  an object value holds plural forms */
-const jsonCatalog = (code) => async () => {
-  const response = await fetch(`/static/i18n/${code}.json`);
+const CATALOG_TIMEOUT_MS = 5000;  // the first page waits for the catalog: better English than a blank screen
+export const jsonCatalog = (code, timeout = CATALOG_TIMEOUT_MS) => async () => {
+  const response = await fetch(`/static/i18n/${code}.json`, { signal: AbortSignal.timeout(timeout) });
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   return response.json();
 };
@@ -17,17 +18,24 @@ let locale = 'en';
 let current = {};
 let latest = 0;
 
-/** Switch language. The page keeps its old texts until the catalog is there; when switches overlap, the last one wins. */
+/** Switch language. The page keeps its old texts until the catalog is there; when switches overlap, the last one wins.
+ *  A catalog that cannot be had leaves English throughout: getLang() and getLocale() then say 'en', so that dates,
+ *  numbers and the page's lang attribute follow. */
 export async function setLang(code, bcp47) {
   const mine = ++latest;
-  let loaded = {};
+  let next = { lang: code, locale: bcp47 ?? code, catalog: {} };
   if (Object.hasOwn(CATALOGS, code)) {
-    try { loaded = await CATALOGS[code](); } catch (e) { console.warn(`translation ${code} not loaded, showing English`, e); }
+    try {
+      const loaded = await CATALOGS[code]();
+      if (!loaded || typeof loaded !== 'object' || Array.isArray(loaded)) throw new Error('not a catalog');
+      next.catalog = loaded;
+    } catch (e) {
+      console.warn(`translation ${code} not loaded, showing English`, e);
+      next = { lang: 'en', locale: 'en', catalog: {} };
+    }
   }
   if (mine !== latest) return;
-  lang = code;
-  locale = bcp47 ?? code;
-  current = loaded;
+  ({ lang, locale, catalog: current } = next);
 }
 export const getLang = () => lang;
 export const getLocale = () => locale;
