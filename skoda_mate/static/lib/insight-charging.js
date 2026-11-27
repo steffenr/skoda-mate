@@ -4,27 +4,7 @@ import { banner, card, chip, empty, stat, table } from './ui.js';
 import { barChart } from './charts.js';
 import { heatmap } from './heatmap.js';
 import * as f from './format.js';
-import { extendDE, t } from '../i18n.js';
-
-extendDE({
-  'No charges in this period': 'Keine Ladevorgänge in diesem Zeitraum', 'Pick a longer period to see charging insight.': 'Wähle einen längeren Zeitraum, um die Ladeauswertung zu sehen.',
-  'Cost per kWh': 'Kosten pro kWh', 'Measured share': 'Gemessener Anteil', 'of the energy': 'der Energie', 'Session fees': 'Sitzungsgebühren', 'included in the cost': 'in den Kosten enthalten',
-  'Some costs are unknown and not included.': 'Einige Kosten sind unbekannt und nicht enthalten.',
-  'Inferred or imported charges in this period:': 'Abgeleitete oder importierte Ladevorgänge in diesem Zeitraum:',
-  'They count toward energy and cost, but not toward power, the charge curve or the heatmap, because Mate did not measure them.':
-    'Sie zählen bei Energie und Kosten, aber nicht bei Leistung, Ladekurve und Wochenübersicht, weil Mate sie nicht gemessen hat.',
-  'Charging power (measured)': 'Ladeleistung (gemessen)', 'Type': 'Art', 'Average power': 'Durchschnittsleistung', 'Peak power': 'Spitzenleistung', 'Unknown type': 'Unbekannte Art',
-  'No measured charges in this period.': 'Keine gemessenen Ladevorgänge in diesem Zeitraum.',
-  'Average power is energy divided by charging time. Charges whose end Mate had to estimate are left out of it.':
-    'Die Durchschnittsleistung ist Energie geteilt durch Ladezeit. Ladevorgänge, deren Ende Mate schätzen musste, fehlen darin.',
-  'Home, public and other': 'Zuhause, öffentlich und sonstige', 'Where': 'Wo', 'Other': 'Sonstige',
-  'Top charging places': 'Häufigste Ladeorte', 'Unknown place': 'Unbekannter Ort',
-  'When charging starts': 'Wann das Laden beginnt', 'Measured charges by weekday and start hour': 'Gemessene Ladevorgänge nach Wochentag und Startstunde',
-  'Charge curve (AC)': 'Ladekurve (AC)', 'Charge curve (DC)': 'Ladekurve (DC)', 'Average kW': 'Mittlere kW',
-  'Average charging power by charge level, in 5 % steps. Steps with fewer than three readings are hidden.':
-    'Mittlere Ladeleistung je Ladestand in 5-%-Schritten. Schritte mit weniger als drei Messungen werden ausgeblendet.',
-  'Not enough readings for a charge curve': 'Nicht genug Messwerte für eine Ladekurve',
-});
+import { t } from '../i18n.js';
 
 const DASH = '–';
 

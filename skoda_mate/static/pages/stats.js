@@ -8,59 +8,7 @@ import { monthsAgo } from '../lib/dates.js';
 import { belowFloor, floorValue, kwhText, medianLossStat } from '../lib/floor.js';
 import { renderCharging } from '../lib/insight-charging.js';
 import { renderDriving } from '../lib/insight-driving.js';
-import { extendDE, t } from '../i18n.js';
-
-extendDE({
-  'Statistics': 'Statistik', 'Period': 'Zeitraum', 'Last 6 months': 'Letzte 6 Monate', 'Last 12 months': 'Letzte 12 Monate', 'All': 'Alle',
-  '6 months': '6 Monate', '12 months': '12 Monate', 'all': 'alle',
-  'Distance': 'Strecke', 'Trips': 'Fahrten', 'Energy charged': 'Geladene Energie', 'Charging cost': 'Ladekosten', 'Consumption': 'Verbrauch',
-  'Cost per 100': 'Kosten pro 100', 'Home vs public': 'Zuhause vs. öffentlich', 'Home': 'Zuhause', 'Public': 'Öffentlich', 'AC': 'AC', 'DC': 'DC',
-  'Monthly overview': 'Monatsübersicht', 'Month': 'Monat', 'Driven': 'Gefahren', 'Charged': 'Geladen', 'Cost': 'Kosten', 'Charges': 'Ladevorgänge',
-  'Export': 'Export', 'Export trips (CSV)': 'Fahrten exportieren (CSV)', 'Export charges (CSV)': 'Ladevorgänge exportieren (CSV)',
-  'No statistics yet': 'Noch keine Statistik', 'Statistics appear once Mate has recorded trips and charges.': 'Die Statistik erscheint, sobald Mate Fahrten und Ladevorgänge aufgezeichnet hat.',
-  'How these numbers are made': 'Wie diese Zahlen entstehen',
-  'Trips are derived by Mate from the odometer and the parked/driving state, not delivered by Škoda.': 'Fahrten leitet Mate aus Kilometerstand und Park-/Fahrzustand ab, Škoda liefert sie nicht.',
-  'Energy comes from the battery capacity you entered in Settings and the change in charge level (charged: measured at the wall during detected charges).': 'Energie ergibt sich aus der in den Einstellungen eingetragenen Batteriekapazität und der Änderung des Ladestands (geladen: am Netz gemessen bei erkannten Ladevorgängen).',
-  'Costs use your tariff from Settings; charges away from your home position count as public.': 'Kosten nutzen deinen Tarif aus den Einstellungen; Ladevorgänge außerhalb deiner Heimposition zählen als öffentlich.',
-  'Consumption is the energy used while driving divided by distance, so it is an estimate.': 'Der Verbrauch ist die beim Fahren genutzte Energie geteilt durch die Strecke, also eine Schätzung.',
-  'Some months contain costs that are only a tariff guess.': 'Manche Monate enthalten Kosten, die nur eine Tarifschätzung sind.',
-  'Škoda does not report the battery size. Enter it to get energy, consumption and costs.': 'Škoda meldet die Batteriegröße nicht. Trage sie ein, um Energie, Verbrauch und Kosten zu erhalten.',
-  'Set battery capacity': 'Batteriekapazität eintragen', 'Could not load statistics': 'Statistik konnte nicht geladen werden', 'Try again': 'Erneut versuchen',
-  'Share of energy': 'Anteil der Energie', 'since': 'seit', 'Odometer': 'Kilometerstand',
-  'Škoda offers no charging history. Charges Mate sees live are measured; charges it did not see are inferred from the battery level rising between trips or readings (marked “inferred”, with estimated energy).':
-    'Škoda bietet keinen Ladeverlauf. Ladevorgänge, die Mate live sieht, sind gemessen; solche, die es nicht gesehen hat, werden aus dem steigenden Batteriestand zwischen Fahrten oder Messungen abgeleitet (als „abgeleitet“ markiert, Energie geschätzt).',
-  'How is the distance calculated?': 'Wie wird die Strecke berechnet?', 'A sum of tracked trips': 'Eine Summe aufgezeichneter Fahrten',
-  'The distance is the sum of the trips Mate has recorded': 'Die Strecke ist die Summe der Fahrten, die Mate aufgezeichnet hat',
-  'the car has driven in total (odometer).': 'das Auto insgesamt gefahren ist (Kilometerstand).',
-  'Why it can be incomplete': 'Warum sie unvollständig sein kann',
-  'Škoda provides no trip history, so nothing from before Mate started is known unless you import it.': 'Škoda liefert keinen Fahrtenverlauf, daher ist nichts aus der Zeit vor Mates Start bekannt, außer du importierst es.',
-  'Mate reads a parked car about every {idle} minutes and a driving or charging car about every {active} minutes, because Škoda allows around 20 requests per hour.': 'Mate liest ein geparktes Auto etwa alle {idle} Minuten aus und ein fahrendes oder ladendes etwa alle {active} Minuten, weil Škoda rund 20 Anfragen pro Stunde erlaubt.',
-  'Mate reads the car only every few minutes, because Škoda allows around 20 requests per hour.': 'Mate liest das Auto nur alle paar Minuten aus, weil Škoda rund 20 Anfragen pro Stunde erlaubt.',
-  'A very short trip between two readings can be missed, or is only noticed from the odometer (marked ≈). Shorter intervals catch more, but use more of the request budget.': 'Eine sehr kurze Fahrt zwischen zwei Messungen kann verpasst oder nur am Kilometerstand bemerkt werden (mit ≈ markiert). Kürzere Intervalle erkennen mehr, verbrauchen aber mehr vom Anfragebudget.',
-  'Change the polling interval': 'Abfrageintervall ändern',
-  'Times when Mate was not running, or the API key had expired, leave gaps too.': 'Auch Zeiten, in denen Mate nicht lief oder der API-Schlüssel abgelaufen war, hinterlassen Lücken.',
-  'It gets more complete over time': 'Mit der Zeit wird sie vollständiger',
-  'Everything is saved in Mate’s own database (the data folder), so the history keeps growing the longer Mate runs. Keep that folder, or its backups, to keep your history.': 'Alles wird in Mates eigener Datenbank gespeichert (Ordner „data“), die Historie wächst also, je länger Mate läuft. Behalte diesen Ordner oder seine Backups, um deine Historie zu behalten.',
-  'How to check it': 'So prüfst du sie', 'The odometer is exact. The “Odometer Δ” column in the monthly table shows what the odometer saw, including drives Mate never caught as a trip.': 'Der Kilometerstand ist exakt. Die Spalte „Kilometerstand Δ“ in der Monatstabelle zeigt, was der Kilometerstand gesehen hat, auch Fahrten, die Mate nie als Fahrt erfasst hat.',
-  'Fill the past': 'Die Vergangenheit auffüllen', 'Trips from before Mate started can be imported from the MyŠkoda app’s trip export.': 'Fahrten aus der Zeit vor Mates Start können aus dem Fahrten-Export der MyŠkoda-App importiert werden.',
-  'Import trips': 'Fahrten importieren',
-  'at an unknown place': 'an unbekanntem Ort', 'Set your home position to split charges into Home and Public.': 'Lege deine Heimposition fest, um Ladevorgänge in „Zuhause“ und „Öffentlich“ zu trennen.', 'Open Settings': 'Einstellungen öffnen',
-  'inferred': 'abgeleitet', 'inferred (from battery level)': 'abgeleitet (aus dem Batteriestand)',
-  'Odometer (lifetime)': 'Kilometerstand (gesamt)', 'measured by Mate since': 'von Mate gemessen seit', 'reported by the car': 'vom Auto gemeldet',
-  'These statistics cover only what Mate has recorded since':'Diese Statistik umfasst nur, was Mate seit dem', 'of the': 'von den',
-  'the car has driven in total (odometer). Škoda provides no trip history from before that.': 'insgesamt gefahrenen (Kilometerstand) erfasst hat. Škoda liefert keine Fahrten aus der Zeit davor.',
-  'View': 'Ansicht', 'Place': 'Ort', 'Hours': 'Stunden', 'SoC': 'Ladestand',
-  'Last 7 days': 'Letzte 7 Tage', 'Last 30 days': 'Letzte 30 Tage', 'Parked sessions': 'Standzeiten',
-  'Likely an unrecorded charge': 'Wahrscheinlich ein nicht erfasster Ladevorgang',
-  'No parked sessions': 'Keine Standzeiten',
-  'A session needs at least six hours, a charge level at both ends and no charging or driving in between.': 'Eine Standzeit braucht mindestens sechs Stunden, einen Ladestand an beiden Enden und kein Laden oder Fahren dazwischen.',
-  'Could not load parked loss': 'Standverlust konnte nicht geladen werden',
-  'The charge level is a whole percent, so a loss below one percent is not measurable (below the detection floor).': 'Der Ladestand ist eine ganze Prozentzahl, daher ist ein Verlust unter einem Prozent nicht messbar (unter der Nachweisgrenze).',
-  'One percent is roughly': 'Ein Prozent entspricht etwa',
-  'Costs are estimates. Sessions marked as a likely unrecorded charge are left out of the figures above.': 'Kosten sind Schätzungen. Standzeiten, die als wahrscheinlich nicht erfasster Ladevorgang markiert sind, fehlen in den Zahlen oben.',
-  'Charging': 'Laden', 'Driving': 'Fahren', 'Newer': 'Neuer', 'Older': 'Älter', 'Pages': 'Seiten',
-  'Could not load charging insight': 'Ladeauswertung konnte nicht geladen werden', 'Could not load driving insight': 'Fahrtenauswertung konnte nicht geladen werden',
-});
+import { t } from '../i18n.js';
 
 const TABS = ['overview', 'charging', 'driving', 'parked'];
 const PARKED_PAGE = 50;  // stands per page of the Parked table

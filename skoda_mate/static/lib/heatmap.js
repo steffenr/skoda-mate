@@ -2,11 +2,7 @@
 import { h } from './dom.js';
 import { table } from './ui.js';
 import * as f from './format.js';
-import { extendDE, t } from '../i18n.js';
-
-extendDE({
-  'Show as table': 'Als Tabelle anzeigen', 'Weekday': 'Wochentag', 'Darker means more often.': 'Dunkler bedeutet häufiger.',
-});
+import { t } from '../i18n.js';
 
 // 2024-01-01 was a Monday, the first row the server sends.
 const weekday = (i, style) => new Date(Date.UTC(2024, 0, 1 + i)).toLocaleDateString(f.getLang(), { weekday: style, timeZone: 'UTC' });

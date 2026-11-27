@@ -14,9 +14,9 @@ from . import costs, places, presenters
 
 KINDS = ("drive", "charge", "climate", "aux", "vent", "parked", "unknown")
 CAP_DAYS = 31  # the timeline refuses a longer range
-REVERSED_RANGE = "The start must be before the end."  # the 400 for a reversed range (German in de_backend.js)
-LIMIT_31 = "The range is limited to 31 days."  # German in de_backend.js
-BAD_MIN_HOURS = "min_hours must be greater than 0."  # German in de_backend.js
+REVERSED_RANGE = "The start must be before the end."  # the 400 for a reversed range (German in static/i18n/de.json)
+LIMIT_31 = "The range is limited to 31 days."  # German in static/i18n/de.json
+BAD_MIN_HOURS = "min_hours must be greater than 0."  # German in static/i18n/de.json
 GAP_H = 6.0  # a reading gap longer than this is unknown, not parked
 
 

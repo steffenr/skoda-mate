@@ -6,29 +6,7 @@ import { banner, button, card, chip, empty, field, loading, seg } from '../lib/u
 import * as f from '../lib/format.js';
 import { barBox, clockAt, dayStartMs } from '../lib/dates.js';
 import { actionLabel, checkLabel } from '../lib/quality.js';
-import { extendDE, t } from '../i18n.js';
-
-extendDE({
-  'Activity': 'Aktivität', 'Timeline': 'Zeitleiste', 'Previous week': 'Vorherige Woche', 'Next week': 'Nächste Woche', 'Not heard from': 'Nichts gehört',
-  'Nothing recorded in this week': 'In dieser Woche wurde nichts aufgezeichnet',
-  'Mate records a day from the readings it has. A gap means it did not hear from the car.': 'Mate zeichnet einen Tag aus den vorhandenen Messungen auf. Eine Lücke heißt, dass es vom Auto nichts gehört hat.',
-  'Text list': 'Textliste', 'Could not load the timeline': 'Die Zeitleiste konnte nicht geladen werden', 'Colour key': 'Farbschlüssel',
-  'Events': 'Ereignisse', 'All': 'Alle', 'Search': 'Suchen', 'From': 'Von', 'To': 'Bis', 'Clear filters': 'Filter zurücksetzen', 'Load more': 'Mehr laden',
-  'Showing': 'Zeige', 'of': 'von', 'events': 'Ereignisse', 'No events found': 'Keine Ereignisse gefunden', 'Nothing matches these filters.': 'Zu diesen Filtern gibt es nichts.',
-  'Mate records events when it notices a change between two readings.': 'Mate zeichnet Ereignisse auf, wenn es zwischen zwei Messungen eine Änderung bemerkt.',
-  'Could not load events': 'Ereignisse konnten nicht geladen werden', 'Try again': 'Erneut versuchen',
-  'Event types': 'Ereignisarten', 'Locked': 'Verriegelt', 'Unlocked': 'Entriegelt', 'Door opened': 'Tür geöffnet', 'Door closed': 'Tür geschlossen',
-  'Window opened': 'Fenster geöffnet', 'Window closed': 'Fenster geschlossen', 'Trunk opened': 'Kofferraum geöffnet', 'Trunk closed': 'Kofferraum geschlossen',
-  'Bonnet opened': 'Motorhaube geöffnet', 'Bonnet closed': 'Motorhaube geschlossen', 'Sunroof opened': 'Schiebedach geöffnet', 'Sunroof closed': 'Schiebedach geschlossen',
-  'Lights on': 'Licht an', 'Lights off': 'Licht aus', 'Plugged in': 'Angesteckt', 'Unplugged': 'Abgesteckt', 'Plug locked': 'Stecker verriegelt', 'Plug unlocked': 'Stecker entriegelt',
-  'Climate': 'Klima', 'Auxiliary heating': 'Standheizung', 'Ventilation': 'Lüftung', 'Charging started': 'Laden gestartet', 'Charging finished': 'Laden beendet',
-  'Charging status': 'Ladestatus', 'Trip started': 'Fahrt gestartet', 'Trip finished': 'Fahrt beendet', 'Command': 'Befehl',
-  'sent': 'gesendet', 'failed': 'fehlgeschlagen', 'Command sent': 'Befehl gesendet', 'Command failed': 'Befehl fehlgeschlagen',
-  'Start charging': 'Laden starten', 'Stop charging': 'Laden stoppen', 'Set charge limit': 'Ladelimit setzen', 'Set charge mode': 'Lademodus setzen',
-  'Update charging profile': 'Ladeprofil ändern', 'Start climate': 'Klima starten', 'Stop climate': 'Klima stoppen', 'Start auxiliary heating': 'Standheizung starten',
-  'Stop auxiliary heating': 'Standheizung stoppen', 'Start ventilation': 'Lüftung starten', 'Stop ventilation': 'Lüftung stoppen',
-  'Data fixed': 'Daten korrigiert', 'Data reviewed': 'Daten geprüft', 'changed': 'geändert', 'marked as reviewed': 'als geprüft markiert',
-});
+import { t } from '../i18n.js';
 
 const KINDS = {
   locked: ['Locked', 'lock', 'good'], unlocked: ['Unlocked', 'unlock', 'warn'],
@@ -157,11 +135,6 @@ const SEGMENT_LABEL = { drive: 'Driving', charge: 'Charging', climate: 'Climate'
 const SEGMENT_COLOUR = { aux: 'climate', vent: 'climate' };  // aux and vent share the climate colour and legend entry
 const LEGEND = ['drive', 'charge', 'climate', 'parked', 'unknown'];
 const segLabel = (k) => t(SEGMENT_LABEL[k] || k);
-
-extendDE({
-  'Times are accurate to the poll interval.': 'Die Zeiten sind so genau wie das Abfrageintervall.',
-  'estimated': 'geschätzt', 'at least': 'mindestens', 'free': 'kostenlos', 'Week': 'Woche',
-});
 
 const isoDay = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const addDays = (d, n) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n, 12);  // noon keeps DST shifts off the date

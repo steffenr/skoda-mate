@@ -4,36 +4,8 @@ import { icon } from '../lib/icons.js';
 import { asyncButton, banner, button, card, chip, confirmDialog, empty, enableOnChange, field, kv, loading, stat, toast } from '../lib/ui.js';
 import { mapView } from '../lib/mapview.js';
 import * as f from '../lib/format.js';
-import { extendDE, t } from '../i18n.js';
+import { t } from '../i18n.js';
 import { approxChip, APPROX_TIP } from './trips.js';
-
-extendDE({
-  'Merge with the next trip': 'Mit der nächsten Fahrt zusammenführen', 'Merge these trips?': 'Diese Fahrten zusammenführen?', 'Merge': 'Zusammenführen',
-  'Distance and energy are added up. You can undo this.': 'Strecke und Energie werden addiert. Du kannst das rückgängig machen.', 'Trips merged': 'Fahrten zusammengeführt',
-  'Undo merge': 'Zusammenführen rückgängig', 'Merge undone': 'Zusammenführen rückgängig gemacht',
-  'Trip': 'Fahrt', 'Back to trips': 'Zurück zu den Fahrten', 'Average speed': 'Ø Geschwindigkeit', 'Battery start → end': 'Batterie Start → Ende', 'Newer trip': 'Neuere Fahrt', 'Older trip': 'Ältere Fahrt',
-  'May be two trips': 'Möglicherweise zwei Fahrten', 'Mate reads a parked car about every {n} minutes.': 'Mate liest ein geparktes Auto etwa alle {n} Minuten aus.',
-  'Mate reads a parked car only every few minutes.': 'Mate liest ein geparktes Auto nur alle paar Minuten aus.',
-  'A drive to a place and back that fits between two readings is recorded as one trip, with its start estimated from the odometer. The real trip may be two shorter ones, each about half the distance.': 'Eine Hin- und Rückfahrt, die zwischen zwei Abfragen passt, wird als eine Fahrt gespeichert, der Start wird aus dem Kilometerstand geschätzt. Tatsächlich können es zwei kürzere Fahrten mit je etwa der halben Strecke sein.',
-  'A shorter idle interval catches more of these drives, but every reading uses one of the about 20 requests per hour per car.': 'Ein kürzeres Intervall im Ruhezustand erkennt mehr solcher Fahrten, aber jede Abfrage verbraucht eine der etwa 20 Anfragen pro Stunde und Auto.',
-  'Change the polling interval': 'Abfrageintervall ändern',
-  'Round trip': 'Rundfahrt', 'The trip ended where it started, so the line between start and end is just a point. Škoda only tells Mate where the car is parked, not which roads it took, so the route and any stops on the way cannot be shown. Distance and duration come from the odometer and the parked readings, energy from the change in battery level.': 'Die Fahrt endete dort, wo sie begonnen hat, deshalb ist die Linie zwischen Start und Ende nur ein Punkt. Škoda meldet Mate nur, wo das Auto parkt, nicht welche Straßen es gefahren ist. Route und Zwischenstopps lassen sich daher nicht anzeigen. Strecke und Dauer stammen vom Kilometerstand und den Parkmeldungen, die Energie aus der Änderung des Batteriestands.',
-  'Straight line, the car’s route is not available': 'Luftlinie, die gefahrene Route ist nicht verfügbar', 'Start': 'Start', 'End': 'Ende',
-  'No coordinates were recorded for this trip.': 'Für diese Fahrt wurden keine Koordinaten aufgezeichnet.', 'Note': 'Notiz', 'Save note': 'Notiz speichern', 'Note saved': 'Notiz gespeichert',
-  'About these numbers': 'Zu diesen Zahlen', 'Estimated trip': 'Geschätzte Fahrt',
-  'Mate did not see this trip start or end. It noticed that the odometer had grown between two parked readings, so the start and end times are estimated, and the distance is the odometer difference.': 'Mate hat Start oder Ende dieser Fahrt nicht gesehen. Es hat nur bemerkt, dass der Kilometerstand zwischen zwei Parkmeldungen gewachsen ist. Start- und Endzeit sind daher geschätzt, die Strecke ist die Differenz des Kilometerstands.',
-  'This value looks implausible. Several drives may have been merged, or the odometer jumped.': 'Dieser Wert wirkt unplausibel. Möglicherweise wurden mehrere Fahrten zusammengefasst oder der Kilometerstand sprang.',
-  'Energy is unknown because Škoda does not report the battery size. Enter it in Settings to get energy, consumption and costs.': 'Die Energie ist unbekannt, weil Škoda die Batteriegröße nicht meldet. Tragen Sie sie in den Einstellungen ein, um Energie, Verbrauch und Kosten zu erhalten.',
-  'Set battery capacity': 'Batteriekapazität eintragen', 'Energy is unknown because the battery level was not reported at the start or end of this trip.': 'Die Energie ist unbekannt, weil der Batteriestand bei Start oder Ende nicht gemeldet wurde.',
-  'Energy is estimated from the change in battery level and your battery capacity. It is not measured.': 'Die Energie wird aus der Änderung des Batteriestands und Ihrer Batteriekapazität geschätzt. Sie wird nicht gemessen.',
-  'Energy comes from the fuel level, not the battery.': 'Die Energie stammt vom Tankstand, nicht von der Batterie.',
-  'Cost = energy × your home price per kWh.': 'Kosten = Energie × Ihr Heimstrompreis pro kWh.',
-  'Charging during this trip': 'Laden während dieser Fahrt', 'Charge': 'Ladevorgang', 'Could not load this trip': 'Diese Fahrt konnte nicht geladen werden',
-  'This trip does not exist': 'Diese Fahrt gibt es nicht', 'It may have been removed.': 'Sie wurde möglicherweise entfernt.', 'Add a note': 'Notiz hinzufügen',
-  'Unknown place': 'Unbekannter Ort', 'estimated': 'geschätzt', 'looks implausible': 'wirkt unplausibel', 'from fuel level': 'aus dem Tankstand', 'estimated from battery level': 'aus dem Batteriestand geschätzt',
-  'unknown': 'unbekannt', 'at home price': 'zum Heimpreis', 'Driving now': 'Fährt gerade', 'Try again': 'Erneut versuchen',
-  'Started': 'Gestartet', 'Ended': 'Beendet', 'Trips': 'Fahrten', 'Details': 'Details', 'Route': 'Route', 'Energy source': 'Energiequelle',
-});
 
 export default async function trip(root, ctx) {
   const id = +ctx.params[0];
@@ -46,7 +18,7 @@ export default async function trip(root, ctx) {
       ctx.api.get(`/api/vehicles/${ctx.vid}/trips?limit=500`).then((r) => r.items).catch(() => []),
     ]);
   } catch (e) {
-    mount(root, h('div', null, backLink()), e.status === 404 ? empty(t('This trip does not exist'), t('It may have been removed.'), 'route')
+    mount(root, h('div', null, backLink()), e.status === 404 ? empty(t('This trip does not exist'), t('It may have been removed.##trip'), 'route')
       : banner('bad', `${t('Could not load this trip')}: ${e.message}`), e.status === 404 ? null : button(t('Try again'), { onClick: () => trip(root, ctx), ic: 'refresh' }));
     return;
   }

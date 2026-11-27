@@ -349,7 +349,7 @@ def test_place_validation():
 
 
 def test_place_validation_messages():
-    """The exact English texts the frontend translates (de_backend.js) and the API shows."""
+    """The exact English texts the frontend translates (static/i18n/de.json) and the API shows."""
     c, conn, api, vid = connected()
     cases = (
         ({"name": "", "lat": 50, "lon": 8}, "Name must be 1 to 60 characters."),
@@ -599,12 +599,24 @@ def test_timeline_route_returns_404_for_another_vehicle():
 
 
 def test_range_errors_have_german_entries():
-    import re
+    import json
     from pathlib import Path
-    de = (Path(__file__).parent.parent / "skoda_mate" / "static" / "de_backend.js").read_text(encoding="utf-8")
+    de = json.loads((Path(__file__).parent.parent / "skoda_mate" / "static" / "i18n" / "de.json").read_text(encoding="utf-8"))
     for message in ("The start must be before the end.", "The range is limited to 31 days.",
                     "min_hours must be between 1 and 168."):
-        assert re.search(r"^\s*'" + re.escape(message) + "': '", de, re.M), message
+        assert de.get(message), message
+
+
+def test_every_static_file_is_in_the_python_package():
+    """A file outside the package-data globs works from a checkout and is missing from an installed package."""
+    import tomllib
+    from pathlib import Path
+    root = Path(__file__).parent.parent
+    globs = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))["tool"]["setuptools"]["package-data"]["skoda_mate"]
+    package = root / "skoda_mate"
+    shipped = {path for pattern in globs for path in package.glob(pattern)}
+    missing = [str(p.relative_to(package)) for p in (package / "static").rglob("*") if p.is_file() and p not in shipped]
+    assert not missing
 
 
 def test_parked_loss_route_turns_only_range_errors_into_a_400(monkeypatch):

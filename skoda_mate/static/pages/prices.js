@@ -5,23 +5,7 @@ import { h, mount } from '../lib/dom.js';
 import { icon } from '../lib/icons.js';
 import { asyncButton, banner, button, card, field, toast } from '../lib/ui.js';
 import * as f from '../lib/format.js';
-import { extendDE, t } from '../i18n.js';
-import '../de_backend.js';
-
-extendDE({
-  'Prices': 'Preise', 'Charge prices': 'Ladepreise', 'Set what each kWh costs, so Mate can price your charges.': 'Lege fest, was jede kWh kostet, damit Mate deine Ladevorgänge bewerten kann.',
-  'Prices per kWh': 'Preise pro kWh', 'Currency': 'Währung', 'Home': 'Zuhause', 'Public AC': 'Öffentlich AC', 'Public DC': 'Öffentlich DC',
-  'Wallbox or home socket': 'Wallbox oder Haushaltssteckdose', 'Public AC charging stations (up to 22 kW)': 'Öffentliche AC-Ladesäulen (bis 22 kW)', 'DC fast chargers': 'DC-Schnelllader',
-  'Default': 'Standard', 'Empty uses the default price': 'Leer verwendet den Standardpreis', 'Example': 'Beispiel', 'per kWh': 'pro kWh',
-  'Changes recalculate the cost of every charge and trip without a manual price, including past ones. A price you set by hand on a charge always wins.': 'Änderungen berechnen die Kosten aller Ladevorgänge und Fahrten ohne manuellen Preis neu, auch vergangene. Ein von Hand gesetzter Preis bei einem Ladevorgang gilt immer.',
-  'Home place': 'Heimatort', 'Charges within the radius of this position count as home charges.': 'Ladevorgänge innerhalb des Radius dieser Position zählen als Laden zuhause.',
-  'Edit home place': 'Heimatort bearbeiten', 'Add home place': 'Heimatort hinzufügen', 'No home place yet.': 'Noch kein Heimatort.',
-  'Unsaved changes': 'Ungespeicherte Änderungen', 'All changes saved': 'Alle Änderungen gespeichert', 'Discard': 'Verwerfen', 'Save prices': 'Preise speichern', 'Prices saved': 'Preise gespeichert',
-  'Changes discarded': 'Änderungen verworfen', 'Could not load the prices': 'Preise konnten nicht geladen werden',
-  'Use current parking position': 'Aktuelle Parkposition verwenden', 'Home position saved': 'Heimposition gespeichert', 'Not set': 'Nicht gesetzt',
-  'Could not get your position': 'Position konnte nicht ermittelt werden', 'This needs your permission and an https:// or localhost address.': 'Dafür brauchst du die Erlaubnis und eine https://- oder localhost-Adresse.',
-  'Currency must be a short code such as EUR.': 'Die Währung muss ein kurzer Code wie EUR sein.', 'Prices must be between 0 and 10 per kWh.': 'Preise müssen zwischen 0 und 10 pro kWh liegen.',
-});
+import { t } from '../i18n.js';
 
 const DEFAULTS = { home: 0.30, ac: 0.55, dc: 0.79 };
 const ROWS = [

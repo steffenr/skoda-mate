@@ -3,13 +3,7 @@
 import { h } from './dom.js';
 import { icon } from './icons.js';
 import * as f from './format.js';
-import { extendDE, t } from '../i18n.js';
-
-extendDE({
-  'estimated': 'geschätzt', 'last reading': 'letzte Messung',
-  'Estimated, not read live. Škoda allows only 20 requests per hour, so Mate reads the car every few minutes. Between readings the battery level is extrapolated from the last reading and the time the car said was left to the charge limit. It is replaced by the real value with every new reading.':
-    'Geschätzt, nicht live gelesen. Škoda erlaubt nur 20 Abfragen pro Stunde, deshalb liest Mate das Auto nur alle paar Minuten. Zwischen den Messungen wird der Batteriestand aus der letzten Messung und der vom Auto gemeldeten Restzeit bis zum Ladelimit hochgerechnet. Mit jeder neuen Messung wird er durch den echten Wert ersetzt.',
-});
+import { t } from '../i18n.js';
 
 const MAX_EXTRAPOLATE_MIN = 90;  // never project further than this past the last reading
 const MIN_AGE_MIN = 2;  // a reading this fresh is shown as is

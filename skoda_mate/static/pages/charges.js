@@ -3,23 +3,8 @@ import { h, mount } from '../lib/dom.js';
 import { icon } from '../lib/icons.js';
 import { banner, button, card, chip, empty, field, loading, stat } from '../lib/ui.js';
 import * as f from '../lib/format.js';
-import { extendDE, t } from '../i18n.js';
+import { t } from '../i18n.js';
 import { setQuery } from './trips.js';
-
-extendDE({
-  'Charging during a trip': 'Laden während einer Fahrt', 'Trip to': 'Fahrt nach', 'Trip': 'Fahrt',
-  'Time window': 'Zeitfenster', 'At': 'Bei',
-  'inferred': 'abgeleitet', 'Not measured live: read off the battery level between two moments. The time window, the type and the energy are estimates.': 'Nicht live gemessen: aus dem Batteriestand zwischen zwei Zeitpunkten abgeleitet. Zeitfenster, Typ und Energie sind Schätzungen.',
-  'Sessions': 'Ladevorgänge', 'Energy charged': 'Geladene Energie', 'Home vs public': 'Zuhause vs. öffentlich', 'AC vs DC': 'AC vs. DC', 'Filter charges': 'Ladevorgänge filtern',
-  'All': 'Alle', 'No charges found': 'Keine Ladevorgänge gefunden', 'Try other filters.': 'Andere Filter probieren.', 'Charges are detected while the car reports that it is charging.': 'Ladevorgänge werden erkannt, solange das Auto meldet, dass es lädt.',
-  'Charging now': 'Lädt gerade', 'Running': 'Läuft', 'live': 'live', 'Place unknown': 'Ort unbekannt', 'guess': 'Schätzung', 'manual': 'manuell',
-  'Cost is a guess: the place is unknown, so the home price was used.': 'Die Kosten sind eine Schätzung: Der Ort ist unbekannt, daher wurde der Heimpreis verwendet.',
-  'Cost entered by you': 'Von Ihnen eingetragene Kosten', 'Max power': 'Max. Leistung', 'Average power': 'Ø Leistung', 'Battery': 'Batterie', 'Load more': 'Mehr laden',
-  'Could not load charges': 'Ladevorgänge konnten nicht geladen werden', 'Try again': 'Erneut versuchen', 'From': 'Von', 'To': 'Bis', 'Export CSV': 'CSV exportieren', 'Reset filters': 'Filter zurücksetzen',
-  'Unknown place': 'Unbekannter Ort', 'of': 'von', 'Total cost': 'Gesamtkosten', 'Costs are estimates based on your tariff.': 'Kosten sind Schätzungen auf Basis Ihres Tarifs.',
-  'Showing the newest {n} of {total} charges. Narrow the filters to see the rest.': 'Zeigt die neuesten {n} von {total} Ladevorgängen. Mit Filtern lässt sich der Rest eingrenzen.',
-  'Place kind unknown': 'Ortsart unbekannt', 'unknown place': 'Ort unbekannt', 'Charging session': 'Ladevorgang',
-});
 
 const PAGE = 30;
 const sum = (items, fn) => items.reduce((a, x) => a + (+fn(x) || 0), 0);

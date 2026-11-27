@@ -6,60 +6,7 @@ import { asyncButton, banner, button, card, chip, confirmDialog, empty, field, k
 import { mapView } from '../lib/mapview.js';
 import { automationCard } from '../lib/automation.js';
 import * as f from '../lib/format.js';
-import { extendDE, t } from '../i18n.js';
-
-extendDE({
-  'history only': 'nur Historie', 'Remove this car': 'Dieses Auto entfernen', 'Remove this car?': 'Dieses Auto entfernen?', 'Remove': 'Entfernen', 'Car removed': 'Auto entfernt', 'Car added': 'Auto hinzugefügt', 'Add car': 'Auto hinzufügen',
-  'Mate stops reading it. Its history stays and comes back if you add the car again.': 'Mate liest es nicht mehr aus. Die Historie bleibt erhalten und ist wieder da, wenn du das Auto erneut hinzufügst.',
-  'Add another car': 'Weiteres Auto hinzufügen', 'cars': 'Autos', 'the maximum for one installation. Remove a car to add another.': 'das Maximum pro Installation. Entferne ein Auto, um ein weiteres hinzuzufügen.', 'One installation tracks up to 5 cars.': 'Eine Installation verwaltet bis zu 5 Autos.', 'VIN': 'FIN',
-  'Uses the API key that is already stored. The key must cover this car: create or edit it in the MyŠkoda app and choose all your cars.': 'Verwendet den bereits gespeicherten API-Schlüssel. Der Schlüssel muss dieses Auto abdecken: Erstelle oder bearbeite ihn in der MyŠkoda-App und wähle alle deine Autos.',
-  'Click the map to place your home, or drag the pin. Then press “Save tariff” to keep it.': 'Klicke auf die Karte, um dein Zuhause zu setzen, oder ziehe die Markierung. Danach „Tarif speichern“ drücken.',
-  'The car is parked here': 'Hier steht das Auto', 'Home': 'Zuhause',
-  'Click the map to place your home, drag the pin, or use the locate button (top left) to use this device’s position. Then press “Save tariff” to keep it.': 'Klicke auf die Karte, ziehe die Markierung oder nutze die Ortungstaste (oben links), um die Position dieses Geräts zu verwenden. Danach „Tarif speichern“ drücken.',
-  'Home pin moved to your position. Press “Save tariff” to keep it.': 'Heim-Markierung auf deine Position gesetzt. Zum Behalten „Tarif speichern“ drücken.',
-  'Could not get your position': 'Position konnte nicht ermittelt werden', 'Show my position': 'Meine Position anzeigen',
-  'This needs your permission and an https:// or localhost address.': 'Dafür sind deine Erlaubnis und eine https://- oder localhost-Adresse nötig.',
-  'Settings': 'Einstellungen', 'Display': 'Anzeige', 'Units': 'Einheiten', 'Language': 'Sprache', 'Theme': 'Design', 'Automatic': 'Automatisch', 'Light': 'Hell', 'Dark': 'Dunkel',
-  'Kilometres': 'Kilometer', 'Miles': 'Meilen', 'Save': 'Speichern', 'Saved': 'Gespeichert', 'Try again': 'Erneut versuchen',
-  'Tariff': 'Tarif', 'Currency': 'Währung', 'Home charging price per kWh': 'Heimladen, Preis pro kWh', 'Public AC price per kWh': 'Öffentlich AC, Preis pro kWh', 'Public DC price per kWh': 'Öffentlich DC, Preis pro kWh',
-  'Used to estimate the cost of charges and trips. Manual costs on a charge always win.': 'Dient zur Schätzung der Kosten von Ladevorgängen und Fahrten. Manuell eingetragene Kosten haben immer Vorrang.',
-  'Home position': 'Heimposition', 'Charges within the radius of this position count as home charges.': 'Ladevorgänge innerhalb des Radius um diese Position gelten als Heimladen.',
-  'Latitude': 'Breitengrad', 'Longitude': 'Längengrad', 'Radius (metres)': 'Radius (Meter)', 'Use current parking position': 'Aktuelle Parkposition verwenden',
-  'Clear home position': 'Heimposition löschen', 'Not set': 'Nicht gesetzt', 'Home position saved': 'Heimposition gespeichert', 'Save tariff': 'Tarif speichern',
-  'Enter both latitude and longitude, or leave both empty.': 'Gib Breiten- und Längengrad an oder lass beide leer.',
-  'Latitude must be between -90 and 90.': 'Der Breitengrad muss zwischen -90 und 90 liegen.', 'Longitude must be between -180 and 180.': 'Der Längengrad muss zwischen -180 und 180 liegen.',
-  'Radius must be between 20 and 5000 metres.': 'Der Radius muss zwischen 20 und 5000 Metern liegen.', 'Prices must be between 0 and 10 per kWh.': 'Preise müssen zwischen 0 und 10 pro kWh liegen.',
-  'Currency must be a short code such as EUR.': 'Die Währung muss ein kurzer Code wie EUR sein.',
-  'Battery capacity': 'Batteriekapazität', 'Usable capacity in kWh': 'Nutzbare Kapazität in kWh', 'Default for new vehicles (kWh)': 'Standard für neue Fahrzeuge (kWh)',
-  'Škoda does not report the battery size. Mate needs it to turn the change in charge level into kWh, consumption and cost.': 'Škoda meldet die Batteriegröße nicht. Mate braucht sie, um die Änderung des Ladestands in kWh, Verbrauch und Kosten umzurechnen.',
-  'Capacity must be between 10 and 200 kWh.': 'Die Kapazität muss zwischen 10 und 200 kWh liegen.', 'Save default': 'Standard speichern',
-  'Polling': 'Abfrage', 'Idle interval (seconds)': 'Intervall im Ruhezustand (Sekunden)', 'Active interval (seconds)': 'Intervall bei Aktivität (Sekunden)', 'Command reserve (requests per hour)': 'Befehlsreserve (Anfragen pro Stunde)',
-  'Škoda allows about 20 requests per hour per car. Mate reads the car on this schedule and keeps the reserve free for commands.': 'Škoda erlaubt etwa 20 Anfragen pro Stunde und Auto. Mate liest das Auto in diesem Takt aus und hält die Reserve für Befehle frei.',
-  'requests per hour': 'Anfragen pro Stunde', 'when idle': 'im Ruhezustand', 'when active': 'bei Aktivität', 'Request limit': 'Anfragelimit', 'Available for reading': 'Für Auslesen verfügbar',
-  'Command reserve': 'Befehlsreserve', 'Too many requests: Škoda would block the key.': 'Zu viele Anfragen: Škoda würde den Schlüssel sperren.', 'Within the limit.': 'Im Rahmen des Limits.',
-  'The minimum is': 'Das Minimum ist', 'seconds': 'Sekunden', 'Save polling': 'Abfrage speichern',
-  'Idle interval must be between 180 and 21600 seconds.': 'Das Ruhe-Intervall muss zwischen 180 und 21600 Sekunden liegen.',
-  'Active interval must be between 180 and 3600 seconds.': 'Das Aktiv-Intervall muss zwischen 180 und 3600 Sekunden liegen.', 'Command reserve must be between 0 and 10.': 'Die Befehlsreserve muss zwischen 0 und 10 liegen.',
-  'MyŠkoda API key': 'MyŠkoda-API-Schlüssel', 'Connected': 'Verbunden', 'Not connected': 'Nicht verbunden', 'Key expires': 'Schlüssel läuft ab', 'expired': 'abgelaufen', 'days left': 'Tage übrig', 'day left': 'Tag übrig',
-  'Official Škoda API documentation': 'Offizielle Škoda-API-Dokumentation', 'Create or manage API keys': 'API-Schlüssel erstellen oder verwalten',
-  'Replace the API key': 'API-Schlüssel ersetzen', 'The key is entered on the setup page, not here, so it never passes through this dashboard.': 'Der Schlüssel wird auf der Einrichtungsseite eingegeben, nicht hier, damit er nie durch dieses Dashboard läuft.',
-  'Vehicle': 'Fahrzeug', 'State': 'Status', 'Last successful reading': 'Letzte erfolgreiche Messung', 'OK': 'OK', 'Blocked': 'Gesperrt', 'Error': 'Fehler', 'Unknown': 'Unbekannt',
-  'No vehicles connected.': 'Keine Fahrzeuge verbunden.', 'The key expires soon. Create a new one in the MyŠkoda app and enter it on the setup page.': 'Der Schlüssel läuft bald ab. Erstelle in der MyŠkoda-App einen neuen und gib ihn auf der Einrichtungsseite ein.',
-  'The key has expired.': 'Der Schlüssel ist abgelaufen.', 'Could not read the stored key. The data key may have changed; enter the key again.': 'Der gespeicherte Schlüssel ist nicht lesbar. Der Datenschlüssel hat sich evtl. geändert; gib den API-Schlüssel erneut ein.',
-  'S-PIN': 'S-PIN', 'Needed only for the auxiliary heater. It is stored encrypted and never shown again.': 'Nur für die Standheizung nötig. Sie wird verschlüsselt gespeichert und nie wieder angezeigt.',
-  'S-PIN (4 digits)': 'S-PIN (4 Ziffern)', 'Save S-PIN': 'S-PIN speichern', 'Remove S-PIN': 'S-PIN entfernen', 'An S-PIN is stored.': 'Eine S-PIN ist gespeichert.', 'No S-PIN is stored.': 'Es ist keine S-PIN gespeichert.',
-  'The S-PIN is 4 digits.': 'Die S-PIN besteht aus 4 Ziffern.', 'S-PIN saved': 'S-PIN gespeichert', 'S-PIN removed': 'S-PIN entfernt', 'Connect an API key first.': 'Verbinde zuerst einen API-Schlüssel.',
-  'Remove the stored S-PIN?': 'Gespeicherte S-PIN entfernen?', 'The auxiliary heater cannot be started until you add it again.': 'Die Standheizung lässt sich erst wieder starten, wenn du die S-PIN neu hinterlegst.',
-  'Disconnect from Škoda': 'Von Škoda trennen', 'Disconnect Mate from Škoda?': 'Mate von Škoda trennen?', 'Mate stops reading your car and deletes the stored API key and S-PIN. Your recorded trips, charges and settings stay.': 'Mate liest dein Auto nicht mehr aus und löscht den gespeicherten API-Schlüssel und die S-PIN. Aufgezeichnete Fahrten, Ladevorgänge und Einstellungen bleiben erhalten.',
-  'Disconnect': 'Trennen', 'Disconnected from Škoda': 'Von Škoda getrennt',
-  'Data': 'Daten', 'Export CSV': 'CSV exportieren', 'Trips': 'Fahrten', 'Charges': 'Ladevorgänge', 'Events': 'Ereignisse', 'Readings': 'Messwerte',
-  'Import trip history': 'Fahrtenverlauf importieren', 'Import trips': 'Fahrten importieren',
-  'Add trips from before Mate started with the trip export of the MyŠkoda app.': 'Füge Fahrten aus der Zeit vor Mates Start über den Fahrten-Export der MyŠkoda-App hinzu.',
-  'Database backup': 'Datenbank-Sicherung', 'Download a consistent copy of the whole database (SQLite). Keep it private: it contains positions and, encrypted, your API key.': 'Lade eine konsistente Kopie der gesamten Datenbank (SQLite) herunter. Halte sie privat: Sie enthält Positionen und, verschlüsselt, deinen API-Schlüssel.',
-  'Download backup': 'Sicherung herunterladen', 'Dashboard login': 'Dashboard-Login', 'Signed-in account': 'Angemeldetes Konto', 'Change the dashboard login': 'Dashboard-Login ändern', 'Not set': 'Nicht gesetzt',
-  'Could not load settings': 'Einstellungen konnten nicht geladen werden', 'Could not load the connection status': 'Verbindungsstatus konnte nicht geladen werden',
-  'Demo mode: this is a fictional car. Nothing is sent to Škoda.': 'Demo-Modus: Das ist ein fiktives Auto. Es wird nichts an Škoda gesendet.',
-});
+import { t } from '../i18n.js';
 
 const num = (v) => (v === '' || v == null || Number.isNaN(Number(v)) ? null : Number(v));
 const fail = (msg) => { throw new Error(msg); };

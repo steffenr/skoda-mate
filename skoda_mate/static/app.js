@@ -78,18 +78,12 @@ function applyTheme(theme) {
   else delete document.documentElement.dataset.theme;
 }
 
-// Every page registers its German strings when its module loads. A string used on the Overview but defined on another
-// page would stay English until that page was opened, so load all page modules up front (a few small files).
-import './de_backend.js';
-const preloadPages = () => Promise.all([...new Set(PAGES.map((p) => p.name))].map((n) => import(`./pages/${n}.js`).catch(() => null)));
-
 async function loadSettings() {
   S.settings = await api.get("/api/settings");
   f.setLocale({ units: S.settings.units, language: S.settings.language });
   await setLang(S.settings.language);
   document.documentElement.lang = S.settings.language;
   applyTheme(S.settings.theme);
-  await preloadPages();
 }
 
 async function loadOverview() {

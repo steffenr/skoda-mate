@@ -5,55 +5,8 @@ import { icon } from '../lib/icons.js';
 import { asyncButton, banner, button, card, chip, confirmDialog, empty, field, loading, modal, toast } from '../lib/ui.js';
 import { mapView } from '../lib/mapview.js';
 import * as f from '../lib/format.js';
-import { extendDE, t } from '../i18n.js';
+import { t } from '../i18n.js';
 import { api } from '../app.js';
-
-extendDE({
-  'Places': 'Orte',
-  'Name the places the car stops at, give them a radius and a price.': 'Benenne die Orte, an denen das Auto hält, und gib ihnen einen Radius und einen Preis.',
-  'Add place': 'Ort hinzufügen',
-  'Your places': 'Deine Orte',
-  'Visits': 'Besuche',
-  'Days': 'Tage',
-  'Edit': 'Bearbeiten',
-  'Detected places': 'Erkannte Orte',
-  'Parking spots that no place covers yet.': 'Parkplätze, die noch kein Ort abdeckt.',
-  'No detected places': 'Keine erkannten Orte',
-  'Mate finds a place when the car parks somewhere new.': 'Mate erkennt einen Ort, wenn das Auto irgendwo neu parkt.',
-  'Name this place': 'Diesen Ort benennen',
-  'No places yet': 'Noch keine Orte',
-  'Click the map to add the first one.': 'Klicke auf die Karte, um den ersten hinzuzufügen.',
-  'Could not load the places': 'Orte konnten nicht geladen werden',
-  'Click a circle on the map to edit its place. Click an empty spot to add a place.': 'Klicke auf der Karte auf einen Kreis, um seinen Ort zu bearbeiten. Klicke auf eine freie Stelle, um einen Ort hinzuzufügen.',
-  'Pick on the map': 'Auf der Karte wählen',
-  'Click the map to choose the new point.': 'Klicke auf die Karte, um den neuen Punkt zu wählen.',
-  'The car is not parked. Click the map to choose a place.': 'Das Auto parkt nicht. Klicke auf die Karte, um einen Ort zu wählen.',
-  'New place': 'Neuer Ort',
-  'Edit place': 'Ort bearbeiten',
-  'Kind': 'Art',
-  'Work': 'Arbeit',
-  'Colour': 'Farbe',
-  'Green': 'Grün',
-  'Blue': 'Blau',
-  'Amber': 'Bernstein',
-  'Purple': 'Violett',
-  'Red': 'Rot',
-  'Teal': 'Türkis',
-  'Price per kWh': 'Preis pro kWh',
-  'Price per minute': 'Preis pro Minute',
-  'Session fee': 'Grundgebühr',
-  'Free': 'Kostenlos',
-  'A home place keeps its kind.': 'Ein Zuhause behält seine Art.',
-  'A home place already exists.': 'Ein Zuhause gibt es bereits.',
-  'Home cannot be deleted.': 'Zuhause kann nicht gelöscht werden.',
-  'Choose a point on the map first.': 'Wähle zuerst einen Punkt auf der Karte.',
-  'No point chosen': 'Kein Punkt gewählt',
-  'Delete place': 'Ort löschen',
-  'Delete this place?': 'Diesen Ort löschen?',
-  'Trips and charges at this place lose their link. This cannot be undone.': 'Fahrten und Ladevorgänge an diesem Ort verlieren ihre Zuordnung. Das lässt sich nicht rückgängig machen.',
-  'Place saved': 'Ort gespeichert',
-  'Place deleted': 'Ort gelöscht',
-});
 
 const KINDS = [['home', 'Home'], ['work', 'Work'], ['place', 'Place']];
 const KIND_TONE = { home: 'good', work: 'info', place: '' };
@@ -72,7 +25,7 @@ const displayName = (p) => (p.kind === 'home' && p.name === 'Home' ? t('Home') :
 const kindName = (kind) => t(KINDS.find(([k]) => k === kind)?.[1] || 'Place');
 const radiusText = (m) => { const metres = m ?? 150; return f.km(metres / 1000, metres < 1000 ? 2 : 1); };
 const amount = (v) => (v === '' || v == null || Number.isNaN(Number(v)) ? null : Number(v));
-// Backend messages are English; t() maps them through de_backend.js, so the toast follows the chosen language.
+// Backend messages are English; t() looks them up in the catalog, so the toast follows the chosen language.
 const asError = (e) => new Error(t(e?.message || String(e)));
 
 function placeRow(p, onEdit) {

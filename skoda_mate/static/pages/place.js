@@ -4,17 +4,9 @@ import { icon } from '../lib/icons.js';
 import { banner, button, card, chip, empty, loading, stat, table, toast } from '../lib/ui.js';
 import { mapView } from '../lib/mapview.js';
 import * as f from '../lib/format.js';
-import { extendDE, t } from '../i18n.js';
+import { t } from '../i18n.js';
 import { placeForm } from './places.js';
 import { placeChip } from './charges.js';
-
-extendDE({
-  'Back to places': 'Zurück zu den Orten', 'Parked time': 'Standzeit', 'Arrival': 'Ankunft', 'Departure': 'Abfahrt',
-  'Date': 'Datum', 'Recent visits': 'Letzte Besuche', 'Recent charges': 'Letzte Ladevorgänge',
-  'No visits yet': 'Noch keine Besuche', 'Open now': 'Jetzt offen',
-  'Could not load this place': 'Dieser Ort konnte nicht geladen werden',
-  'Place not found.': 'Ort nicht gefunden.', 'The place may have been removed.': 'Der Ort wurde möglicherweise entfernt.',
-});
 
 const KIND_LABEL = { home: 'Home', work: 'Work', place: 'Place' };
 const KIND_TONE = { home: 'good', work: 'info', place: '' };

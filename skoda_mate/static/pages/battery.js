@@ -6,30 +6,7 @@ import { banner, button, card, chip, empty, kv, loading, seg, stat } from '../li
 import { lineChart } from '../lib/charts.js';
 import * as f from '../lib/format.js';
 import { rangeCard } from '../lib/rangecard.js';
-import { extendDE, t } from '../i18n.js';
-
-extendDE({
-  'Battery history': 'Batterieverlauf', 'Range': 'Zeitraum', 'Battery': 'Batterie', 'Charging power': 'Ladeleistung',
-  '24 h': '24 Std.', '7 d': '7 Tage', '30 d': '30 Tage', '1 y': '1 Jahr',
-  'Not enough readings yet': 'Noch nicht genug Messwerte', 'The chart fills in as Mate reads the car.': 'Das Diagramm füllt sich, während Mate das Auto ausliest.',
-  'Charging settings': 'Ladeeinstellungen', 'Charge limit': 'Ladelimit', 'Battery care limit': 'Limit im Schonmodus', 'Preferred mode': 'Bevorzugter Modus',
-  'Unlock plug when charged': 'Stecker nach dem Laden entriegeln', 'Maximum current': 'Maximaler Strom', 'Battery care': 'Batterieschutz', 'on': 'an', 'off': 'aus',
-  'Not reported': 'Nicht gemeldet', 'The car reports no charging settings.': 'Das Auto meldet keine Ladeeinstellungen.',
-  'Manual': 'Manuell', 'Timer': 'Timer', 'Timer with climate': 'Timer mit Klimatisierung', 'Preferred charging times': 'Bevorzugte Ladezeiten',
-  'Only own current': 'Nur eigener Strom', 'Immediate discharging': 'Sofort entladen', 'Home storage charging': 'Heimspeicher-Laden',
-  'Permanent': 'Dauerhaft', 'Reduced': 'Reduziert', 'Maximum': 'Maximal', 'Off': 'Aus',
-  'Charging profiles': 'Ladeprofile', 'Edit profiles under Control': 'Profile unter Steuerung bearbeiten', 'No charging profiles reported.': 'Keine Ladeprofile gemeldet.',
-  'time windows': 'Zeitfenster', 'timers': 'Timer', 'minimum charge': 'Mindest-Ladestand', 'at the current position': 'am aktuellen Standort',
-  'Battery capacity estimate': 'Schätzung der Batteriekapazität', 'Wall energy per 100 % charge': 'Netzenergie pro 100 % Ladung', 'Nominal capacity': 'Nennkapazität',
-  'Charging efficiency': 'Ladewirkungsgrad', 'Charges used': 'Verwendete Ladevorgänge', 'Set in Settings': 'In den Einstellungen festlegen', 'Not set': 'Nicht gesetzt',
-  'Estimate over time': 'Schätzung im Zeitverlauf', 'Wall energy per 100 % SoC': 'Netzenergie pro 100 % SoC',
-  'This is an estimate, not battery health.': 'Das ist eine Schätzung, kein Batteriezustand.',
-  'Škoda does not report battery health (SoH). The figure is the energy drawn from the wall for 100 % of charge, so it includes charging losses and will be higher than the usable battery capacity.':
-    'Škoda meldet keinen Batteriezustand (SoH). Der Wert ist die aus dem Netz gezogene Energie für 100 % Ladung, enthält also Ladeverluste und liegt über der nutzbaren Batteriekapazität.',
-  'No qualifying charges yet': 'Noch keine geeigneten Ladevorgänge', 'The estimate needs AC charges of at least 30 % that Mate saw from start to end, and the battery capacity from Settings.':
-    'Die Schätzung braucht AC-Ladevorgänge von mindestens 30 %, die Mate vom Start bis zum Ende gesehen hat, sowie die Batteriekapazität aus den Einstellungen.',
-  'Could not load battery data': 'Batteriedaten konnten nicht geladen werden', 'Try again': 'Erneut versuchen', 'Loading…': 'Lädt …',
-});
+import { t } from '../i18n.js';
 
 const RANGES = [[24, '24 h'], [168, '7 d'], [720, '30 d'], [8760, '1 y']];
 const MODE_LABEL = {
@@ -118,7 +95,7 @@ export default async function battery(root, ctx) {
     range.setAttribute('aria-labelledby', 'b-range-label');
     mount(root,
       card(t('Battery history'), h('div', { class: 'stack' },
-        h('div', { class: 'row between' }, h('span', { class: 'small muted', id: 'b-range-label' }, t('Range')),
+        h('div', { class: 'row between' }, h('span', { class: 'small muted', id: 'b-range-label' }, t('Range##period')),
           range),
         chartBox), { ic: 'trend' }),
       h('div', { class: 'grid g2' }, settingsCard(), profilesCard()),
