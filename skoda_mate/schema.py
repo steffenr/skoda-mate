@@ -10,6 +10,7 @@ import math
 import os
 import sqlite3
 import threading
+from contextlib import contextmanager
 from pathlib import Path
 
 SCHEMA = """
@@ -57,6 +58,11 @@ CREATE TABLE IF NOT EXISTS events (
     at TEXT NOT NULL, kind TEXT NOT NULL, detail TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_events_v_t ON events(vehicle_id, at);
+-- A data-quality check the owner marked as reviewed: it counts only findings newer than reviewed_at.
+CREATE TABLE IF NOT EXISTS quality_reviews (
+    vehicle_id INTEGER NOT NULL, check_id TEXT NOT NULL, reviewed_at TEXT NOT NULL, detail TEXT,
+    PRIMARY KEY (vehicle_id, check_id)
+);
 CREATE TABLE IF NOT EXISTS commands (
     id INTEGER PRIMARY KEY, vehicle_id INTEGER, at TEXT DEFAULT (datetime('now')),
     name TEXT NOT NULL, ok INTEGER NOT NULL, error TEXT
@@ -72,7 +78,8 @@ CREATE TABLE IF NOT EXISTS api_calls (
     ok INTEGER NOT NULL DEFAULT 1, error TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_api_calls_at ON api_calls(at);
--- Cloud confirmation of remote operations (MQTT operation events).
+-- Remote operations Mate sent through the official API. No writer exists yet: the API answers an operation with a
+-- bodiless 202, so there is no operation event to store (nothing ever reads or writes this table today).
 CREATE TABLE IF NOT EXISTS operations (
     id INTEGER PRIMARY KEY, vehicle_id INTEGER, request_id TEXT UNIQUE, name TEXT NOT NULL,
     status TEXT NOT NULL, error_code TEXT, at TEXT NOT NULL, updated_at TEXT NOT NULL
@@ -163,6 +170,13 @@ class SafeConnection:
         with self._lock:
             cur = self._c.execute(sql, params)
             return _Result(cur.fetchall() if cur.description else [], cur.lastrowid, cur.description, cur.rowcount)
+
+    @contextmanager
+    def locked(self):
+        """Hold the connection's lock across several statements (it is reentrant, so each one still takes it): nothing
+        from another thread runs in between. This is a lock, not a transaction: commit/rollback stay explicit."""
+        with self._lock:
+            yield
 
     def executescript(self, sql):
         with self._lock:

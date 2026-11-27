@@ -242,12 +242,21 @@ def _estimate_end(last, closed_at: str, soc, kwh, eff) -> str | None:
 REPAIRED_GAPS_KEY = "repaired_charge_gaps"
 
 
-def repair_charge_gaps(conn) -> int:
+def repair_charge_gaps(conn, vid: int | None = None) -> int:
     """Once per database: correct live-detected charges recorded before gaps in the readings were handled (issue #8).
 
     They were closed at the first reading after the gap and had each gap counted as at most MAX_GAP_H of power. The
     readings are still stored, so the charge is replayed with today's rules. Only charges closed by a definite
-    reading are touched; a stale-closed one already ends at its last CHARGING reading. Returns how many changed."""
+    reading are touched; a stale-closed one already ends at its last CHARGING reading. Returns how many changed.
+
+    With `vid` (the data-quality card) it runs on request for that car only: the once-per-database flag is neither
+    consulted nor set, and other cars' charges are untouched."""
+    if vid is not None:
+        n = sum(_repair_charge(conn, c) for c in conn.execute(
+            "SELECT * FROM charges WHERE vehicle_id=? AND COALESCE(source,'detected')='detected' AND ended_at IS NOT NULL",
+            (vid,)).fetchall())
+        conn.commit()
+        return n
     if conn.execute("SELECT 1 FROM settings WHERE key=?", (REPAIRED_GAPS_KEY,)).fetchone():
         return 0
     n = sum(_repair_charge(conn, c) for c in conn.execute(
