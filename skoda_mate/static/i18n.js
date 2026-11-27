@@ -20,7 +20,11 @@ export const jsonCatalog = (code, timeout = CATALOG_TIMEOUT_MS) => async () => {
 /** @type {Record<string, () => Promise<Catalog>>} */
 export const CATALOGS = {
   de: jsonCatalog('de'),
+  ca: jsonCatalog('ca'),
   da: jsonCatalog('da'),
+  es: jsonCatalog('es'),
+  fr: jsonCatalog('fr'),
+  it: jsonCatalog('it'),
   nl: jsonCatalog('nl'),
   nb: jsonCatalog('nb'),
   fi: jsonCatalog('fi'),

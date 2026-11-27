@@ -16,7 +16,11 @@ class Language:
 LANGUAGES = (
     Language("en", "English", "en"),
     Language("de", "Deutsch", "de"),
+    Language("ca", "Català", "ca"),
     Language("da", "Dansk", "da"),
+    Language("es", "Español", "es"),
+    Language("fr", "Français", "fr"),
+    Language("it", "Italiano", "it"),
     Language("nl", "Nederlands", "nl"),
     Language("nb", "Norsk bokmål", "nb"),
     Language("fi", "Suomi", "fi"),
