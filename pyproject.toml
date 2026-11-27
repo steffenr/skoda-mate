@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "skoda-mate"
-version = "0.1.4"
+version = "0.2.0"
 description = "Trip tracking, charge logging and remote control for Škoda vehicles (official MyŠkoda Public API)"
 license = "AGPL-3.0-only"
 license-files = ["LICENSE"]
