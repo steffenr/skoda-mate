@@ -17,7 +17,7 @@ def demo_client():
 def test_the_demo_has_one_disabled_webhook_so_automation_is_visible():
     with demo_client() as c:
         hooks = c.get("/api/webhooks").json()["webhooks"]
-    assert [(h["enabled"], h["url"].startswith("http://homeassistant.local")) for h in hooks] == [(False, True)]
+    assert [(h["enabled"], h["url"]) for h in hooks] == [(False, "http://homeassistant.local:8123/api/webhook/skoda-mate")]
 
 
 def test_demo_mode_needs_no_login_or_account_and_has_history():
