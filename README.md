@@ -26,7 +26,7 @@ no shared code.
 | Page | Content |
 |---|---|
 | **Overview** | Car render, battery, range, charging state, doors/windows/lock, climate, position, last trip and charge, 48 h chart |
-| **Trips** | Derived trips, day/month views, search, map, notes, cost, CSV export |
+| **Trips** | Derived trips, day/month views, search, map, notes, cost, CSV export, and import of the MyŠkoda app's trip CSV (duplicate-safe) |
 | **Charges** | Sessions with energy, AC/DC, Home/Public, charging curve, cost, CSV export |
 | **Prices** | Your kWh prices (home, public AC, public DC) and home position; costs recalculate everywhere |
 | **Battery** | SoC history, charging settings and profiles, capacity estimate from charges, projected range at 100 % ([how it is computed](docs/INSIGHTS.md#projected-range)) |
@@ -250,7 +250,7 @@ place names to the URL you enter, which may be in your own network.
 ## Home Assistant
 
 Set it up under **Settings → MQTT**: broker address, port, user, password (encrypted), **Test connection**, live status,
-no restart. Mate then creates a device per car through MQTT discovery with about 40 entities: battery, range, charging,
+no restart. Mate then creates a device per car through MQTT discovery with about 35 entities: battery, range, charging,
 odometer, doors and windows, position, Mate's last trip and last charge, current place, parked loss, projected range and
 data-quality count. For other tools it can publish one topic per value, and it publishes events to `…/events`. Control buttons and a charge-limit slider are
 opt-in (**Allow commands from Home Assistant**); starting the auxiliary heater is not available over MQTT. There is no

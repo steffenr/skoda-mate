@@ -90,7 +90,7 @@ address, port or TLS setting, enter the password again: Mate only sends the stor
 
 ### 6. Find your car in Home Assistant
 
-*Settings → Devices & services → MQTT → Devices*. Your car appears as a device named like the car, with about 30 entities (about 40 with commands allowed).
+*Settings → Devices & services → MQTT → Devices*. Your car appears as a device named like the car, with about 35 entities (about 45 with commands allowed).
 Add them to a dashboard: *Overview → pencil icon → Add card → Tile / Entities*.
 
 ## What you get
