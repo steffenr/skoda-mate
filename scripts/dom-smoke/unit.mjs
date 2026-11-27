@@ -171,6 +171,19 @@ for (const [key, word] of [['new', 'neu'], ['completed', 'ergänzt'], ['known', 
   assert.equal(german[key], word, `the import status "${key}" reads in German`);
 }
 
+// the distance explanations are whole German sentences: the relative clause has its pronoun and the verb its place
+const sentences = Object.entries(german).filter(([k]) => /^(The distance is the sum of the trips Mate has recorded|These statistics cover only what Mate has recorded)/.test(k));
+assert.equal(sentences.length, 5);
+for (const [key, text] of sentences) {
+  if (key.includes('{odometer} the car has driven') && key.startsWith('The distance')) {
+    assert.match(text, /von den \{odometer\}, die das Auto insgesamt gefahren ist \(Kilometerstand\)\./, key);
+  }
+  if (key.startsWith('The distance') && key.includes('{date}')) assert.match(text, /die Mate seit \{date\} aufgezeichnet hat:/, key);
+  if (key.startsWith('These statistics')) {
+    assert.match(text, /was Mate seit dem \{date\} erfasst hat: \{recorded\} von den insgesamt gefahrenen \{odometer\} \(Kilometerstand\)\./, key);
+  }
+}
+
 // {n} may be left out only where the plural form stands for exactly one number
 const one = { '{n} trips': { files: [], one: '{n} trip' } };
 const forms = (locale, extra) => ({ '{n} trips': Object.fromEntries(new Intl.PluralRules(locale).resolvedOptions().pluralCategories.map((c) => [c, extra[c] ?? '{n} x'])) });
