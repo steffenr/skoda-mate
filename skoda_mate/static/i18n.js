@@ -18,7 +18,14 @@ export const jsonCatalog = (code, timeout = CATALOG_TIMEOUT_MS) => async () => {
   }
 };
 /** @type {Record<string, () => Promise<Catalog>>} */
-export const CATALOGS = { de: jsonCatalog('de') };
+export const CATALOGS = {
+  de: jsonCatalog('de'),
+  da: jsonCatalog('da'),
+  nl: jsonCatalog('nl'),
+  nb: jsonCatalog('nb'),
+  fi: jsonCatalog('fi'),
+  sv: jsonCatalog('sv'),
+};
 
 let lang = 'en';
 let locale = 'en';

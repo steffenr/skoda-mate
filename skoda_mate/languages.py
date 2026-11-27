@@ -16,6 +16,11 @@ class Language:
 LANGUAGES = (
     Language("en", "English", "en"),
     Language("de", "Deutsch", "de"),
+    Language("da", "Dansk", "da"),
+    Language("nl", "Nederlands", "nl"),
+    Language("nb", "Norsk bokmål", "nb"),
+    Language("fi", "Suomi", "fi"),
+    Language("sv", "Svenska", "sv"),
 )
 BY_CODE = {language.code: language for language in LANGUAGES}
 DEFAULT = BY_CODE["en"]
