@@ -1,6 +1,7 @@
 // Text contrast of every visible text element (4.5:1, large text 3:1), composited over its real background, light and dark. Usage: node a11y_contrast.mjs http://localhost:8000
 // K=1.35 shows what is within 35% of the limit.
 import puppeteer from 'puppeteer-core';
+import fs from 'node:fs';
 const B = process.argv[2] || 'http://localhost:8000';
 const ROUTES = ['', 'trips', 'trips/3', 'charges', 'charges/3', 'prices', 'battery', 'control', 'stats', 'map', 'events', 'settings', 'system', 'system/capabilities', 'system/calls', 'system/diagnostics'];
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -52,5 +53,6 @@ for (const theme of ['light', 'dark']) {
 }
 await b.close();
 const list = [...found.values()].sort((a, b) => a.ratio - b.ratio);
+if (process.env.A11Y_JSON) fs.writeFileSync(process.env.A11Y_JSON, JSON.stringify(list.map((e) => ({ ...e, where: [...e.where] })), null, 2));
 for (const e of list) console.log(`${e.theme.padEnd(5)} ${String(e.ratio).padEnd(5)} (need ${e.need}) fg(${e.fg}) bg(${e.bg}) ${e.sel} "${e.text}" on ${[...e.where].slice(0, 3).join(',')}`);
 console.log(`TOTAL ${list.length}`);

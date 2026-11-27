@@ -123,15 +123,6 @@ jobs:
         working-directory: scripts/dom-smoke
         run: node browser_e2e.mjs
 
-      # These two report rather than fail (their scripts always exit 0): the output is the artifact.
-      - name: Accessibility (axe-core)
-        working-directory: scripts/dom-smoke
-        run: node a11y_axe.mjs "$BASE"
-
-      - name: Text contrast
-        working-directory: scripts/dom-smoke
-        run: node a11y_contrast.mjs "$BASE"
-
       - name: Server log
         if: always()
         run: cat "$RUNNER_TEMP/server.log" || true
