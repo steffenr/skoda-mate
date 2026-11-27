@@ -8,9 +8,10 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from collections.abc import Callable
 
-from . import automation, commands, costs, ha_mqtt, ha_values, mqtt_config, recorder
+from . import automation, commands, costs, ha_mqtt, ha_values, mqtt_config, recorder, webhooks
 from .client import SkodaApi
 from .config import Config
 from .poller import Poller
@@ -27,6 +28,7 @@ class Cloud:
         self.api: SkodaApi | None = None
         self.mqtt_error: str | None = None  # why the publisher could not start (shown on the Settings page)
         self.values = ha_values.Values(conn)  # what Mate derives itself, published next to the API's values
+        self.webhooks = webhooks.Worker(conn, box)  # lives as long as the app, connected to Škoda or not (web.py)
 
     # ------------------------------------------------------------------ credentials
     def spin(self) -> str:
@@ -81,6 +83,8 @@ class Cloud:
     def dispatch(self, vid: int, events: list[dict]) -> None:
         """Hand one reading's events to everyone who listens. Both listeners return at once."""
         envelopes = [automation.envelope(self.conn, vid, e) for e in events]
+        if webhooks.enqueue(self.conn, envelopes, time.time()):  # first: stored deliveries survive whatever follows
+            self.webhooks.wake()
         publisher = self.poller.publisher if self.poller else None
         if publisher and envelopes:
             publisher.publish_events(envelopes[0]["vehicle"]["vin"], envelopes)

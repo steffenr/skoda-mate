@@ -67,6 +67,20 @@ CREATE TABLE IF NOT EXISTS commands (
     id INTEGER PRIMARY KEY, vehicle_id INTEGER, at TEXT DEFAULT (datetime('now')),
     name TEXT NOT NULL, ok INTEGER NOT NULL, error TEXT
 );
+-- Webhooks and what was (or is still to be) sent to them; the secret is encrypted like the API key.
+CREATE TABLE IF NOT EXISTS webhooks (
+    id INTEGER PRIMARY KEY, name TEXT NOT NULL, url TEXT NOT NULL, secret_enc TEXT NOT NULL,
+    events TEXT NOT NULL, enabled INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%S+00:00','now')),
+    updated_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%S+00:00','now'))
+);
+CREATE TABLE IF NOT EXISTS webhook_deliveries (
+    id INTEGER PRIMARY KEY, webhook_id INTEGER NOT NULL REFERENCES webhooks(id), event TEXT NOT NULL,
+    payload TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending', attempts INTEGER NOT NULL DEFAULT 0,
+    next_at REAL NOT NULL, last_code INTEGER, last_error TEXT, created_at REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_deliveries_due ON webhook_deliveries(status, next_at);
+CREATE INDEX IF NOT EXISTS idx_deliveries_hook ON webhook_deliveries(webhook_id, id);
 -- Latest normalised copy of each slow-changing cloud section (info, ac, maintenance, health, ...).
 CREATE TABLE IF NOT EXISTS vehicle_state (
     vehicle_id INTEGER NOT NULL REFERENCES vehicles(id), key TEXT NOT NULL,
