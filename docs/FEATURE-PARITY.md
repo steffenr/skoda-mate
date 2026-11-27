@@ -40,6 +40,7 @@ Status per leapmotor-mate feature (from its README), checked against the officia
 | Driving insight (destinations, trip lengths, consumption trend) | Statistics, Driving tab, with a yearly distance projection after 60 days ([details](INSIGHTS.md#driving)) | Adapted (no speed, route or elevation: the API reports none) |
 | Range trend | Battery page, projected range at 100 % ([details](INSIGHTS.md#projected-range)) | Adapted (from the range the car reports; not battery health) |
 | Home Assistant via MQTT | Discovery with ~40 entities (sensors, tracker, Mate's own trip and charge values; buttons and charge-limit slider opt-in via "Allow commands from Home Assistant", no aux-heater start); set up in the dashboard with connection test and live status, reconnects by itself | Done |
+| Automation: MQTT field and event topics, webhooks | One retained topic per value, an event topic, and signed webhooks with retries and a delivery log under Settings → Automation ([details](WEBHOOKS.md)) | Done (events only for what Mate watched, not for inferred charges) |
 | Settings: units, language, theme | km/mi, English/German, light/dark/auto | Done |
 | Login, setup wizard | First-run setup, dashboard login, encrypted API key | Done |
 | Diagnostics bundle, raw data | System page, redacted download, raw viewer | Done |

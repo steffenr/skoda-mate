@@ -122,9 +122,12 @@ indexes on the new foreign keys. Place detail uses trips and charges for visits 
 
 ### 3.3 Event dispatch
 
-`recorder.ingest()` currently writes events as a side effect. It will return the list of events it created (including events
-from inferred charges and repairs). The poller dispatches them after the transaction commits through a small in-process queue.
-Webhooks and the MQTT event topic subscribe to that queue. Nothing blocks the poll, and a slow consumer cannot fail an ingest.
+`recorder.ingest()` returns the list of events of the reading it stored. Only what Mate watched is reported: inferred
+charges, imports and repairs send nothing (decided 2026-11-27, when phase 4 was built; inferred charges never wrote events,
+and sending them later could report old or since-removed charges). The poller dispatches the events after the data is
+saved: MQTT publishes them and a pending delivery is stored for every subscribed webhook, so the deliveries table is the
+queue. Nothing blocks the poll, and a slow consumer cannot fail an ingest. A crash between saving a reading and storing its
+deliveries loses them; at-least-once delivery starts once a delivery is stored.
 
 Event types: `trip.started`, `trip.ended`, `charge.started`, `charge.ended`, `charge.completed`, `plug.connected`,
 `plug.disconnected`, `climate.started`, `climate.ended`, `doors.opened`, `windows.opened`, `soc.low`, `geofence.entered`,

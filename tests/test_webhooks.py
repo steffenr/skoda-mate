@@ -1,9 +1,11 @@
 """Webhooks: what is stored, what is sent, how it is signed and retried."""
 import asyncio
+import copy
 import hashlib
 import hmac
 import json
 import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import httpx
@@ -14,7 +16,8 @@ from skoda_mate.cloud import Cloud
 from skoda_mate.config import Config
 from skoda_mate.secrets_store import SecretBox
 
-from .helpers import client_for, make_app, sign_up
+from .helpers import FakeApi, client_for, make_app, sign_up
+from .test_web import bev, connected
 
 NOW = 1_800_000_000.0
 EVENT = {"id": "abc", "event": "charge.ended", "at": "2026-11-26T18:04:00+00:00",
@@ -337,6 +340,28 @@ def test_dispatch_queues_a_delivery_even_when_mqtt_fails():
     assert json.loads(rows(conn)[0]["payload"])["vehicle"]["vin"] == "VIN1"
 
 
+def test_a_poll_of_the_running_app_reaches_the_receiver():
+    """The whole way: reading -> event -> stored delivery -> worker -> signed request."""
+    unplugged = bev(**{"charging.status.state": "READY_FOR_CHARGING"})
+    low = copy.deepcopy(unplugged)
+    low["vehicle"]["charging"]["status"]["battery"]["stateOfChargeInPercent"] = 12
+    c, _, _, vid = connected(FakeApi([unplugged, low]))
+    receiver = Receiver(200)
+    try:
+        c.app.state.ctx.cloud.webhooks.transport = httpx.MockTransport(receiver)
+        secret = c.post("/api/webhooks", json={**BODY, "events": ["soc.low"]}).json()["secret"]
+        assert c.post(f"/api/vehicles/{vid}/refresh").json()["ok"] is True
+        for _ in range(200):
+            if receiver.got:
+                break
+            time.sleep(0.01)
+    finally:
+        c.__exit__(None, None, None)
+    request, = receiver.got
+    assert request.headers["x-skoda-mate-signature"] == webhooks.sign(secret, request.content)
+    assert json.loads(request.content)["data"] == {"soc": 12, "threshold": 20}
+
+
 def test_the_worker_runs_as_long_as_the_app_also_without_a_connected_car():
     app, _ = make_app()
     worker_of_app = app.state.ctx.cloud.webhooks
@@ -424,6 +449,24 @@ def test_the_low_battery_threshold():
     assert c.get("/api/webhooks").json()["soc_low_threshold"] == 35
     for bad in (4, 51, "x", None, 20.5, True):
         assert c.put("/api/webhooks/options", json={"soc_low_threshold": bad}).status_code == 400
+
+
+def test_an_idle_worker_only_reads_so_it_never_commits_another_writers_half_done_work(monkeypatch):
+    """The connection is shared: a commit from the worker would also save whatever a request has half written."""
+    conn, box = make()
+    hook(conn, box)
+    writes = []
+    real = conn.execute
+
+    def execute(sql, params=()):
+        if not sql.lstrip().upper().startswith("SELECT"):
+            writes.append(sql)
+        return real(sql, params)
+
+    monkeypatch.setattr(conn, "execute", execute)
+    monkeypatch.setattr(conn, "commit", lambda: writes.append("commit"))
+    run(worker(conn, box, Receiver(200)))
+    assert writes == []
 
 
 def test_the_log_never_shows_the_secret(caplog):

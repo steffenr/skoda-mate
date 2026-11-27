@@ -100,6 +100,12 @@ Its subtitle stays two translated fragments around the number, because `t()` tak
 fallback is `lib/heatmap.js`, and the Battery card is `lib/rangecard.js`. One sequence number in `stats.js` stops a late
 answer from drawing over another tab or period. What the numbers mean is in [INSIGHTS.md](INSIGHTS.md).
 
+## Automation
+`automation.py` names the events of a reading (`collect`), which `recorder.ingest` returns; only the poller passes them
+to `Cloud.dispatch`, which queues webhooks (`webhooks.py`) and publishes them on MQTT. `ha_values.py` holds what Mate
+derives for MQTT. The webhook worker belongs to the app's lifespan, not to the Škoda connection. The Settings card is
+`lib/automation.js`. Events and delivery rules: [WEBHOOKS.md](WEBHOOKS.md).
+
 ## Quality bar
 Mobile first (360 px), keyboard operable, visible focus, labels on inputs, colour never the only signal, respects
 `prefers-reduced-motion`, light and dark via the CSS variables only (no hard-coded colours), empty/loading/error states
