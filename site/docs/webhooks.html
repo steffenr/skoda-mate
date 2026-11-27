@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Webhooks · Škoda Mate</title>
+<meta name="description" content="Signed webhooks from Škoda Mate: events, payload, signature check and examples.">
+<link rel="icon" href="../icon.svg" type="image/svg+xml">
+<script>
+  (function () {
+    var t = null;
+    try { t = localStorage.getItem('skoda-mate-theme'); } catch (e) {}
+    if (t === 'dark' || t === 'light') document.documentElement.dataset.theme = t;
+  })();
+</script>
+<link rel="stylesheet" href="../site.css">
+<script src="../site.js" defer></script>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="../">
+      <img src="../icon.svg" alt="" width="32" height="32">
+      Škoda Mate
+    </a>
+    <nav class="topnav" aria-label="Sections">
+      <a href="../#features">Features</a>
+      <a href="../#api">API limits</a>
+      <a href="../#setup">Setup</a>
+    </nav>
+    <span class="spacer"></span>
+    <div class="hicons">
+      <a class="ico" href="https://github.com/steffenr/skoda-mate" target="_blank" rel="noopener noreferrer" title="Source code on GitHub" aria-label="Source code on GitHub (opens in a new tab)">
+        <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+      </a>
+      <a class="ico" href="https://buymeacoffee.com/steffenr" target="_blank" rel="noopener noreferrer" title="Buy me a coffee" aria-label="Buy me a coffee (opens in a new tab)">
+        <svg width="20" height="20" viewBox="0 0 32 32" fill="currentColor" aria-hidden="true"><path d="M9.197 0l-1.619 3.735h-2.407v3.359h0.921l0.943 5.975h-1.473l1.948 10.973 1.249-0.015 1.256 7.973h11.891l0.083-0.531 1.172-7.443 1.188 0.015 1.943-10.973h-1.407l0.937-5.975h1.011v-3.359h-2.557l-1.625-3.735zM9.901 1.073h12.057l1.025 2.375h-14.115zM6.235 4.803h19.525v1.228h-19.525zM6.839 14.136h18.183l-1.568 8.823-7.536-0.079-7.511 0.079z"/></svg>
+      </a>
+      <button class="ico" id="theme-toggle" type="button"></button>
+    </div>
+  </div>
+</header>
+
+<main>
+<section>
+  <div class="wrap doc">
+<h1>Webhooks</h1>
+<p>Mate can send signed JSON to your own URL when something happens, for example to Home Assistant, Node-RED or n8n.
+Nothing goes through a cloud service, and webhooks cost no Škoda requests.</p>
+<p>Set them up under <strong>Settings → Automation</strong>: <strong>Add webhook</strong>, enter a name and a URL, choose the events, save. Mate
+shows the <strong>signing secret once</strong>. Copy it then; later you can only create a new one. <strong>Send test</strong> sends a <code>test</code>
+event at once (also for a disabled webhook), and <strong>Deliveries</strong> shows the last 20 with their result and a <strong>Retry</strong>.</p>
+<p>The events leave Mate and go to the address you enter. They contain the car's name and <strong>VIN</strong> and the names of your
+places, but no coordinates, addresses, keys or passwords. Addresses in your own network are allowed. Use <code>https://</code>
+when the receiver is outside it. A URL with a user name or password in it is refused.</p>
+<h2>Events</h2>
+<p>Mate learns about changes when it reads the car (about every 5 to 20 minutes), so an event arrives that much later
+than the change, and something that starts and ends between two readings is not seen.</p>
+<table>
+<thead>
+<tr>
+<th>Event</th>
+<th>When</th>
+<th><code>data</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>trip.started</code></td>
+<td>a drive was seen</td>
+<td><code>trip_id</code>, <code>start_place</code>, <code>start_soc</code></td>
+</tr>
+<tr>
+<td><code>trip.ended</code></td>
+<td>it ended</td>
+<td><code>trip_id</code>, <code>start_place</code>, <code>end_place</code>, <code>distance_km</code>, <code>energy_kwh</code>, <code>start_soc</code>, <code>end_soc</code>, <code>approx</code></td>
+</tr>
+<tr>
+<td><code>charge.started</code></td>
+<td>Mate saw the car charging</td>
+<td><code>charge_id</code>, <code>charge_type</code>, <code>start_soc</code>, <code>target_soc</code>, <code>place</code></td>
+</tr>
+<tr>
+<td><code>charge.ended</code></td>
+<td>that charge ended</td>
+<td>the same, and <code>end_soc</code>, <code>energy_kwh</code>, <code>cost</code></td>
+</tr>
+<tr>
+<td><code>charge.completed</code></td>
+<td>it ended <strong>at or above the charge limit</strong> (sent with <code>charge.ended</code>)</td>
+<td>as <code>charge.ended</code></td>
+</tr>
+<tr>
+<td><code>plug.connected</code>, <code>plug.disconnected</code></td>
+<td>the cable</td>
+<td>–</td>
+</tr>
+<tr>
+<td><code>soc.low</code></td>
+<td>the charge level fell below your threshold (default 20 %), once per crossing</td>
+<td><code>soc</code>, <code>threshold</code></td>
+</tr>
+<tr>
+<td><code>climate.started</code>, <code>climate.ended</code></td>
+<td>air conditioning, heating or ventilation</td>
+<td><code>state</code></td>
+</tr>
+<tr>
+<td><code>doors.opened</code>, <code>windows.opened</code></td>
+<td></td>
+<td>–</td>
+</tr>
+<tr>
+<td><code>geofence.left</code>, <code>geofence.entered</code></td>
+<td>a drive ended somewhere other than the previous one (<a href="https://github.com/steffenr/skoda-mate/blob/main/PLACES.md">places</a>); driving through a place fires nothing</td>
+<td><code>place_id</code>, <code>place</code></td>
+</tr>
+<tr>
+<td><code>poll.failed</code></td>
+<td>three readings in a row failed; sent once until one succeeds</td>
+<td><code>failures</code>, <code>kind</code>, <code>error</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>start_place</code>, <code>end_place</code> and <code>place</code> are the names of your places, or <code>null</code>. Unknown values are <code>null</code>.</p>
+<p><strong>Only what Mate watched is sent.</strong> A charge Mate did not see, but worked out later from the battery level (marked
+<em>inferred</em> in the app), sends no event. Neither do CSV imports or data repairs. <code>trip.ended</code> with <code>"approx": true</code> is a
+drive found from the odometer, so there was no <code>trip.started</code> for it.</p>
+<p>A rejected or expired API key stops the readings at the first refusal, so it does not produce <code>poll.failed</code>. Mate's
+banner and the key-expiry date on the Settings page show it.</p>
+<h2>The request</h2>
+<pre><code class="language-http">POST /your/path HTTP/1.1
+Content-Type: application/json
+User-Agent: skoda-mate/0.2.0
+X-Skoda-Mate-Event: charge.ended
+X-Skoda-Mate-Delivery: 17
+X-Skoda-Mate-Signature: sha256=3f0c…
+</code></pre>
+<pre><code class="language-json">{
+  &quot;version&quot;: 1,
+  &quot;event&quot;: &quot;charge.ended&quot;,
+  &quot;at&quot;: &quot;2026-11-26T18:04:00+00:00&quot;,
+  &quot;vehicle&quot;: {&quot;id&quot;: 1, &quot;name&quot;: &quot;Enyaq&quot;, &quot;vin&quot;: &quot;TMB…&quot;},
+  &quot;data&quot;: {&quot;charge_id&quot;: 42, &quot;charge_type&quot;: &quot;AC&quot;, &quot;start_soc&quot;: 38, &quot;target_soc&quot;: 80, &quot;place&quot;: &quot;Home&quot;,
+           &quot;end_soc&quot;: 80, &quot;energy_kwh&quot;: 36.4, &quot;cost&quot;: 10.92}
+}
+</code></pre>
+<h2>Checking the signature</h2>
+<p>The signature is HMAC-SHA256 of the <strong>exact bytes of the body</strong>, with your secret as the key. Compare it before you
+parse or reformat the body.</p>
+<pre><code class="language-python">import hashlib, hmac
+
+def is_from_mate(secret: str, body: bytes, header: str) -&gt; bool:
+    expected = &quot;sha256=&quot; + hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
+    return hmac.compare_digest(expected, header)
+</code></pre>
+<p>The signature proves who sent a body, not when. If a repeated request would matter, remember the delivery ids you have
+handled and ignore a second one.</p>
+<h2>Delivery and retries</h2>
+<ul>
+<li>Any <strong>2xx</strong> answer within <strong>10 seconds</strong> is success. Mate does not read the answer's body.</li>
+<li>Otherwise Mate tries again after <strong>1 min, 5 min, 15 min, 1 h and 6 h</strong>, then gives up (six attempts in all).</li>
+<li>A <strong>4xx</strong> answer stops at once, except <code>408</code> and <code>429</code>. <strong><code>410 Gone</code> also disables the webhook.</strong></li>
+<li><strong>Redirects are not followed</strong> and count as a failure: enter the final URL.</li>
+<li>Delivery is <strong>at least once</strong>. A retry has the same <code>X-Skoda-Mate-Delivery</code>, so use it to recognise repeats.</li>
+<li>Waiting deliveries survive a restart. One limit: if Mate is killed in the instant between saving a reading and
+  queuing its deliveries, that reading's webhooks are not sent.</li>
+<li>Disabling a webhook drops what was still waiting, so old events are not sent when you enable it again.</li>
+<li>Each webhook has its own queue: a receiver that hangs does not hold up the others.</li>
+<li>The delivery log is kept for <strong>30 days</strong>.</li>
+</ul>
+<h2>Home Assistant example</h2>
+<p>An automation with a webhook trigger gets the JSON in <code>trigger.json</code>. (Home Assistant does not check the signature; its
+webhook URL is the secret part there, so keep it inside your network or use HTTPS.)</p>
+<pre><code class="language-yaml">alias: Tell me when the car is charged
+trigger:
+  - platform: webhook
+    webhook_id: skoda-mate
+    allowed_methods: [POST]
+    local_only: true
+condition:
+  - condition: template
+    value_template: &quot;{{ trigger.json.event == 'charge.completed' }}&quot;
+action:
+  - service: notify.notify
+    data:
+      message: &quot;{{ trigger.json.vehicle.name }} reached {{ trigger.json.data.end_soc }} %.&quot;
+</code></pre>
+<p>Use <code>http://&lt;home-assistant&gt;:8123/api/webhook/skoda-mate</code> as the URL. The same events are also published over
+<a href="home-assistant.html#events">MQTT</a>.</p>
+<h2>API</h2>
+<p>Every route needs a dashboard session or the API token. No answer contains a secret except the two that create one.</p>
+<table>
+<thead>
+<tr>
+<th>Route</th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>GET /api/webhooks</code></td>
+<td>the webhooks, the event names and the low-battery threshold</td>
+</tr>
+<tr>
+<td><code>POST /api/webhooks</code></td>
+<td>create <code>{name, url, events, enabled}</code>; answers with the <code>secret</code></td>
+</tr>
+<tr>
+<td><code>PUT /api/webhooks/{id}</code>, <code>DELETE /api/webhooks/{id}</code></td>
+<td>change, delete</td>
+</tr>
+<tr>
+<td><code>POST /api/webhooks/{id}/secret</code></td>
+<td>a new secret</td>
+</tr>
+<tr>
+<td><code>POST /api/webhooks/{id}/test</code></td>
+<td>send a test now and answer with the result</td>
+</tr>
+<tr>
+<td><code>GET /api/webhooks/{id}/deliveries</code></td>
+<td>the last 20</td>
+</tr>
+<tr>
+<td><code>POST /api/webhooks/deliveries/{id}/retry</code></td>
+<td>queue one again</td>
+</tr>
+<tr>
+<td><code>PUT /api/webhooks/options</code></td>
+<td><code>{"soc_low_threshold": 5–50}</code></td>
+</tr>
+</tbody>
+</table>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="links">
+      <a href="home-assistant.html">Home Assistant</a>
+      <a href="webhooks.html">Webhooks</a>
+      <a href="https://github.com/steffenr/skoda-mate">GitHub</a>
+      <a href="https://hub.docker.com/r/steffenr/skoda-mate">Docker image</a>
+    </div>
+    <p>© 2026 Steffen Rühlmann. Licensed under <a href="https://github.com/steffenr/skoda-mate/blob/main/LICENSE">AGPL-3.0-only</a>.</p>
+    <p>Inspired by <a href="https://github.com/ProtossBlaster/leapmotor-mate">leapmotor-mate</a> by Silvio Bressani — independent projects, no shared code.</p>
+    <p>Personal use only: Škoda licenses the public API for private use, not for commercial services. Not affiliated with Škoda Auto.</p>
+  </div>
+</footer>
+
+</body>
+</html>

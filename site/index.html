@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Škoda Mate — self-hosted trips, charges and car control for Škoda</title>
+<meta name="description" content="Self-hosted trip tracking and charge logging for Škoda cars, with charging and climate control. Built on the official public API: Docker, SQLite, no cloud.">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<script>
+  // Theme before first paint: light by default, 'auto' follows the OS, override via the header toggle.
+  (function () {
+    var t = null;
+    try { t = localStorage.getItem('skoda-mate-theme'); } catch (e) {}
+    if (t === 'dark' || t === 'light') document.documentElement.dataset.theme = t;
+  })();
+</script>
+<link rel="stylesheet" href="site.css">
+<script src="site.js" defer></script>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="#top">
+      <img src="icon.svg" alt="" width="32" height="32">
+      Škoda Mate
+    </a>
+    <nav class="topnav" aria-label="Sections">
+      <a href="#features">Features</a>
+      <a href="#api">API limits</a>
+      <a href="#setup">Setup</a>
+    </nav>
+    <span class="spacer"></span>
+    <div class="hicons">
+      <a class="ico" href="https://github.com/steffenr/skoda-mate" target="_blank" rel="noopener noreferrer" title="Source code on GitHub" aria-label="Source code on GitHub (opens in a new tab)">
+        <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+      </a>
+      <a class="ico" href="https://buymeacoffee.com/steffenr" target="_blank" rel="noopener noreferrer" title="Buy me a coffee" aria-label="Buy me a coffee (opens in a new tab)">
+        <svg width="20" height="20" viewBox="0 0 32 32" fill="currentColor" aria-hidden="true"><path d="M9.197 0l-1.619 3.735h-2.407v3.359h0.921l0.943 5.975h-1.473l1.948 10.973 1.249-0.015 1.256 7.973h11.891l0.083-0.531 1.172-7.443 1.188 0.015 1.943-10.973h-1.407l0.937-5.975h1.011v-3.359h-2.557l-1.625-3.735zM9.901 1.073h12.057l1.025 2.375h-14.115zM6.235 4.803h19.525v1.228h-19.525zM6.839 14.136h18.183l-1.568 8.823-7.536-0.079-7.511 0.079z"/></svg>
+      </a>
+      <button class="ico" id="theme-toggle" type="button"></button>
+    </div>
+  </div>
+</header>
+
+<main id="top">
+
+  <section class="hero" style="padding: 0;">
+    <div class="wrap">
+      <h1>Škoda Mate</h1>
+      <p class="tagline">Self-hosted trip tracking and charge logging for Škoda cars, with charging and climate control.</p>
+      <p class="sub">Built on Škoda's <em>official public API</em> with an API key from the MyŠkoda app — no Škoda account
+        password involved. Trips and charges are derived by Mate itself and kept in a local SQLite database.
+        Docker image, one command, no cloud.</p>
+      <div class="actions">
+        <a class="btn primary" href="#setup">Install</a>
+        <a class="btn" href="#screenshots">See the dashboard</a>
+      </div>
+      <div class="meta">
+        <span>Official public API only</span>
+        <span>Docker · amd64 &amp; arm64</span>
+        <span>SQLite · your data stays local</span>
+        <span>Up to 5 cars</span>
+        <span>14 languages</span>
+        <span>AGPL-3.0</span>
+      </div>
+    </div>
+  </section>
+
+  <section id="features">
+    <div class="wrap">
+      <h2>Features</h2>
+      <p class="muted lead">Every dashboard page, in one glance. Everything runs on your own machine — the only
+        external calls go to Škoda's API and, for maps, OpenStreetMap.</p>
+      <div class="cards">
+        <article class="card">
+          <h3>Overview</h3>
+          <p>Car render, battery, range, charging state, doors/windows/lock, climate, position, last trip and charge, 48&nbsp;h chart</p>
+        </article>
+        <article class="card">
+          <h3>Trips</h3>
+          <p>Derived trips with day and month views, search, map, notes, cost, CSV export — plus duplicate-safe import of the MyŠkoda app's trip CSV</p>
+        </article>
+        <article class="card">
+          <h3>Charges</h3>
+          <p>Sessions with energy, AC/DC, Home/Public, charging curve and cost, with CSV export</p>
+        </article>
+        <article class="card">
+          <h3>Prices</h3>
+          <p>Your kWh prices for home, public AC and public DC. Costs recalculate everywhere; a charge's real total overrides the estimate</p>
+        </article>
+        <article class="card">
+          <h3>Battery</h3>
+          <p>SoC history, charging settings and profiles, a capacity estimate built from your charges, and projected range at 100&nbsp;%</p>
+        </article>
+        <article class="card">
+          <h3>Control</h3>
+          <p>Charging on/off, charge limit and mode, charging profiles, climate, auxiliary heater and ventilation — only what this car supports, with a reason when it doesn't</p>
+        </article>
+        <article class="card">
+          <h3>Statistics</h3>
+          <p>Monthly distance, energy, cost and consumption. Charging and Driving tabs with power, charge curves, destinations and heatmaps; a Parked tab for the battery lost while parked</p>
+        </article>
+        <article class="card">
+          <h3>Map &amp; Places</h3>
+          <p>Where the car stood and charged, plus named places with radius, colour and per-place prices — visits, days, parked time and cost per place</p>
+        </article>
+        <article class="card">
+          <h3>Activity</h3>
+          <p>A day timeline of drive, charge, climate and parked time, and an event list with every command you sent</p>
+        </article>
+        <article class="card">
+          <h3>Data quality</h3>
+          <p>A card that flags open trips, unseen charge ends and near-duplicates, offers safe fixes with undo, and never shows a guess as a number</p>
+        </article>
+        <article class="card">
+          <h3>Home Assistant</h3>
+          <p>MQTT discovery with about 40 entities per car: sensors, tracker, buttons and a charge-limit slider (opt-in). Set up in the dashboard, no restart.</p>
+        </article>
+        <article class="card">
+          <h3>Automation &amp; API</h3>
+          <p>Signed webhooks for trips, charges, places and battery events, a JSON API with a bearer token, CSV export and database backup</p>
+        </article>
+      </div>
+      <p class="also"><b>Also:</b> units in km or miles, a theme that follows the system, redacted diagnostics, a raw-data viewer,
+        demo mode with a fictional Enyaq, and fourteen languages: Catalan, Danish, Dutch, English, Finnish, French, German,
+        Hungarian, Italian, Norwegian, Spanish, Swedish, Turkish and Ukrainian</p>
+    </div>
+  </section>
+
+  <section id="screenshots">
+    <div class="wrap">
+      <h2>A look at the dashboard</h2>
+      <p class="muted lead">All from the built-in demo: a fictional Enyaq with 60 days of history, no account, no network</p>
+      <div class="shots">
+        <figure><button type="button" data-shot="img/overview.jpg" data-caption="Overview" aria-label="Show Overview larger"><img src="img/overview.jpg" width="1200" height="834" loading="lazy" alt="Overview page: car render, battery and range, doors, climate and position"></button><figcaption>Overview</figcaption></figure>
+        <figure><button type="button" data-shot="img/trips.jpg" data-caption="Trips" aria-label="Show Trips larger"><img src="img/trips.jpg" width="1200" height="834" loading="lazy" alt="Trips page: list of derived trips with distance, energy and cost"></button><figcaption>Trips</figcaption></figure>
+        <figure><button type="button" data-shot="img/charges.jpg" data-caption="Charges" aria-label="Show Charges larger"><img src="img/charges.jpg" width="1200" height="834" loading="lazy" alt="Charges page: sessions with energy, AC/DC and cost"></button><figcaption>Charges</figcaption></figure>
+        <figure><button type="button" data-shot="img/battery.jpg" data-caption="Battery" aria-label="Show Battery larger"><img src="img/battery.jpg" width="1200" height="834" loading="lazy" alt="Battery page: SoC history, charging settings and projected range"></button><figcaption>Battery</figcaption></figure>
+        <figure><button type="button" data-shot="img/control.jpg" data-caption="Control" aria-label="Show Control larger"><img src="img/control.jpg" width="1200" height="834" loading="lazy" alt="Control page: charging and climate toggles, charge limit"></button><figcaption>Control</figcaption></figure>
+        <figure><button type="button" data-shot="img/statistics.jpg" data-caption="Statistics" aria-label="Show Statistics larger"><img src="img/statistics.jpg" width="1200" height="834" loading="lazy" alt="Statistics page: monthly distance, energy, cost and consumption"></button><figcaption>Statistics</figcaption></figure>
+        <figure><button type="button" data-shot="img/map.jpg" data-caption="Map" aria-label="Show Map larger"><img src="img/map.jpg" width="1200" height="834" loading="lazy" alt="Map page: places the car stood and charged"></button><figcaption>Map</figcaption></figure>
+        <figure><button type="button" data-shot="img/places.jpg" data-caption="Places" aria-label="Show Places larger"><img src="img/places.jpg" width="1200" height="834" loading="lazy" alt="Places page: named places with visits, parked time and cost"></button><figcaption>Places</figcaption></figure>
+        <figure><button type="button" data-shot="img/activity.jpg" data-caption="Activity" aria-label="Show Activity larger"><img src="img/activity.jpg" width="1200" height="834" loading="lazy" alt="Activity page: day timeline and event list"></button><figcaption>Activity</figcaption></figure>
+        <figure><button type="button" data-shot="img/system.jpg" data-caption="System" aria-label="Show System larger"><img src="img/system.jpg" width="1200" height="834" loading="lazy" alt="System page: polling, request budget, data quality and diagnostics"></button><figcaption>System</figcaption></figure>
+      </div>
+    </div>
+  </section>
+
+  <section id="api">
+    <div class="wrap">
+      <h2>What the API can — and cannot — do</h2>
+      <p class="muted lead">Škoda's public API returns <b>one live reading per request</b> and a short command list.
+        It has <b>no history</b>, which shapes everything Mate does: history is derived by Mate and clearly labelled
+        where it is an estimate. Nothing is ever shown as a number when it is a guess.</p>
+      <div class="cols">
+        <div class="col">
+          <h3><span class="sym yes" aria-hidden="true">✓</span>Straight from the API</h3>
+          <p class="note">Live values and supported commands</p>
+          <ul>
+            <li>Battery level, range, charging state and power</li>
+            <li>Doors, windows and lock status</li>
+            <li>Parking position and odometer</li>
+            <li>Start/stop charging, charge limit and mode</li>
+            <li>Climate, auxiliary heater (S-PIN) and ventilation</li>
+            <li>The car's official render</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h3><span class="sym approx" aria-hidden="true">≈</span>Derived by Mate, labelled honestly</h3>
+          <p class="note">No history in the API — Mate builds it</p>
+          <ul>
+            <li>Trips, from odometer and the parked/driving state</li>
+            <li>Charges: measured when seen live, inferred and marked <b>≈</b> otherwise</li>
+            <li>Parked loss, capacity estimate, projected range</li>
+            <li>Costs, from your own prices</li>
+            <li>Statistics, places and visit history</li>
+            <li>A data-quality card with safe fixes</li>
+          </ul>
+        </div>
+        <div class="col">
+          <h3><span class="sym no" aria-hidden="true">✗</span>Not possible</h3>
+          <p class="note">The API offers nothing for it — so Mate doesn't pretend</p>
+          <ul>
+            <li>Lock/unlock, honk or flash</li>
+            <li>Wake-up</li>
+            <li>A route line while driving (no position is reported)</li>
+            <li>Outside temperature, service and warning lights</li>
+            <li>Battery health (an estimate is shown instead)</li>
+            <li>Sending a destination to the car</li>
+          </ul>
+        </div>
+      </div>
+      <p class="quota"><b>Request budget:</b> Škoda allows about 20 requests per hour per car. Mate polls every
+        20 minutes while parked and every 5 minutes while charging, climatising or driving, keeps 4 requests reserved
+        for commands, and shows a live counter in the top bar — so you always know what the quota is doing.</p>
+    </div>
+  </section>
+
+  <section id="setup">
+    <div class="wrap">
+      <h2>Setup</h2>
+      <p class="muted lead">Docker is the recommended way; three steps and you are looking at your car</p>
+      <div class="steps">
+        <div class="step">
+          <span class="num" aria-hidden="true">1</span>
+          <div>
+            <h3>Start the container</h3>
+            <p>No image build, nothing to configure first: the image is published on
+              <a href="https://hub.docker.com/r/steffenr/skoda-mate">Docker Hub</a> as <code>steffenr/skoda-mate</code>
+              for linux/amd64 and linux/arm64</p>
+            <div class="code"><code>mkdir -p ~/skoda-mate &amp;&amp; cd ~/skoda-mate
+curl -LO https://raw.githubusercontent.com/steffenr/skoda-mate/main/docker-compose.yml
+docker compose up -d</code></div>
+          </div>
+        </div>
+        <div class="step">
+          <span class="num" aria-hidden="true">2</span>
+          <div>
+            <h3>Create an API key in the MyŠkoda app</h3>
+            <p>Open <a href="https://go.skoda.eu/api-keys">go.skoda.eu/api-keys</a>, create a key and select <b>all your
+              cars</b>. Paste the key and your VIN(s) in the next step. No Škoda password is ever entered here; the
+              4-digit S-PIN is optional and only needed to start the auxiliary heater.</p>
+          </div>
+        </div>
+        <div class="step">
+          <span class="num" aria-hidden="true">3</span>
+          <div>
+            <h3>Open the dashboard and finish setup</h3>
+            <p>Go to <code>http://localhost:8080</code>, create your dashboard login and paste the API key. Mate tests it
+              against Škoda and stores it encrypted.</p>
+            <p class="small">Port is yours to change: edit <code>ports</code> in <code>docker-compose.yml</code>.
+              Updates are <code>docker compose pull &amp;&amp; docker compose up -d</code>; your <code>./data</code> folder survives.</p>
+          </div>
+        </div>
+      </div>
+      <div class="setup-notes">
+        <b>Other ways in:</b> on <b>Unraid</b> the app installs from
+        <a href="https://ca.unraid.net/apps/skoda-mate-182eamj1i7s3dj"><b>Community Applications</b></a>
+        (search <code>skoda-mate</code>), or from the template and compose file in the repo. Any other NAS that
+        runs Docker — Synology, Ugreen, QNAP and others — can use the same
+        <code>docker-compose.yml</code> or the image from
+        <a href="https://hub.docker.com/r/steffenr/skoda-mate">Docker Hub</a>. <b>DEMO=1</b> starts a fictional
+        Enyaq with 60 days of history if you want to look around first; and before a login exists, the setup form asks
+        for a one-time code from the log when reached from a public address
+      </div>
+    </div>
+  </section>
+
+  <section id="support">
+    <div class="wrap">
+      <h2>Support</h2>
+      <p class="muted lead">Škoda Mate is a spare-time project and stays free software. If it is useful to you, a coffee
+        is appreciated — issues and pull requests on GitHub just as much.</p>
+      <div class="support">
+        <a href="https://buymeacoffee.com/steffenr">
+          <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me a Coffee" width="150" height="42">
+        </a>
+      </div>
+    </div>
+  </section>
+
+
+  <div class="lightbox" id="lightbox" hidden role="dialog" aria-modal="true" aria-label="Screenshot preview" tabindex="-1">
+    <figure>
+      <img id="lightbox-img" src="" alt="">
+      <figcaption id="lightbox-caption"></figcaption>
+    </figure>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="links">
+      <a href="docs/home-assistant.html">Home Assistant</a>
+      <a href="docs/webhooks.html">Webhooks</a>
+      <a href="https://ca.unraid.net/apps/skoda-mate-182eamj1i7s3dj">Unraid</a>
+      <a href="https://github.com/steffenr/skoda-mate">GitHub</a>
+      <a href="https://hub.docker.com/r/steffenr/skoda-mate">Docker image</a>
+    </div>
+    <p>© 2026 Steffen Rühlmann. Licensed under <a href="https://github.com/steffenr/skoda-mate/blob/main/LICENSE">AGPL-3.0-only</a>.</p>
+    <p>Inspired by <a href="https://github.com/ProtossBlaster/leapmotor-mate">leapmotor-mate</a> by Silvio Bressani — independent projects, no shared code.</p>
+    <p>Personal use only: Škoda licenses the public API for private use, not for commercial services. Not affiliated with Škoda Auto.</p>
+  </div>
+</footer>
+
+<script>
+  (function () {
+    var box = document.getElementById('lightbox');
+    if (!box) return;
+    var img = document.getElementById('lightbox-img');
+    var cap = document.getElementById('lightbox-caption');
+    var last = null;
+    function open(btn) {
+      last = btn;
+      img.src = btn.dataset.shot;
+      img.alt = btn.querySelector('img').alt;
+      cap.textContent = btn.dataset.caption;
+      box.hidden = false;
+      box.focus();
+    }
+    function close() {
+      box.hidden = true;
+      img.src = '';
+      if (last) last.focus();
+    }
+    document.querySelectorAll('[data-shot]').forEach(function (btn) {
+      btn.addEventListener('click', function () { open(btn); });
+    });
+    box.addEventListener('click', function (e) { if (e.target === box) close(); });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && !box.hidden) close();
+    });
+  })();
+</script>
+</body>
+</html>

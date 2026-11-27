@@ -1,0 +1,494 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Home Assistant with Škoda Mate · Škoda Mate</title>
+<meta name="description" content="Home Assistant via MQTT discovery: about 40 entities per Škoda car, set up in the dashboard.">
+<link rel="icon" href="../icon.svg" type="image/svg+xml">
+<script>
+  (function () {
+    var t = null;
+    try { t = localStorage.getItem('skoda-mate-theme'); } catch (e) {}
+    if (t === 'dark' || t === 'light') document.documentElement.dataset.theme = t;
+  })();
+</script>
+<link rel="stylesheet" href="../site.css">
+<script src="../site.js" defer></script>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="../">
+      <img src="../icon.svg" alt="" width="32" height="32">
+      Škoda Mate
+    </a>
+    <nav class="topnav" aria-label="Sections">
+      <a href="../#features">Features</a>
+      <a href="../#api">API limits</a>
+      <a href="../#setup">Setup</a>
+    </nav>
+    <span class="spacer"></span>
+    <div class="hicons">
+      <a class="ico" href="https://github.com/steffenr/skoda-mate" target="_blank" rel="noopener noreferrer" title="Source code on GitHub" aria-label="Source code on GitHub (opens in a new tab)">
+        <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+      </a>
+      <a class="ico" href="https://buymeacoffee.com/steffenr" target="_blank" rel="noopener noreferrer" title="Buy me a coffee" aria-label="Buy me a coffee (opens in a new tab)">
+        <svg width="20" height="20" viewBox="0 0 32 32" fill="currentColor" aria-hidden="true"><path d="M9.197 0l-1.619 3.735h-2.407v3.359h0.921l0.943 5.975h-1.473l1.948 10.973 1.249-0.015 1.256 7.973h11.891l0.083-0.531 1.172-7.443 1.188 0.015 1.943-10.973h-1.407l0.937-5.975h1.011v-3.359h-2.557l-1.625-3.735zM9.901 1.073h12.057l1.025 2.375h-14.115zM6.235 4.803h19.525v1.228h-19.525zM6.839 14.136h18.183l-1.568 8.823-7.536-0.079-7.511 0.079z"/></svg>
+      </a>
+      <button class="ico" id="theme-toggle" type="button"></button>
+    </div>
+  </div>
+</header>
+
+<main>
+<section>
+  <div class="wrap doc">
+<h1>Home Assistant with Škoda Mate</h1>
+<p>Škoda Mate can show your car in Home Assistant as a normal <strong>device</strong> with sensors, a map position and control buttons.
+It uses <strong>MQTT discovery</strong>: you only tell Mate where your MQTT broker is, and Home Assistant creates every entity by itself.</p>
+<p>Everything is set up in the dashboard: <strong>Settings → MQTT → Home Assistant</strong>. No environment variables, no restart.</p>
+<h2>What you need</h2>
+<ul>
+<li>Home Assistant running in your network (any installation type).</li>
+<li>An <strong>MQTT broker</strong>. If you use Home Assistant OS or Supervised, the <em>Mosquitto broker</em> add-on is the easy way (step 1).</li>
+<li>Škoda Mate connected to your Škoda account (the API key is already entered), and a network path from Mate to the broker.</li>
+</ul>
+<h2>Step by step</h2>
+<h3>1. Make sure an MQTT broker runs</h3>
+<p><strong>Home Assistant OS / Supervised</strong></p>
+<ol>
+<li><em>Settings → Add-ons → Add-on store</em></li>
+<li>Search for <strong>Mosquitto broker</strong>, open it, press <strong>Install</strong></li>
+<li>Press <strong>Start</strong> and switch on <strong>Start on boot</strong></li>
+</ol>
+<p><strong>Home Assistant in Docker or Core</strong> — run your own Mosquitto. A minimal <code>docker-compose.yml</code>:</p>
+<pre><code class="language-yaml">services:
+  mosquitto:
+    image: eclipse-mosquitto:2
+    restart: unless-stopped
+    ports: [&quot;1883:1883&quot;]
+    volumes: [&quot;./mosquitto:/mosquitto/config&quot;]
+</code></pre>
+<p>with <code>./mosquitto/mosquitto.conf</code>:</p>
+<pre><code>listener 1883
+allow_anonymous false
+password_file /mosquitto/config/passwd
+</code></pre>
+<p>Create the user with <code>docker compose exec mosquitto mosquitto_passwd -c /mosquitto/config/passwd skoda_mate</code>
+(it asks for the password), then restart the container.</p>
+<h3>2. Create a user for Mate</h3>
+<p><strong>With the Mosquitto add-on</strong>: <em>Settings → People → Users → Add user</em>. Choose a name such as <code>skoda_mate</code> and a password.
+Administrator rights are not needed. The add-on accepts Home Assistant users.</p>
+<h3>3. Add the MQTT integration to Home Assistant</h3>
+<p><em>Settings → Devices &amp; services → Add integration → MQTT</em></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Broker</td>
+<td><code>core-mosquitto</code> (add-on) or the broker's IP address</td>
+</tr>
+<tr>
+<td>Port</td>
+<td><code>1883</code></td>
+</tr>
+<tr>
+<td>Username / password</td>
+<td>the user from step 2</td>
+</tr>
+</tbody>
+</table>
+<p>Leave <strong>Enable discovery</strong> switched on. The discovery prefix must stay <code>homeassistant</code> (the default).</p>
+<h3>4. Fill in Škoda Mate</h3>
+<p>Open <strong>Settings</strong> in Mate and find the card <strong>MQTT → Home Assistant</strong>:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>What to enter</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Broker</strong></td>
+<td>The <strong>IP address</strong> of the machine that runs the broker, usually the IP address of Home Assistant, for example <code>192.168.1.10</code></td>
+</tr>
+<tr>
+<td><strong>Port</strong></td>
+<td><code>1883</code> (or <code>8883</code> with TLS)</td>
+</tr>
+<tr>
+<td><strong>Username / Password</strong></td>
+<td>the user from step 2</td>
+</tr>
+<tr>
+<td><strong>Topic prefix</strong></td>
+<td>leave <code>skoda_mate</code>. Change it only if two Mate installations use the same broker</td>
+</tr>
+<tr>
+<td><strong>Discovery</strong></td>
+<td>ticked</td>
+</tr>
+<tr>
+<td><strong>Allow commands from Home Assistant</strong></td>
+<td>off, unless you want buttons and the charge-limit slider (see <em>Controls</em> below)</td>
+</tr>
+<tr>
+<td><strong>TLS</strong></td>
+<td>only if your broker is set up for TLS. <em>TLS insecure</em> accepts a self-signed certificate</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Mate runs in Docker or DDEV?</strong> Then <code>localhost</code> and <code>homeassistant.local</code> usually do not work from inside the container.
+Use Home Assistant's <strong>IP address</strong>. In your router, give Home Assistant a fixed address so it does not change.</p>
+</blockquote>
+<h3>5. Test, enable, save</h3>
+<ol>
+<li>Press <strong>Test connection</strong>. It tries the values on the form without saving anything.
+   - <strong>Connected to the broker</strong> → continue.
+   - <em>Cannot reach …</em> → wrong IP or port, broker not running, or a firewall.
+   - <em>The broker refused the user name or password</em> → check the user and password.</li>
+<li>Tick <strong>Enabled</strong> and press <strong>Save</strong>. The status at the top of the card changes to <strong>Connected</strong> and shows how many entities were created.</li>
+</ol>
+<p>The password is stored <strong>encrypted</strong>. It is never shown again; leave the field empty to keep it. If you change the broker
+address, port or TLS setting, enter the password again: Mate only sends the stored password to the broker it was saved for.</p>
+<h3>6. Find your car in Home Assistant</h3>
+<p><em>Settings → Devices &amp; services → MQTT → Devices</em>. Your car appears as a device named like the car, with about 35 entities (about 45 with commands allowed).
+Add them to a dashboard: <em>Overview → pencil icon → Add card → Tile / Entities</em>.</p>
+<h2>What you get</h2>
+<p><strong>Sensors</strong></p>
+<table>
+<thead>
+<tr>
+<th>Entity</th>
+<th>Unit</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Battery</td>
+<td>%</td>
+</tr>
+<tr>
+<td>Range</td>
+<td>km</td>
+</tr>
+<tr>
+<td>Charging power</td>
+<td>kW</td>
+</tr>
+<tr>
+<td>Charge limit</td>
+<td>%</td>
+</tr>
+<tr>
+<td>Time to full</td>
+<td>min</td>
+</tr>
+<tr>
+<td>Charge state / Charge type</td>
+<td>text</td>
+</tr>
+<tr>
+<td>Odometer</td>
+<td>km</td>
+</tr>
+<tr>
+<td>Climate, Climate target</td>
+<td>text, °C</td>
+</tr>
+<tr>
+<td>Auxiliary heater, Ventilation</td>
+<td>text</td>
+</tr>
+<tr>
+<td>Fuel level, Fuel range (combustion/hybrid cars)</td>
+<td>%, km</td>
+</tr>
+<tr>
+<td>Last update from car</td>
+<td>timestamp</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Values Mate calculates itself</strong> (not provided by Škoda). What cannot be worked out is <em>unknown</em>, never zero.</p>
+<table>
+<thead>
+<tr>
+<th>Entity</th>
+<th>Key</th>
+<th>Unit</th>
+<th>What it is</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Last trip distance, energy, consumption</td>
+<td><code>last_trip_km</code>, <code>last_trip_kwh</code>, <code>last_trip_consumption</code></td>
+<td>km, kWh, kWh/100 km</td>
+<td>the last finished trip</td>
+</tr>
+<tr>
+<td>Last charge energy, cost, place</td>
+<td><code>last_charge_kwh</code>, <code>last_charge_cost</code>, <code>last_charge_place</code></td>
+<td>kWh, your currency, text</td>
+<td>the last finished charge; cost uses your <strong>Prices</strong></td>
+</tr>
+<tr>
+<td>Place</td>
+<td><code>place</code></td>
+<td>text</td>
+<td>the <a href="https://github.com/steffenr/skoda-mate/blob/main/PLACES.md">place</a> the car is parked in; unknown while driving or away from your places</td>
+</tr>
+<tr>
+<td>Parked loss (7 days), and its cost</td>
+<td><code>parked_loss_7d_kwh</code>, <code>parked_loss_7d_cost</code></td>
+<td>kWh, your currency</td>
+<td><a href="https://github.com/steffenr/skoda-mate/blob/main/ACTIVITY.md#parked-loss">battery lost while parked</a></td>
+</tr>
+<tr>
+<td>Capacity estimate (from the wall)</td>
+<td><code>capacity_estimate_kwh</code></td>
+<td>kWh</td>
+<td>wall energy per 100 % from long AC charges, so it includes charging losses; <strong>not</strong> battery health</td>
+</tr>
+<tr>
+<td>Projected range at 100 %</td>
+<td><code>range_at_100_km</code></td>
+<td>km</td>
+<td><a href="https://github.com/steffenr/skoda-mate/blob/main/INSIGHTS.md#projected-range">the reported range scaled to a full battery</a></td>
+</tr>
+<tr>
+<td>Data quality issues</td>
+<td><code>quality_issues</code></td>
+<td>count</td>
+<td>checks on the <a href="https://github.com/steffenr/skoda-mate/blob/main/ACTIVITY.md#data-quality">data-quality card</a> with something open</td>
+</tr>
+</tbody>
+</table>
+<p>Parked loss, capacity, range and quality are recalculated at most every 15 minutes, and at once when something happens
+(a trip or charge ends, the cable is plugged in, ...).</p>
+<p><strong>Binary sensors</strong>: Charging, Plug connected, Plug locked, Doors open, Windows open, Trunk open, Bonnet open, Lights, Driving,
+Climate running, Unlocked. The lock state is <strong>read-only</strong> because the Škoda API cannot lock or unlock the car.</p>
+<p><strong>Position</strong>: a <em>device tracker</em>, so the car appears on the Home Assistant map.</p>
+<p><strong>Controls</strong> (opt-in): only when <strong>Allow commands from Home Assistant</strong> is ticked, Mate adds buttons <em>Start/Stop charging</em>,
+<em>Start/Stop climate</em>, <em>Start/Stop ventilation</em>, <em>Stop auxiliary heater</em>, and a <strong>Charge limit</strong> slider (50–100 %, steps of 10),
+and listens for them on <code>&lt;prefix&gt;/&lt;VIN&gt;/cmd/&lt;name&gt;</code>. With the box unticked (the default) Mate ignores every command message and
+removes these entities from Home Assistant again.</p>
+<ul>
+<li><strong>Anyone who can publish to your broker can then control these functions.</strong> Restrict the broker with ACLs (only Home Assistant
+  may publish to <code>skoda_mate/+/cmd/#</code>; Mate's own user needs to read that and to publish to <code>skoda_mate/#</code> and <code>homeassistant/#</code>),
+  and use TLS whenever the broker is reachable from outside your own network.</li>
+<li><strong>The auxiliary heater cannot be started over MQTT</strong>: starting it uses your S-PIN. Use Mate's <strong>Control</strong> page for that.</li>
+<li>Each press is one Škoda request, taken from the same budget as the Control page. Škoda allows about 20 requests per hour per
+  car, so Mate accepts <strong>at most one MQTT command per car every 30 seconds</strong> and drops (and logs) the rest. Avoid automations
+  that press buttons in a loop.</li>
+<li><strong>What became of a press</strong>: the sensor <strong>Last command</strong> shows e.g. <code>start_charging: sent</code>. The possible results are:</li>
+<li><code>sent</code>: Škoda took the command.</li>
+<li><code>failed</code>: Škoda or the car refused it.</li>
+<li><code>rejected</code>: Mate did not send it, for example because the car does not support it, the value is out of range or the request budget is used up.</li>
+<li><code>dropped</code>: it came too soon after the previous command.</li>
+</ul>
+<p>The reason is in the sensor's <code>error</code> attribute. Mate publishes it retained on <code>&lt;prefix&gt;/&lt;VIN&gt;/cmd_result</code> as JSON
+  <code>{"command", "status", "ok", "error", "at"}</code>. Failed and rejected commands also appear in Mate's command log and events.</p>
+<p>If the car does not support a function (for example no ventilation), pressing its button reports <code>rejected</code> with the
+reason. Mate shows what your car supports on the <strong>Capabilities</strong> page.</p>
+<h2>Topics</h2>
+<p><code>&lt;prefix&gt;</code> is the topic prefix (<code>skoda_mate</code>).</p>
+<table>
+<thead>
+<tr>
+<th>Topic</th>
+<th>Retained</th>
+<th>Content</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;prefix&gt;/status</code></td>
+<td>yes</td>
+<td><code>online</code> / <code>offline</code></td>
+</tr>
+<tr>
+<td><code>&lt;prefix&gt;/&lt;VIN&gt;/state</code></td>
+<td>yes</td>
+<td>all values as one JSON object (what Home Assistant reads)</td>
+</tr>
+<tr>
+<td><code>&lt;prefix&gt;/&lt;VIN&gt;/position</code></td>
+<td>yes</td>
+<td><code>latitude</code>, <code>longitude</code>, <code>address</code></td>
+</tr>
+<tr>
+<td><code>&lt;prefix&gt;/&lt;VIN&gt;/fields/&lt;key&gt;</code></td>
+<td>yes</td>
+<td>one value as a JSON scalar, e.g. <code>64</code>, <code>true</code>, <code>"HEATING"</code></td>
+</tr>
+<tr>
+<td><code>&lt;prefix&gt;/&lt;VIN&gt;/events</code></td>
+<td><strong>no</strong></td>
+<td>one JSON message per event</td>
+</tr>
+<tr>
+<td><code>&lt;prefix&gt;/&lt;VIN&gt;/cmd/&lt;name&gt;</code>, <code>&lt;prefix&gt;/&lt;VIN&gt;/cmd_result</code></td>
+<td>–, yes</td>
+<td>commands, see <em>Controls</em></td>
+</tr>
+</tbody>
+</table>
+<h3>One topic per value</h3>
+<p>For tools other than Home Assistant: <code>&lt;prefix&gt;/&lt;VIN&gt;/fields/&lt;key&gt;</code> has every key of the <code>state</code> object. A value is
+published when it changes; <code>captured_at</code> (when the car last reported) on every reading; and all of them again after a
+reconnect. A value that becomes <strong>unknown</strong> is sent as an <strong>empty retained message</strong>, which removes it from the broker.</p>
+<p><strong>Also publish one topic per value</strong> on the MQTT card switches these topics off (they are on by default). That does not
+change Home Assistant discovery. Values the broker already holds stay there until you delete them.</p>
+<h3>Events</h3>
+<p><code>&lt;prefix&gt;/&lt;VIN&gt;/events</code> reports what happened, with the same <a href="webhooks.html#events">event names and data as the webhooks</a>:</p>
+<pre><code class="language-json">{&quot;id&quot;: &quot;5c1f…&quot;, &quot;event&quot;: &quot;charge.ended&quot;, &quot;at&quot;: &quot;2026-11-26T18:04:00+00:00&quot;,
+ &quot;vehicle&quot;: {&quot;id&quot;: 1, &quot;name&quot;: &quot;Enyaq&quot;, &quot;vin&quot;: &quot;TMB…&quot;}, &quot;data&quot;: {&quot;charge_id&quot;: 42, &quot;energy_kwh&quot;: 36.4, &quot;place&quot;: &quot;Home&quot;}}
+</code></pre>
+<p>Events are <strong>not retained</strong> (QoS 0) and are not queued while the broker is unreachable, so an automation never acts on
+an old one. Use a <a href="webhooks.html">webhook</a> when an event must not get lost. They are published whether or not the field
+topics are on. <code>id</code> is unique per event.</p>
+<pre><code class="language-yaml">alias: Enyaq reached its charge limit
+trigger:
+  - platform: mqtt
+    topic: skoda_mate/TMBJB9NY5RF999999/events
+condition:
+  - condition: template
+    value_template: &quot;{{ trigger.payload_json.event == 'charge.completed' }}&quot;
+action:
+  - service: notify.notify
+    data:
+      message: &quot;The Enyaq reached {{ trigger.payload_json.data.end_soc }} %.&quot;
+</code></pre>
+<h2>Examples</h2>
+<p>Entity names follow the car's name. For a car called <em>Enyaq</em> they look like <code>sensor.enyaq_battery</code>. Check the real names in
+<em>Settings → Devices &amp; services → Entities</em>.</p>
+<p><strong>A dashboard card</strong> (the <code>number</code> and <code>button</code> entities exist only with commands allowed)</p>
+<pre><code class="language-yaml">type: entities
+title: Enyaq
+entities:
+  - sensor.enyaq_battery
+  - sensor.enyaq_range
+  - binary_sensor.enyaq_charging
+  - sensor.enyaq_charging_power
+  - number.enyaq_charge_limit
+  - sensor.enyaq_last_trip_distance
+  - sensor.enyaq_last_charge_cost
+  - button.enyaq_start_charging
+  - button.enyaq_stop_charging
+</code></pre>
+<p><strong>Notify when the car is charged</strong></p>
+<pre><code class="language-yaml">alias: Enyaq charged
+trigger:
+  - platform: numeric_state
+    entity_id: sensor.enyaq_battery
+    above: 79
+condition:
+  - condition: state
+    entity_id: binary_sensor.enyaq_plug_connected
+    state: &quot;on&quot;
+action:
+  - service: notify.notify
+    data:
+      message: &quot;The Enyaq is at {{ states('sensor.enyaq_battery') }} %.&quot;
+</code></pre>
+<p><strong>Warn about an open window when you leave</strong></p>
+<pre><code class="language-yaml">alias: Enyaq window open
+trigger:
+  - platform: state
+    entity_id: binary_sensor.enyaq_windows_open
+    to: &quot;on&quot;
+    for: &quot;00:10:00&quot;
+action:
+  - service: notify.notify
+    data:
+      message: &quot;A window of the Enyaq is open.&quot;
+</code></pre>
+<h2>How it behaves</h2>
+<ul>
+<li><strong>Updates</strong> arrive whenever Mate reads the car (every 5 to 20 minutes, within Škoda's request limit). Values are <em>retained</em>, so Home Assistant shows the latest
+  values right after a restart.</li>
+<li><strong>Availability</strong>: if Mate stops or loses the broker, Home Assistant marks the entities <em>unavailable</em> by itself and restores them when Mate is back.</li>
+<li><strong>If the broker is down</strong> when Mate starts, nothing breaks: Mate keeps retrying and announces everything again once the broker is back.</li>
+<li><strong>Several cars</strong> (up to 5 per Mate installation) show up as separate devices.</li>
+<li><strong>Position</strong> is only updated while the car is parked: the Škoda API gives no position while driving.</li>
+</ul>
+<h2>Troubleshooting</h2>
+<table>
+<thead>
+<tr>
+<th>Symptom</th>
+<th>What to check</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><em>Cannot reach …</em></td>
+<td>IP and port; is the broker running; firewall; from a container use the LAN IP</td>
+</tr>
+<tr>
+<td><em>Refused the user name or password</em></td>
+<td>user and password; the user must exist in Home Assistant</td>
+</tr>
+<tr>
+<td>Connected, but no device in Home Assistant</td>
+<td><em>Discovery</em> ticked in Mate <strong>and</strong> <em>Enable discovery</em> on in the MQTT integration, same prefix <code>homeassistant</code></td>
+</tr>
+<tr>
+<td>Entities are <em>unavailable</em></td>
+<td>Mate is stopped or cannot reach the broker (see the status in Mate's card)</td>
+</tr>
+<tr>
+<td>Values never change</td>
+<td>is Mate connected to Škoda? (an expired API key stops all readings, see the banner in Mate)</td>
+</tr>
+<tr>
+<td>Old entities remain after you change the prefix</td>
+<td>delete the old device in Home Assistant (<em>MQTT → Devices → Delete</em>)</td>
+</tr>
+</tbody>
+</table>
+<p>To watch the messages yourself (any computer with <code>mosquitto-clients</code>):</p>
+<pre><code>mosquitto_sub -h 192.168.1.10 -u skoda_mate -P '&lt;password&gt;' -t 'skoda_mate/#' -v
+</code></pre>
+<h2>Switching it off, security</h2>
+<ul>
+<li>Untick <strong>Enabled</strong> and save: Mate publishes <em>offline</em>, closes the connection and stops sending. The device stays in Home Assistant until you delete it there.</li>
+<li>Use a dedicated MQTT user for Mate, and a long password. The position and charging data of your car pass through the broker; keep it inside your network or use TLS.</li>
+<li>Leave <strong>Allow commands from Home Assistant</strong> off unless you need it. When it is on, protect the command topics with broker ACLs (see <em>Controls</em>).
+  Installs set up with environment variables never accept commands; tick the box in the dashboard if you want them.</li>
+<li>Environment variables (<code>MQTT_HOST</code>, <code>MQTT_PORT</code>, <code>MQTT_USER</code>, <code>MQTT_PASSWORD</code>, <code>MQTT_PREFIX</code>) still work for installs that already use them. As soon as you save settings in the dashboard they replace them.</li>
+</ul>
+<h2>Trying it without Home Assistant</h2>
+<p><code>scripts/minibroker.py</code> is a tiny MQTT broker for testing (user <code>mate</code>, password <code>secret</code>): <code>python scripts/minibroker.py 1883 18831</code>.
+Point Mate at <code>127.0.0.1:1883</code> and watch what is published with the admin port: <code>echo DUMP | nc 127.0.0.1 18831</code>.</p>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="links">
+      <a href="home-assistant.html">Home Assistant</a>
+      <a href="webhooks.html">Webhooks</a>
+      <a href="https://github.com/steffenr/skoda-mate">GitHub</a>
+      <a href="https://hub.docker.com/r/steffenr/skoda-mate">Docker image</a>
+    </div>
+    <p>© 2026 Steffen Rühlmann. Licensed under <a href="https://github.com/steffenr/skoda-mate/blob/main/LICENSE">AGPL-3.0-only</a>.</p>
+    <p>Inspired by <a href="https://github.com/ProtossBlaster/leapmotor-mate">leapmotor-mate</a> by Silvio Bressani — independent projects, no shared code.</p>
+    <p>Personal use only: Škoda licenses the public API for private use, not for commercial services. Not affiliated with Škoda Auto.</p>
+  </div>
+</footer>
+
+</body>
+</html>
