@@ -6,7 +6,7 @@ import { carView } from '../lib/car.js';
 import { lineChart } from '../lib/charts.js';
 import { mapView } from '../lib/mapview.js';
 import * as f from '../lib/format.js';
-import { t } from '../i18n.js';
+import { t, tx } from '../i18n.js';
 import { estimateNote, liveSoc } from '../lib/livesoc.js';
 import { kwhOrFloor, medianLossStat } from '../lib/floor.js';
 
@@ -145,7 +145,7 @@ export default async function overview(root, ctx) {
     // --- quick controls
     const feat = o.features, call = (name, params) => async () => {
       const r = await ctx.api.post(`/api/vehicles/${ctx.vid}/command`, { name, params });
-      if (r.ok) { toast(t('Sent. The car confirms on the next reading.'), 'good'); await ctx.refresh(); } else toast(r.error, 'bad');
+      if (r.ok) { toast(t('Sent. The car confirms on the next reading.'), 'good'); await ctx.refresh(); } else toast(tx(r), 'bad');
     };
     const quick = [];
     const unplugged = s.plug_connected === false;

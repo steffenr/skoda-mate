@@ -52,4 +52,5 @@ def health(request: Request, ctx: ContextDep):
     sts = [p.status(v) for v in p.rt] if p else []
     return {"ok": True, "version": __version__, "connected": p is not None,
             "last_ok": next((s["last_ok"] for s in sts if s.get("last_ok")), None),
-            "last_error": next((s["error"] for s in sts if s.get("error")), None)}
+            "last_error": next((s["error"] for s in sts if s.get("error")), None),
+            "last_error_i18n": next((s.get("error_i18n") for s in sts if s.get("error")), None)}

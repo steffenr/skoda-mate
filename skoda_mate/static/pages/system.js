@@ -5,7 +5,7 @@ import { asyncButton, banner, button, card, chip, confirmDialog, empty, kv, load
 import capabilitiesPage from './capabilities.js';
 import * as f from '../lib/format.js';
 import { checkLabel, fixExplanation, sampleNode } from '../lib/quality.js';
-import { t } from '../i18n.js';
+import { t, tx } from '../i18n.js';
 
 const PART_STATE = { present: 'good', unsupported: '', disabled: 'warn', unavailable: 'warn', missing: 'bad', unknown: '' };
 const OP_LABEL = {
@@ -135,7 +135,7 @@ export default async function system(root, ctx) {
         [t('Intervals'), p.interval ? `${f.inSeconds(p.interval.idle)} ${t('idle')} · ${f.inSeconds(p.interval.active)} ${t('active')}` : '–'],
         [t('Readings so far'), p.polls ?? '–'],
         [t('API key expires'), p.key_expires_at ? f.date(p.key_expires_at) : '–'],
-        [t('Last error'), p.error ? `${p.error}${p.error_kind ? ` (${p.error_kind})` : ''}` : t('none')],
+        [t('Last error'), p.error ? `${tx(p)}${p.error_kind ? ` (${p.error_kind})` : ''}` : t('none')],
       ])), { ic: 'refresh' });
   }
 
@@ -217,7 +217,7 @@ export default async function system(root, ctx) {
     return card(t('App'), healthError ? banner('bad', `${t('Could not load')}: ${healthError}`) : !health ? loading() : h('div', { class: 'stack' },
       h('div', { class: 'row' }, health.ok ? chip(t('Healthy'), 'good', 'check') : chip(t('Failed'), 'bad', 'alert'), o.demo ? chip(t('Demo mode'), 'info') : null),
       kv([[t('Version'), `v${health.version}`], [t('Connected to Škoda'), health.connected ? t('yes') : t('no')],
-        [t('Last successful contact'), health.last_ok ? f.dateTime(health.last_ok) : '–'], [t('Last error'), health.last_error || t('none')]])), { ic: 'shield' });
+        [t('Last successful contact'), health.last_ok ? f.dateTime(health.last_ok) : '–'], [t('Last error'), tx(health, 'last_error') || t('none')]])), { ic: 'shield' });
   }
 
   const tabs = () => h('nav', { class: 'tabs', 'aria-label': t('System sections') },

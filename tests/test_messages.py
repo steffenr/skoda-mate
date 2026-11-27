@@ -1,9 +1,14 @@
 import ast
+import asyncio
 import re
 from pathlib import Path
 
-from skoda_mate import messages
+from skoda_mate import ha_mqtt, messages
+from skoda_mate.client import ApiError
 
+from .fixtures import VIN, bev
+from .test_mqtt_settings import _answering
+from .test_poller import setup as poller_setup
 from .test_web import connected
 
 PACKAGE = Path(__file__).parent.parent / "skoda_mate"
@@ -66,6 +71,70 @@ def test_a_message_can_carry_another_message_as_a_value():
     assert str(outer) == "TMB…1234: Place not found."
     assert messages.i18n(outer) == {"message": "{vin}: {error}",
                                     "params": {"vin": "TMB…1234", "error": {"message": "Place not found.", "params": {}}}}
+
+
+def test_a_poll_error_from_skoda_keeps_its_detail_literally():
+    p, api, conn, clock, vid = poller_setup([ApiError(418, "teapot", "<i>{x}</i>")])
+    out = asyncio.run(p.poll(VIN, reason="manual"))
+    assert out["error"] == "Škoda API error 418: <i>{x}</i>"
+    assert out["error_i18n"] == {"message": "Škoda API error {status}: {detail}", "params": {"status": 418, "detail": "<i>{x}</i>"}}
+    status = p.status(VIN)
+    assert (status["error"], status["error_i18n"]) == (out["error"], out["error_i18n"])
+
+
+def test_the_poll_error_template_goes_away_with_the_error():
+    p, api, conn, clock, vid = poller_setup([ApiError(429, "rate-limit-exceeded", "x", 60), bev()])
+    asyncio.run(p.poll(VIN))
+    assert p.status(VIN)["error_i18n"]["message"] == "Škoda's request limit is used up. Mate waits for it to reset."
+    clock.advance(4000)
+    asyncio.run(p.poll(VIN))
+    assert (p.status(VIN)["error"], p.status(VIN)["error_i18n"]) == (None, None)
+
+
+def test_a_budget_refusal_says_how_long_to_wait_as_a_parameter():
+    p, api, conn, clock, vid = poller_setup()
+    for _ in range(40):
+        out = asyncio.run(p.poll(VIN, reason="manual"))
+        if not out["ok"]:
+            break
+    assert out["kind"] == "budget" and out["error"] == f"Request limit reached; next slot in {out['retry_in']} s"
+    assert out["error_i18n"] == {"message": "Request limit reached; next slot in {seconds} s", "params": {"seconds": out["retry_in"]}}
+
+
+def test_a_failed_command_is_translatable_and_the_log_keeps_english():
+    p, api, conn, clock, vid = poller_setup()
+    api.operate_error = ApiError(403, "operation-disabled", "x")
+    out = asyncio.run(p.run_command(VIN, "start_charging"))
+    assert out["error_i18n"]["message"] == out["error"]
+    assert conn.execute("SELECT error FROM commands").fetchone()[0] == out["error"]
+
+
+def test_the_mqtt_test_answer_carries_its_template():
+    gone = ha_mqtt.probe("10.255.255.1", 1883, client_factory=lambda: _answering("unreachable"), timeout=1)
+    assert gone["message"].startswith("Cannot reach 10.255.255.1:1883.")
+    assert gone["message_i18n"]["params"] == {"host": "10.255.255.1", "port": 1883}
+    ok = ha_mqtt.probe("ha", 1883, client_factory=lambda: _answering("ok"), timeout=1)
+    assert ok["message_i18n"] == {"message": "Connected to the broker.", "params": {}}
+    refused = ha_mqtt.probe("ha", 1883, "mate", "bad", client_factory=lambda: _answering("refused"), timeout=1)
+    assert refused["message_i18n"]["message"] == refused["message"]
+
+
+def test_the_mqtt_publisher_status_carries_its_template():
+    publisher = ha_mqtt.Publisher.__new__(ha_mqtt.Publisher)
+    publisher.host, publisher.port, publisher.connected, publisher.entities, publisher.vehicles = "ha", 1883, False, 0, {}
+    publisher.last_publish = None
+    publisher._on_fail()
+    status = publisher.status()
+    assert status["error"] == "Cannot reach ha:1883."
+    assert status["error_i18n"] == {"message": "Cannot reach {host}:{port}.", "params": {"host": "ha", "port": 1883}}
+
+
+def test_an_import_report_carries_templates():
+    c, conn, api, vid = connected()
+    report = c.post(f"/api/vehicles/{vid}/import/trips", json={"files": [{"name": "a.csv", "text": "nothing;here\n1;2"}]}).json()
+    file = report["files"][0]
+    assert file["errors_i18n"][0]["message"].startswith("This does not look like a MyŠkoda trip export")
+    assert len(file["errors"]) == len(file["errors_i18n"]) and "{columns}" not in file["errors"][0]
 
 
 def test_templates_are_all_listed():

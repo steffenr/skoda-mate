@@ -4,7 +4,7 @@ import { h, mount } from '../lib/dom.js';
 import { icon } from '../lib/icons.js';
 import { asyncButton, banner, button, card, chip, empty, field, loading, table, toast } from '../lib/ui.js';
 import * as f from '../lib/format.js';
-import { t } from '../i18n.js';
+import { t, tx } from '../i18n.js';
 import { estimateNote, liveSoc } from '../lib/livesoc.js';
 
 const CHARGE_STATE = {
@@ -61,7 +61,7 @@ export default async function control(root, ctx) {
         render(true);
       }, (wait + 8) * 1000);
     } else {
-      toast(`${label}: ${r.error || t('Failed')}${r.kind ? ` (${r.kind})` : ''}`, 'bad');   // Škoda's own message
+      toast(`${label}: ${tx(r) || t('Failed')}${r.kind ? ` (${r.kind})` : ''}`, 'bad');   // Škoda's own message
     }
     try { await ctx.refresh(); await loadInfo(); } catch { /* transient */ }
     render(true);
@@ -83,7 +83,7 @@ export default async function control(root, ctx) {
     if (!g.ok) return null;  // only controls this car supports are shown; the rest is listed under Capabilities
     return asyncButton(text, async () => {
       const p = typeof get === 'function' ? get() : get;
-      if (p && p.error) { toast(p.error, 'bad'); return; }
+      if (p && p.error) { toast(tx(p), 'bad'); return; }
       await send(name, p, label(name), opts.onOk);
     }, { ...opts, disabled: !g.ok || opts.disabled, title: g.ok ? opts.title : g.reason });
   }
@@ -354,7 +354,7 @@ export default async function control(root, ctx) {
       { label: t('When'), render: (c) => f.dateTime(c.at), cls: 'nowrap' },
       { label: t('Command'), render: (c) => label(c.name) },
       { label: t('Details'), render: (c) => h('span', { class: 'small muted' }, summarize(c.params)) },
-      { label: t('Result'), render: (c) => (c.ok ? chip(t('Sent'), 'good', 'check') : h('div', null, chip(t('Failed'), 'bad', 'alert'), c.error ? h('div', { class: 'tiny' }, c.error) : null)) },
+      { label: t('Result'), render: (c) => (c.ok ? chip(t('Sent'), 'good', 'check') : h('div', null, chip(t('Failed'), 'bad', 'alert'), c.error ? h('div', { class: 'tiny' }, t(c.error)) : null)) },
     ], info.log, { label: t('Commands sent'), emptyNode: empty(t('No commands sent yet.'), null, 'list') });
     return card(t('Command log'), h('div', { class: 'stack' }, budget, logBody), { ic: 'list' });
   }
