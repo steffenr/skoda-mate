@@ -1,9 +1,12 @@
-// Text contrast of every visible text element (4.5:1, large text 3:1), composited over its real background, light and dark. Usage: node a11y_contrast.mjs http://localhost:8000
-// K=1.35 shows what is within 35% of the limit.
+// Text contrast of every visible text element (4.5:1, large text 3:1), composited over its real background, light and dark,
+// desktop and phone. Usage: node a11y_contrast.mjs http://localhost:8000 (a demo server).
+// Report, not gate: findings are filed as GitHub issues by a11y_issues.mjs (A11Y_JSON=...); the scripts always exit 0.
+// K=1.35 shows what is within 35% of the limit. Axe's "incomplete" color-contrast list (charts, scroll-clipped cells, the
+// map) stays report-only in a11y_axe.mjs. This script cannot see text drawn over images (map tiles, photos).
 import puppeteer from 'puppeteer-core';
 import fs from 'node:fs';
 const B = process.argv[2] || 'http://localhost:8000';
-const ROUTES = ['', 'trips', 'trips/3', 'charges', 'charges/3', 'prices', 'battery', 'control', 'stats', 'map', 'events', 'settings', 'system', 'system/capabilities', 'system/calls', 'system/diagnostics'];
+const ROUTES = ['', 'trips', 'trips/3', 'charges', 'charges/3', 'prices', 'battery', 'control', 'stats', 'map', 'places', 'places/1', 'events', 'settings', 'system', 'system/capabilities', 'system/calls', 'system/diagnostics'];
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const b = await puppeteer.launch({ executablePath: process.env.CHROME || '/Applications/Chromium.app/Contents/MacOS/Chromium', headless: 'new', args: ['--no-sandbox'] });
 const found = new Map();
@@ -43,16 +46,20 @@ const check = (K) => {
   return out;
 };
 for (const theme of ['light', 'dark']) {
-  const p = await b.newPage(); await p.setViewport({ width: 1280, height: 900 });
-  for (const r of ROUTES) {
-    await p.goto(`${B}/#/${r}`, { waitUntil: 'networkidle0' }); await sleep(1800);
-    await p.evaluate((th) => { document.documentElement.dataset.theme = th; }, theme); await sleep(300);
-    for (const x of await p.evaluate(check, Number(process.env.K || 1))) { const k = `${theme}|${x.sel}|${x.fg}|${x.bg}`; const e = found.get(k) || { ...x, theme, where: new Set() }; e.where.add(r || 'overview'); found.set(k, e); }
+  for (const [vname, vp] of [['desktop', { width: 1280, height: 900 }], ['phone', { width: 390, height: 844, isMobile: true, hasTouch: true }]]) {
+    const p = await b.newPage(); await p.setViewport(vp);
+    await p.emulateMediaFeatures([{ name: 'prefers-color-scheme', value: theme }]);
+    for (const r of ROUTES) {
+      await p.goto(`${B}/#/${r}`, { waitUntil: 'networkidle0' }); await sleep(1800);
+      await p.evaluate((th) => { document.documentElement.dataset.theme = th; }, theme); await sleep(300);
+      for (const x of await p.evaluate(check, Number(process.env.K || 1))) { const k = `${theme}/${vname}|${x.sel}|${x.fg}|${x.bg}`; const e = found.get(k) || { ...x, theme: `${theme}/${vname}`, where: new Set() }; e.where.add(r || 'overview'); found.set(k, e); }
+    }
+    await p.close();
   }
-  await p.close();
 }
 await b.close();
 const list = [...found.values()].sort((a, b) => a.ratio - b.ratio);
 if (process.env.A11Y_JSON) fs.writeFileSync(process.env.A11Y_JSON, JSON.stringify(list.map((e) => ({ ...e, where: [...e.where] })), null, 2));
-for (const e of list) console.log(`${e.theme.padEnd(5)} ${String(e.ratio).padEnd(5)} (need ${e.need}) fg(${e.fg}) bg(${e.bg}) ${e.sel} "${e.text}" on ${[...e.where].slice(0, 3).join(',')}`);
+for (const e of list) console.log(`${e.theme.padEnd(13)} ${String(e.ratio).padEnd(5)} (need ${e.need}) fg(${e.fg}) bg(${e.bg}) ${e.sel} "${e.text}" on ${[...e.where].slice(0, 3).join(',')}`);
 console.log(`TOTAL ${list.length}`);
+if (!list.length && (process.env.K || 1) <= 1) console.log('OK: every text element meets WCAG 2.2 AA contrast.');
