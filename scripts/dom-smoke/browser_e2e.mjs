@@ -994,6 +994,55 @@ await sleep(1500);
 const cmds = await d.evaluate(() => fetch('/api/vehicles/1/commands').then((r) => r.json()));
 check('Control → "Set limit" sends the command (logged, accepted)', cmds.log[0]?.name === 'set_charge_limit' && cmds.log[0]?.ok === 1 && cmds.log[0]?.params?.percent === 90, JSON.stringify(cmds.log[0]?.params));
 
+// ---------------------------------------------------------------- Settings → Automation (webhooks), on a 360 px phone
+const au = await browser.newPage();
+watch(au);
+await au.setViewport({ width: 360, height: 780, isMobile: true, hasTouch: true });
+await au.goto(`${BASE}/#/settings`, { waitUntil: 'networkidle0' });
+await sleep(1500);
+const auProbe = () => au.evaluate(() => {
+  const card = document.querySelector('#main .au-card'), dialog = [...document.querySelectorAll('.modal')].pop();
+  const outside = [...(dialog || card).querySelectorAll('button, input')].filter((el) => el.getClientRects().length && el.getBoundingClientRect().right > window.innerWidth + 1).length;
+  return { card: card?.innerText.replace(/\s+/g, ' ') || '', dialog: dialog?.innerText.replace(/\s+/g, ' ') || '', title: dialog?.querySelector('h2')?.textContent || '',
+    secret: dialog?.querySelector('input.au-secret')?.value || '', hooks: card?.querySelectorAll('.au-hook').length || 0, outside,
+    sw: document.documentElement.scrollWidth, iw: window.innerWidth, dialogScrolls: dialog ? dialog.scrollWidth > dialog.clientWidth + 1 : false };
+});
+const auClick = async (label, scope = '.au-card') => {
+  await au.evaluate((l, s) => [...([...document.querySelectorAll(s)].pop()).querySelectorAll('button')].find((b) => b.textContent.trim() === l).click(), label, scope);
+  await sleep(900);
+};
+const au0 = await auProbe();
+check('Automation card lists the disabled demo webhook and fits 360 px', au0.hooks >= 1 && /Home Assistant \(example\)/.test(au0.card) && /Disabled/.test(au0.card) && au0.sw <= au0.iw && au0.outside === 0, JSON.stringify({ hooks: au0.hooks, sw: au0.sw, outside: au0.outside }));
+await auClick('Add webhook');
+await auClick('Save', '.modal');
+const auBad = await auProbe();
+check('Automation: an incomplete webhook is refused with a plain message and the form stays', auBad.title === 'Add webhook' && /Enter a name of 1 to 60 characters\./.test(auBad.dialog) && auBad.sw <= auBad.iw && !auBad.dialogScrolls && auBad.outside === 0, `${auBad.title} outside=${auBad.outside}`);
+await au.type('.modal input[maxlength="60"]', 'Browser check');
+await au.type('.modal input[type="url"]', 'http://127.0.0.1:9/closed-port');  // nothing listens there: the test must fail visibly
+await au.evaluate(() => [...document.querySelectorAll('.modal .au-group input')].slice(0, 3).forEach((i) => i.click()));
+await auClick('Save', '.modal');
+const auSecret = await auProbe();
+check('Automation: the new secret is shown once', auSecret.title === 'Signing secret' && auSecret.secret.length >= 32 && /will not show it again/.test(auSecret.dialog) && !auSecret.dialogScrolls, `${auSecret.title}, ${auSecret.secret.length} characters`);
+await auClick('Done', '.modal');
+const leaked = await au.evaluate((s) => fetch('/api/webhooks').then((r) => r.text()).then((x) => x.includes(s) || document.body.innerHTML.includes(s)), auSecret.secret);
+const au1 = await auProbe();
+check('Automation: the webhook is listed and its secret is nowhere any more', au1.hooks === au0.hooks + 1 && /Browser check/.test(au1.card) && !leaked && au1.sw <= au1.iw, `hooks=${au1.hooks} leaked=${leaked}`);
+const lastHook = (label) => au.evaluate((l) => [...[...document.querySelectorAll('#main .au-hook')].pop().querySelectorAll('button')].find((b) => b.textContent.trim() === l).click(), label);
+await lastHook('Send test');
+await sleep(1500);
+await lastHook('Deliveries');
+await sleep(900);
+const auLog = await auProbe();
+check('Automation: a failed test is in the delivery log with its reason and a retry', /Test/.test(auLog.dialog) && /Failed/.test(auLog.dialog) && /Could not connect to the receiver\./.test(auLog.dialog) && /Retry/.test(auLog.dialog) && !auLog.dialogScrolls && auLog.outside === 0, auLog.dialog.slice(0, 160));
+await auClick('Close', '.modal');
+await lastHook('Edit');
+await sleep(500);
+await auClick('Delete', '.modal');
+await auClick('Delete', '.modal');
+const au2 = await auProbe();
+check('Automation: deleting asks first and removes the webhook', au2.hooks === au0.hooks && !/Browser check/.test(au2.card), `hooks=${au2.hooks}`);
+await au.close();
+
 // settings: miles + German
 await d.goto(`${BASE}/#/settings`, { waitUntil: 'networkidle0' });
 await sleep(1200);

@@ -98,3 +98,15 @@
 .heat-day { font-size: 11px; color: var(--muted); padding-right: 4px; }
 .heat details > summary { cursor: pointer; font-size: 13px; color: var(--muted); }
 .heat details[open] > summary { margin-bottom: 6px; }
+
+/* Settings: Automation (webhooks) */
+.au-hooks, .au-log { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.au-hook, .au-delivery { display: grid; gap: 6px; padding-bottom: 12px; border-bottom: 1px solid var(--line); min-width: 0; }
+.au-url { overflow-wrap: anywhere; }
+.au-delivery .btn { justify-self: start; }
+.au-events { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; }
+.au-group { border: 1px solid var(--line); border-radius: var(--radius); padding: 6px 12px 10px; margin: 0; min-width: 0; }
+.au-group legend { font-size: 12px; font-weight: 600; color: var(--muted); padding: 0 4px; }
+.au-group .b-check { align-items: flex-start; padding: 4px 0; }
+.au-code { display: block; font-weight: 400; }
+.au-secret { width: 100%; font-family: ui-monospace, monospace; }

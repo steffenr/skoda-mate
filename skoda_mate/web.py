@@ -82,6 +82,7 @@ def _start_demo(ctx: AppContext) -> None:
     conn = ctx.conn
     if not conn.execute("SELECT 1 FROM vehicles WHERE vin=?", (demo.DEMO_VIN,)).fetchone():
         demo.seed(conn)
+        demo.seed_webhook(conn, ctx.box)
     if ctx.cfg.demo_cars >= 2 and not conn.execute("SELECT 1 FROM vehicles WHERE vin=?", (demo.DEMO_VIN2,)).fetchone():
         demo.seed(conn, rng_seed=11, vin=demo.DEMO_VIN2, name=demo.SECOND["name"], plate=demo.SECOND["plate"],
                   model=demo.SECOND["model"])
