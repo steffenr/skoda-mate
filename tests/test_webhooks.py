@@ -14,7 +14,7 @@ from skoda_mate.cloud import Cloud
 from skoda_mate.config import Config
 from skoda_mate.secrets_store import SecretBox
 
-from .helpers import client_for, make_app
+from .helpers import client_for, make_app, sign_up
 
 NOW = 1_800_000_000.0
 EVENT = {"id": "abc", "event": "charge.ended", "at": "2026-11-26T18:04:00+00:00",
@@ -357,6 +357,73 @@ def test_disconnecting_from_skoda_keeps_the_worker():
         return still
 
     assert asyncio.run(go())
+
+
+# ------------------------------------------------------------------ the API
+
+ROUTES = [("get", "/api/webhooks"), ("post", "/api/webhooks"), ("put", "/api/webhooks/options"),
+          ("put", "/api/webhooks/1"), ("delete", "/api/webhooks/1"), ("post", "/api/webhooks/1/secret"),
+          ("post", "/api/webhooks/1/test"), ("get", "/api/webhooks/1/deliveries"),
+          ("post", "/api/webhooks/deliveries/1/retry")]
+BODY = {"name": "HA", "url": "http://192.168.1.10:8123/api/webhook/x", "events": ["trip.ended"], "enabled": True}
+
+
+@pytest.mark.parametrize("method, path", ROUTES)
+def test_every_route_needs_a_session(method, path):
+    app, _ = make_app()
+    with client_for(app) as owner:
+        sign_up(owner)
+    stranger = client_for(app)
+    assert stranger.request(method.upper(), path, json=BODY).status_code == 401
+
+
+def signed_in():
+    app, conn = make_app()
+    c = client_for(app)
+    sign_up(c)
+    return app, conn, c
+
+
+def test_create_edit_rotate_and_delete_over_the_api():
+    _, _, c = signed_in()
+    made = c.post("/api/webhooks", json=BODY).json()
+    secret, hook_id = made["secret"], made["webhook"]["id"]
+    got = c.get("/api/webhooks")
+    assert secret not in got.text and [w["name"] for w in got.json()["webhooks"]] == ["HA"]
+    assert [g["group"] for g in got.json()["event_groups"]] == ["Driving", "Charging", "Climate", "Security", "Places", "System"]
+    assert c.put(f"/api/webhooks/{hook_id}", json={**BODY, "name": "New"}).json()["name"] == "New"
+    new = c.post(f"/api/webhooks/{hook_id}/secret").json()["secret"]
+    assert new != secret and new not in c.get("/api/webhooks").text
+    assert c.get(f"/api/webhooks/{hook_id}/deliveries").json() == {"deliveries": []}
+    assert c.delete(f"/api/webhooks/{hook_id}").status_code == 200 and c.get("/api/webhooks").json()["webhooks"] == []
+
+
+def test_api_errors_are_plain_messages():
+    _, _, c = signed_in()
+    bad = c.post("/api/webhooks", json={**BODY, "url": "ftp://x"})
+    assert (bad.status_code, bad.json()["detail"]) == (400, webhooks.BAD_URL)
+    for method, path in ROUTES[3:]:
+        assert c.request(method.upper(), path.replace("/1", "/99"), json=BODY).status_code == 404
+
+
+def test_send_test_and_retry_over_the_api():
+    app, _, c = signed_in()
+    receiver = Receiver(500, 200)
+    app.state.ctx.cloud.webhooks.transport = httpx.MockTransport(receiver)
+    hook_id = c.post("/api/webhooks", json=BODY).json()["webhook"]["id"]
+    result = c.post(f"/api/webhooks/{hook_id}/test").json()
+    assert (result["status"], result["last_code"]) == ("failed", 500)
+    assert c.post(f"/api/webhooks/deliveries/{result['id']}/retry").json()["status"] == "pending"
+    assert c.post(f"/api/webhooks/deliveries/{result['id']}/retry").status_code == 400
+
+
+def test_the_low_battery_threshold():
+    _, _, c = signed_in()
+    assert c.get("/api/webhooks").json()["soc_low_threshold"] == 20
+    assert c.put("/api/webhooks/options", json={"soc_low_threshold": 35}).json() == {"soc_low_threshold": 35}
+    assert c.get("/api/webhooks").json()["soc_low_threshold"] == 35
+    for bad in (4, 51, "x", None, 20.5, True):
+        assert c.put("/api/webhooks/options", json={"soc_low_threshold": bad}).status_code == 400
 
 
 def test_the_log_never_shows_the_secret(caplog):
