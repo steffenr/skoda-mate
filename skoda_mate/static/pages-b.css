@@ -71,6 +71,13 @@
 .page code { font: 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background: var(--surface-2); padding: 1px 5px; border-radius: 5px; }
 .b-dayh { font-size: 14px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }  /* day heading: h2 for the outline, h3 look */
 
+/* System: data-quality card */
+.quality-row { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-top: 1px solid var(--line); }
+.quality-row .quality-label { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.quality-all > summary { cursor: pointer; font-weight: 600; padding: 4px 0; }
+.quality-all[open] > summary { margin-bottom: 6px; }
+.quality-samples { margin: 0; padding-left: 18px; }
+
 /* System: section tabs (real links, so each has its own URL) and the API-calls pager */
 .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin: 4px 0 16px; overflow-x: auto; scrollbar-width: none; }
 .tabs::-webkit-scrollbar { display: none; }

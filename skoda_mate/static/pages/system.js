@@ -1,9 +1,10 @@
 // System: transparency page. What Mate asked Škoda, what the car can and cannot do, and the raw data behind every number.
 import { h, mount } from '../lib/dom.js';
 import { icon } from '../lib/icons.js';
-import { asyncButton, banner, button, card, chip, empty, kv, loading, table } from '../lib/ui.js';
+import { asyncButton, banner, button, card, chip, confirmDialog, empty, kv, loading, modal, table, toast } from '../lib/ui.js';
 import capabilitiesPage from './capabilities.js';
 import * as f from '../lib/format.js';
+import { checkLabel, fixExplanation, sampleNode } from '../lib/quality.js';
 import { extendDE, t } from '../i18n.js';
 
 extendDE({
@@ -49,6 +50,12 @@ extendDE({
   'Not in the public API, so there is no consumption-versus-temperature chart.': 'Nicht in der öffentlichen API, daher gibt es kein Diagramm Verbrauch gegen Temperatur.',
   'Not in the public API.': 'Nicht in der öffentlichen API.', 'Not controllable through the public API.': 'Über die öffentliche API nicht steuerbar.',
   'No push events: Mate polls within Škoda\'s request limit (about 20 per hour per car).': 'Keine Push-Ereignisse: Mate fragt im Rahmen von Škodas Anfragelimit ab (etwa 20 pro Stunde und Auto).',
+  'Data quality': 'Datenqualität', 'Check again': 'Erneut prüfen', 'Checked': 'Geprüft', 'Important': 'Wichtig', 'Info': 'Hinweis', 'Review': 'Prüfen', 'Fix': 'Beheben', 'Close': 'Schließen',
+  'Everything else looks consistent.': 'Alles andere wirkt stimmig.', 'Everything else looks consistent or was reviewed.': 'Alles andere wirkt stimmig oder wurde geprüft.',
+  'Mark as reviewed': 'Als geprüft markieren', 'Reviewed': 'Geprüft', 'Undo': 'Rückgängig', 'new since': 'neu seit', 'Everything looks consistent.': 'Alles wirkt stimmig.', 'Show all checks': 'Alle Prüfungen anzeigen', 'No findings': 'Keine Funde', 'reviewed': 'geprüft', 'and': 'und', 'more': 'weitere',
+  'Findings': 'Funde', 'Examples': 'Beispiele',
+  'Apply this fix?': 'Diese Korrektur anwenden?', 'Findings this fix changes:': 'Funde, die diese Korrektur ändert:', 'Nothing is lost.': 'Es geht nichts verloren.', 'Fixed': 'Behoben',
+  'What Fix does': 'Was „Beheben“ macht', 'It changes these findings:': 'Geändert werden diese Funde:',
 });
 
 const PART_STATE = { present: 'good', unsupported: '', disabled: 'warn', unavailable: 'warn', missing: 'bad', unknown: '' };
@@ -57,6 +64,7 @@ const OP_LABEL = {
   startAirConditioning: 'Start climate', stopAirConditioning: 'Stop climate', startAuxiliaryHeating: 'Start auxiliary heating', stopAuxiliaryHeating: 'Stop auxiliary heating',
   startActiveVentilation: 'Start ventilation', stopActiveVentilation: 'Stop ventilation',
 };
+const qualityLabel = (c) => checkLabel(c.id);
 // api_calls.at is epoch seconds (the other timestamps are ISO strings)
 const isoOf = (at) => (typeof at === 'number' ? new Date(at * 1000).toISOString() : at);
 
@@ -66,10 +74,14 @@ export default async function system(root, ctx) {
   const TABS = [['status', 'Status'], ['capabilities', 'Capabilities'], ['calls', 'API calls'], ['diagnostics', 'Diagnostics']];
   const tab = TABS.some(([k]) => k === ctx.params[0]) ? ctx.params[0] : 'status';
   const PAGE = 25;
+  let quality = null, qualityError = null;
   let calls = null, callsError = null, health = null, healthError = null, offset = 0, failedOnly = false;
 
   const fetchCalls = () => ctx.api.get(`${base}/calls?limit=${PAGE}&offset=${offset}${failedOnly ? '&failed=true' : ''}`)
     .then((r) => { calls = r; callsError = null; }).catch((e) => { callsError = e.message; });
+
+  const fetchQuality = () => ctx.api.get(`${base}/quality`).then((r) => { quality = r; qualityError = null; }).catch((e) => { qualityError = e.message; });
+  const recheck = async () => { await fetchQuality(); draw(); };
 
   const fetchAll = async () => {
     await Promise.all([
@@ -77,6 +89,76 @@ export default async function system(root, ctx) {
       fetch('/health').then((r) => r.json()).then((r) => { health = r; healthError = null; }).catch((e) => { healthError = e.message; }),
     ]);
   };
+
+  // ---- data quality
+  /** POST, close the dialog, refresh the card, then toast. A failed POST shows its message in `err` (or throws, for the
+   *  asyncButton toast, when there is no dialog); a failed refresh shows no success toast, the card shows its own error. */
+  async function act(post, message, { close, err } = {}) {
+    let r;
+    try { r = await post(); } catch (e) { if (!err) throw e; mount(err, banner('bad', e.message)); return; }
+    if (close) close();
+    await recheck();
+    if (!qualityError) toast(message(r), 'good');
+  }
+  const review = (c, reviewed, opts) => act(() => ctx.api.post(`${base}/quality/review`, { check: c.id, reviewed }), () => t(reviewed ? 'Reviewed' : 'Review undone'), opts);
+
+  function reviewModal(c) {
+    const err = h('div');
+    const samples = c.samples || [];
+    const more = c.count - samples.length;
+    const sampleList = () => (samples.length ? h('ul', { class: 'quality-samples small' }, ...samples.map((sm) => h('li', null, sampleNode(sm)))) : null);
+    const moreLine = () => (samples.length && more > 0 ? h('div', { class: 'tiny muted' }, `${t('and')} ${f.num(more)} ${t('more')}`) : null);
+    const list = sampleList();
+    // what the repair does, shown before anyone clicks Fix and repeated in the confirmation
+    const explain = c.fix ? fixExplanation(c.fix, { reviewed: !!c.reviewed_at }) : null;
+    const body = h('div', { class: 'stack' }, err,
+      h('div', null, h('strong', null, `${t('Findings')}: ${f.num(c.count)}`)),
+      list ? h('div', { class: 'tiny muted' }, t('Examples')) : null, list, moreLine(),
+      explain ? h('div', { class: 'quality-explain' }, h('div', { class: 'tiny muted' }, t('What Fix does')), h('p', { class: 'small' }, explain)) : null);
+    modal(qualityLabel(c), body, (close) => [
+      button(t('Close'), { onClick: close }),
+      c.fix ? asyncButton(t('Fix'), async () => {
+        const confirmBody = h('div', { class: 'stack' },
+          explain ? h('p', null, explain) : null,
+          samples.length ? h('div', { class: 'tiny muted' }, t('It changes these findings:')) : null, sampleList(), moreLine(),
+          h('p', null, `${t('Findings this fix changes:')} ${f.num(c.count)}. ${t('Nothing is lost.')}`));
+        const ok = await confirmDialog(t('Apply this fix?'), confirmBody);
+        if (!ok) return;
+        await act(() => ctx.api.post(`${base}/quality/fix`, { action: c.fix }), (r) => `${t('Fixed')}: ${f.num(r.changed)}`, { close, err });
+      }, { kind: 'primary', ic: 'check' }) : null,
+      c.reviewed_at ? asyncButton(t('Undo'), () => review(c, false, { close, err }), { ic: 'left' }) : null,
+      c.count > 0 ? asyncButton(t('Mark as reviewed'), () => review(c, true, { close, err }), { ic: 'check' }) : null,
+    ]);
+  }
+
+  function qualityCard() {
+    let body;
+    if (qualityError) body = h('div', { class: 'stack' }, banner('bad', `${t('Could not load')}: ${qualityError}`));
+    else if (!quality) body = loading();
+    else {
+      const checks = (quality.checks || []).filter((c) => c.visible !== false);  // a check that cannot fire stays off the card
+      const found = checks.filter((c) => c.count > 0), clear = checks.filter((c) => !c.count);
+      const nReviewed = checks.filter((c) => c.reviewed_at).length;
+      const nImp = found.filter((c) => c.severity === 'important').length, nInfo = found.length - nImp;
+      const row = (c) => {
+        const done = c.reviewed_at && !c.count;
+        return h('div', { class: 'quality-row', 'data-check': c.id },
+          c.count ? chip(t(c.severity === 'important' ? 'Important' : 'Info'), c.severity === 'important' ? 'bad' : 'warn') : h('span', { class: 'tiny muted quality-none' }, t('No findings')),
+          h('span', { class: 'quality-label' }, qualityLabel(c), ' ', h('strong', null, f.num(c.count)),
+            c.reviewed_at ? h('span', { class: 'tiny muted' }, ' ', done ? `${t('Reviewed')} ${f.dayLabel(c.reviewed_at)}` : `${t('new since')} ${f.dayLabel(c.reviewed_at)}`) : null),
+          done ? asyncButton(t('Undo'), () => review(c, false), { size: 'sm', ic: 'left' }) : button(t('Review'), { size: 'sm', onClick: () => reviewModal(c) }));
+      };
+      body = h('div', { class: 'stack' },
+        h('div', { class: 'row tight' },
+          nImp ? chip(`${f.num(nImp)} ${t('Important')}`, 'bad', 'alert') : null, nInfo ? chip(`${f.num(nInfo)} ${t('Info')}`, 'warn', 'info') : null,
+          nReviewed ? chip(`${f.num(nReviewed)} ${t('reviewed')}`) : null,
+          h('span', { class: 'tiny muted' }, `${t('Checked')}: ${f.dateTime(quality.checked_at)}`)),
+        ...found.map(row),
+        h('div', { class: 'small muted' }, nReviewed ? t('Everything else looks consistent or was reviewed.') : found.length ? t('Everything else looks consistent.') : t('Everything looks consistent.')),
+        clear.length && (found.length || nReviewed) ? h('details', { class: 'quality-all' }, h('summary', null, t('Show all checks')), h('div', { class: 'stack' }, ...clear.map(row))) : null);
+    }
+    return card(t('Data quality'), body, { ic: 'shield', actions: asyncButton(t('Check again'), recheck, { ic: 'refresh', size: 'sm' }) });
+  }
 
   // ---- budget + poller
   function budgetCard(o) {
@@ -196,7 +278,7 @@ export default async function system(root, ctx) {
     const o = ctx.overview;
     if (tab === 'calls') return [callsCard()];
     if (tab === 'diagnostics') return [h('div', { class: 'grid g2' }, partsCard(o), h('div', { class: 'stack' }, rawCard(), diagCard()))];
-    return [h('div', { class: 'grid g2' }, budgetCard(o), pollerCard(o)), h('div', { class: 'grid g2' }, appCard(o), opsCard(o))];
+    return [qualityCard(), h('div', { class: 'grid g2' }, budgetCard(o), pollerCard(o)), h('div', { class: 'grid g2' }, appCard(o), opsCard(o))];
   }
 
   function draw() {
@@ -212,8 +294,8 @@ export default async function system(root, ctx) {
     return;
   }
   mount(root, h('h1', null, t('System')), tabs(), loading());
-  await fetchAll();
+  await Promise.all([fetchAll(), fetchQuality()]);
   draw();
   // Re-drawing would collapse the raw viewer, so on a tick only refresh the live parts when it is closed.
-  ctx.onTick(async () => { if (root.querySelector('.b-rawbox[open]')) return; await fetchAll(); draw(); });
+  ctx.onTick(async () => { if (root.querySelector('.b-rawbox[open], .quality-all[open]')) return; await fetchAll(); draw(); });
 }
