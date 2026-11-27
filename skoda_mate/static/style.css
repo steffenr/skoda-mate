@@ -42,6 +42,11 @@
 html, body { margin: 0; }
 body { background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   -webkit-font-smoothing: antialiased; font-variant-numeric: tabular-nums; }
+/* CJK falls back per language: the same Han character looks different in Japanese, Korean and Simplified Chinese,
+   and each system has its own face for its script. */
+body:lang(ja) { font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", "Noto Sans CJK JP", system-ui, sans-serif; }
+body:lang(ko) { font-family: "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans CJK KR", system-ui, sans-serif; }
+body:lang(zh-Hans) { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", system-ui, sans-serif; }
 .view, .card, .banner, .modal { overflow-wrap: anywhere; }  /* long unbroken names (file names, VINs, URLs) must wrap, not widen the page */
 h1, h2, h3 { line-height: 1.25; margin: 0; font-weight: 600; }
 h1 { font-size: 24px; } h2 { font-size: 19px; } h3 { font-size: 13px; color: var(--muted); font-weight: 600; }
