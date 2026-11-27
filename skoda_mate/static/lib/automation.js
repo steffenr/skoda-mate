@@ -4,15 +4,15 @@ import { h, mount } from './dom.js';
 import { icon } from './icons.js';
 import { asyncButton, banner, button, card, chip, confirmDialog, field, loading, modal, toast } from './ui.js';
 import * as f from './format.js';
-import { t, tn } from '../i18n.js';
+import { t, tn, N_ } from '../i18n.js';
 
 const EVENT_LABEL = {
-  'trip.started': 'Trip started', 'trip.ended': 'Trip ended', 'charge.started': 'Charging started', 'charge.ended': 'Charging ended', 'charge.completed': 'Charge limit reached',
-  'plug.connected': 'Cable plugged in', 'plug.disconnected': 'Cable unplugged', 'soc.low': 'Battery low', 'climate.started': 'Climate started', 'climate.ended': 'Climate stopped',
-  'doors.opened': 'Doors opened', 'windows.opened': 'Windows opened', 'geofence.entered': 'Arrived at a place', 'geofence.left': 'Left a place', 'poll.failed': 'Car data cannot be read', test: 'Test',
+  'trip.started': N_('Trip started'), 'trip.ended': N_('Trip ended'), 'charge.started': N_('Charging started'), 'charge.ended': N_('Charging ended'), 'charge.completed': N_('Charge limit reached'),
+  'plug.connected': N_('Cable plugged in'), 'plug.disconnected': N_('Cable unplugged'), 'soc.low': N_('Battery low'), 'climate.started': N_('Climate started'), 'climate.ended': N_('Climate stopped'),
+  'doors.opened': N_('Doors opened'), 'windows.opened': N_('Windows opened'), 'geofence.entered': N_('Arrived at a place'), 'geofence.left': N_('Left a place'), 'poll.failed': N_('Car data cannot be read'), test: N_('Test'),
 };
 const eventLabel = (name) => (EVENT_LABEL[name] ? t(EVENT_LABEL[name]) : name);
-const STATUS = { ok: ['Delivered', 'good', 'check'], failed: ['Failed', 'bad', 'alert'], pending: ['Waiting', 'info', 'clock'], sending: ['Sending', 'info', 'clock'] };
+const STATUS = { ok: [N_('Delivered'), 'good', 'check'], failed: ['Failed', 'bad', 'alert'], pending: [N_('Waiting'), 'info', 'clock'], sending: [N_('Sending'), 'info', 'clock'] };
 const statusChip = (d) => { const [label, kind, ic] = STATUS[d.status] || STATUS.failed; return chip(t(label), kind, ic); };
 /** What the receiver answered: its HTTP status, or why there is none. */
 const answerOf = (d) => [d.last_code ? `HTTP ${d.last_code}` : null, d.last_error ? t(d.last_error) : null].filter(Boolean).join(' · ');
@@ -65,7 +65,7 @@ export function automationCard(ctx) {
           close(); toast(t('Webhook deleted'), 'good'); await load();
         }, { ic: 'trash', kind: 'danger' })) : null,
       problem);
-    close = modal(t(hook ? 'Edit webhook' : 'Add webhook'), body, (done) => [
+    close = modal(t(hook ? N_('Edit webhook') : 'Add webhook'), body, (done) => [
       button(t('Cancel'), { onClick: done }),
       asyncButton(t('Save'), async () => {
         const payload = { name: d.name, url: d.url, enabled: d.enabled, events: [...d.events] };

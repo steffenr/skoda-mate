@@ -1,26 +1,26 @@
 // Data-quality names, shared by the System page (the Data quality card) and the Activity List tab (the quality_fix and
 // quality_review events), so a check or repair has one label in both places. Ids are quality.CHECKS / quality.ACTIONS.
-import { t } from '../i18n.js';
+import { t, N_ } from '../i18n.js';
 import { h } from './dom.js';
 import * as f from './format.js';
 
 const CHECK = {
-  open_trips: 'Trips that never ended', open_charges: 'Charges that never ended', estimated_charges: 'Charges with an estimated end', inferred_charges: 'Charges inferred from battery readings',
-  approx_trips: 'Approximate trips', reading_gaps: 'Long gaps between readings', odometer_jumps: 'Odometer jumps or decreases', duplicate_trips: 'Groups of duplicate trips',
-  api_errors: 'API errors in the last 24 h', stuck_operations: 'Operations stuck for over 30 min', missing_sections: 'Data sections missing',
+  open_trips: N_('Trips that never ended'), open_charges: N_('Charges that never ended'), estimated_charges: N_('Charges with an estimated end'), inferred_charges: N_('Charges inferred from battery readings'),
+  approx_trips: N_('Approximate trips'), reading_gaps: N_('Long gaps between readings'), odometer_jumps: N_('Odometer jumps or decreases'), duplicate_trips: N_('Groups of duplicate trips'),
+  api_errors: N_('API errors in the last 24 h'), stuck_operations: N_('Operations stuck for over 30 min'), missing_sections: N_('Data sections missing'),
 };
 const ACTION = {
-  close_open_trips: 'Close open trips', close_open_charges: 'Close open charges', repair_charges: 'Repair charges',
-  infer_charges: 'Add inferred charges', dedupe_trips: 'Merge duplicate trips',
+  close_open_trips: N_('Close open trips'), close_open_charges: N_('Close open charges'), repair_charges: N_('Repair charges'),
+  infer_charges: N_('Add inferred charges'), dedupe_trips: N_('Merge duplicate trips'),
 };
 
 // What each repair does to a row, in words a user can check against the trip or charge page. Mirrors quality.py:
 // `_close_open_trips` / `_close_open_charges` (the end rules shared with activity.PARKED / NOT_CHARGING) and
 // `_dedupe_trips` (the oldest row keeps its numbers, the copies go into merged_json, notes are joined).
 const EXPLAIN = {
-  close_open_trips: 'Each trip gets an end: the first reading after its start that shows the car parked, otherwise its last reading. The trip is then marked as approximate.',
-  close_open_charges: 'Each charge gets an end: the first reading after its start that shows the car no longer charging, otherwise its last charging reading. The end is marked as estimated.',
-  dedupe_trips: 'Each group becomes one trip: the oldest trip keeps its numbers and the notes of all copies. The copies leave the lists but are saved with it, and "Undo merge" on the trip page restores them.',
+  close_open_trips: N_('Each trip gets an end: the first reading after its start that shows the car parked, otherwise its last reading. The trip is then marked as approximate.'),
+  close_open_charges: N_('Each charge gets an end: the first reading after its start that shows the car no longer charging, otherwise its last charging reading. The end is marked as estimated.'),
+  dedupe_trips: N_('Each group becomes one trip: the oldest trip keeps its numbers and the notes of all copies. The copies leave the lists but are saved with it, and "Undo merge" on the trip page restores them.'),
 };
 
 /** What a repair does, in the user's language; null for an action without a description. With `reviewed`, also says
@@ -39,7 +39,7 @@ export const actionLabel = (action) => (ACTION[action] ? t(ACTION[action]) : act
 // formatted dates and numbers, never the backend's English `label` (which stays for other API clients and is the
 // fallback for a kind this code does not know).
 
-const SECTION = { info: 'Vehicle information', charging: 'Charging data', climate: 'Climate data', position: 'Position data' };
+const SECTION = { info: N_('Vehicle information'), charging: N_('Charging data'), climate: N_('Climate data'), position: N_('Position data') };
 
 /** The line for one sample of a check: a link for a trip or charge, plain text for everything else. */
 export function sampleNode(sm) {

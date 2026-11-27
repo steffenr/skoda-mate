@@ -1,35 +1,11 @@
-// German translation coverage: every t('English') literal in the frontend should have a German entry.
-//   node i18n_coverage.mjs          (reports; exit 1 if anything is missing)
+// Translation coverage: every catalog against static/i18n/keys.json (written by i18n_extract.mjs and
+// scripts/i18n_backend.py), and a check for sentences pieced together from several keys.
+//   node i18n_coverage.mjs          (reports per language; exit 1 on any problem)
+//   SHOW=500 node i18n_coverage.mjs (list more problems)
 import fs from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { CATALOGS } from '../../skoda_mate/static/i18n.js';
+import { compare, readKeys, scan, STATIC } from './i18n_lib.mjs';
 
-const STATIC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../skoda_mate/static');
-const de = JSON.parse(fs.readFileSync(`${STATIC}/i18n/de.json`, 'utf8'));
-const hasDE = (key) => Object.hasOwn(de, key);
-const files = ['app.js', ...fs.readdirSync(`${STATIC}/lib`).map((f) => `lib/${f}`), ...fs.readdirSync(`${STATIC}/pages`).map((f) => `pages/${f}`)]
-  .filter((f) => f.endsWith('.js'));
-const missing = new Map();
-
-// Navigation labels are passed to t() as variables, so a literal scan cannot see them: read them off the PAGES table.
-const appSrc = fs.readFileSync(`${STATIC}/app.js`, 'utf8');
-for (const m of appSrc.matchAll(/label:\s*'([^']+)'/g)) {
-  const key = m[1];
-  if (hasDE(key)) continue;
-  (missing.get(key) || missing.set(key, new Set()).get(key)).add('app.js (nav)');
-}
-
-// t('...') with a plain single-quoted or double-quoted literal (template strings are dynamic and skipped)
-const re = /\bt\(\s*(?:'((?:[^'\\]|\\.)*)'|"((?:[^"\\]|\\.)*)")\s*[,)]/g;
-let total = 0;
-for (const f of files) {
-  const src = fs.readFileSync(`${STATIC}/${f}`, 'utf8');
-  for (const m of src.matchAll(re)) {
-    const key = (m[1] ?? m[2]).replace(/\\'/g, "'").replace(/\\"/g, '"');
-    total++;
-    if (!hasDE(key)) (missing.get(key) || missing.set(key, new Set()).get(key)).add(f);
-  }
-}
 // A key that starts in lower case is usually a piece of a sentence, which another language cannot reorder. These are the
 // ones that stand on their own, each group with the reason.
 const STANDALONE = new Set([
@@ -44,22 +20,33 @@ const STANDALONE = new Set([
   'completed with the car’s figures', 'repeated in your files', 'reported by the car', 'at home price', 'from fuel level',
   'estimated from battery level', 'inferred (from battery level)', 'home price', 'public DC price', 'public AC price',
   'the duration of the trip; charging happened somewhere during it', 'the car stood here; charging happened somewhere in it',
+  'requests used this hour', 'just now',
   // a label followed by a colon and a value
-  'time windows', 'timers', 'outliers left out:', 'requests used this hour', 'just now',
+  'time windows', 'timers', 'outliers left out:',
 ]);
-const lowercase = new Map();
-for (const f of files) {
-  const src = fs.readFileSync(`${STATIC}/${f}`, 'utf8');
-  for (const m of src.matchAll(/\b(?:t|N_|tn)\(\s*(?:'((?:[^'\\]|\\.)*)'|"((?:[^"\\]|\\.)*)")/g)) {
-    const key = (m[1] ?? m[2]).replace(/\\(['"])/g, '$1');
-    // The Home Assistant guide writes "<b>Label</b>: description."; the description is a whole sentence.
-    // A key with placeholders is a whole phrase: a translation can move its parts.
-    if (/^\p{Ll}/u.test(key) && !/\{\w+\}/.test(key) && !STANDALONE.has(key) && !(f === 'pages/settings.js' && key.endsWith('.'))) (lowercase.get(key) || lowercase.set(key, new Set()).get(key)).add(f);
-  }
-}
-for (const [k, where] of lowercase) console.log(`  piece of a sentence? [${[...where]}] ${k}`);
-console.log(`${lowercase.size} lowercase key(s) that are not known to stand alone`);
 
-console.log(`${total} t('…') literals, ${missing.size} distinct without a German entry`);
-for (const [k, fs_] of [...missing].slice(0, +process.env.SHOW || 40)) console.log(`  [${[...fs_].join(',')}] ${k.slice(0, 110)}`);
-process.exit(missing.size || lowercase.size ? 1 : 0);
+const fresh = scan();
+const keys = readKeys();
+const all = { ...keys.backend, ...keys.frontend };
+let failed = 0;
+const report = (what, lines) => {
+  console.log(`${what}: ${lines.length} problem(s)`);
+  for (const line of lines.slice(0, +process.env.SHOW || 40)) console.log(`  ${line.slice(0, 160)}`);
+  failed += lines.length;
+};
+
+report('keys.json (frontend)', JSON.stringify(Object.keys(fresh).sort()) === JSON.stringify(Object.keys(keys.frontend).sort())
+  ? [] : ['stale: run node i18n_extract.mjs']);
+
+// The Home Assistant guide writes "<b>Label</b>: description."; the description is a whole sentence. Backend values
+// written in lower case are cells of the Capabilities tables. A key with placeholders is a whole phrase.
+report('pieces of sentences', Object.entries(fresh)
+  .filter(([k, e]) => /^\p{Ll}/u.test(k) && !/\{\w+\}/.test(k) && !STANDALONE.has(k) && !(e.files.includes('pages/settings.js') && k.endsWith('.')))
+  .map(([k, e]) => `[${e.files}] ${k}`));
+
+for (const code of Object.keys(CATALOGS)) {
+  const catalog = JSON.parse(fs.readFileSync(`${STATIC}/i18n/${code}.json`, 'utf8'));
+  report(code, compare(all, catalog, code.replace('_', '-')));
+}
+console.log(failed ? `${failed} problem(s)` : `all catalogs complete: ${Object.keys(all).length} keys`);
+process.exit(failed ? 1 : 0);

@@ -3,10 +3,10 @@ import { h, mount, debounce } from '../lib/dom.js';
 import { icon } from '../lib/icons.js';
 import { banner, button, card, chip, empty, field, loading, seg, stat } from '../lib/ui.js';
 import * as f from '../lib/format.js';
-import { t, tn } from '../i18n.js';
+import { t, tn, N_ } from '../i18n.js';
 
 const PAGE = 40;
-export const APPROX_TIP = 'Found through an odometer jump; times are estimated.';
+export const APPROX_TIP = N_('Found through an odometer jump; times are estimated.');
 
 /** Replace the query part of the current hash without adding a history entry or re-rendering the page. */
 export function setQuery(path, params) {

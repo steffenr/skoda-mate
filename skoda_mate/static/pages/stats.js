@@ -8,13 +8,13 @@ import { monthsAgo } from '../lib/dates.js';
 import { belowFloor, floorValue, kwhText, medianLossStat } from '../lib/floor.js';
 import { renderCharging } from '../lib/insight-charging.js';
 import { renderDriving } from '../lib/insight-driving.js';
-import { t, tn } from '../i18n.js';
+import { t, tn, N_ } from '../i18n.js';
 
 const TABS = ['overview', 'charging', 'driving', 'parked'];
 const PARKED_PAGE = 50;  // stands per page of the Parked table
 const INSIGHTS = {
-  charging: { render: renderCharging, error: 'Could not load charging insight' },
-  driving: { render: renderDriving, error: 'Could not load driving insight' },
+  charging: { render: renderCharging, error: N_('Could not load charging insight') },
+  driving: { render: renderDriving, error: N_('Could not load driving insight') },
 };
 
 const MI = 0.621371;

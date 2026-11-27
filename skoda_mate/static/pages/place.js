@@ -4,11 +4,11 @@ import { icon } from '../lib/icons.js';
 import { banner, button, card, chip, empty, loading, stat, table, toast } from '../lib/ui.js';
 import { mapView } from '../lib/mapview.js';
 import * as f from '../lib/format.js';
-import { t } from '../i18n.js';
+import { t, N_ } from '../i18n.js';
 import { placeForm } from './places.js';
 import { placeChip } from './charges.js';
 
-const KIND_LABEL = { home: 'Home', work: 'Work', place: 'Place' };
+const KIND_LABEL = { home: 'Home', work: N_('Work'), place: 'Place' };
 const KIND_TONE = { home: 'good', work: 'info', place: '' };
 const KIND_ICON = { home: 'home', work: 'building', place: 'pin' };
 const kindName = (kind) => t(KIND_LABEL[kind] || 'Place');
@@ -83,7 +83,7 @@ export default async function place(root, ctx) {
       { label: t('Arrival'), render: (v) => when(v.arrived_at) },
       { label: t('Departure'), render: (v) => (v.left_at ? when(v.left_at) : '–') },
       { label: t('Duration'), num: true, render: (v) => f.duration(v.minutes) },
-      { label: t('Status'), render: (v) => chip(t(v.open ? 'Open now' : 'Closed'), v.open ? 'good' : '') },
+      { label: t('Status'), render: (v) => chip(t(v.open ? N_('Open now') : 'Closed'), v.open ? 'good' : '') },
     ], p.visits || [], { label: t('Recent visits'), emptyNode: empty(t('No visits yet'), null, 'pin') });
 
     const charges = table([
