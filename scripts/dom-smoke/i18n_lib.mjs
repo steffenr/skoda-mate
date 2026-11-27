@@ -5,6 +5,16 @@ import { fileURLToPath } from 'node:url';
 
 export const STATIC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../skoda_mate/static');
 export const KEYS_FILE = `${STATIC}/i18n/keys.json`;
+const LANGUAGES_PY = path.resolve(STATIC, '../languages.py');
+
+/** The languages registered in skoda_mate/languages.py: [{code, name, locale}]. */
+export function languages(source = fs.readFileSync(LANGUAGES_PY, 'utf8')) {
+  return [...source.matchAll(/Language\("([^"]+)",\s*"([^"]+)",\s*"([^"]+)"\)/g)].map(([, code, name, locale]) => ({ code, name, locale }));
+}
+
+/** Catalog codes that languages.py does not know: their locale, and so their plural forms, cannot be checked. */
+export const unregistered = (codes, registered) => codes.filter((c) => !registered.some((l) => l.code === c))
+  .map((c) => `${c}: in CATALOGS but not in skoda_mate/languages.py`);
 
 /** {relative path: source} of every module whose texts are translated. */
 export function sources() {

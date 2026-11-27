@@ -4,7 +4,7 @@
 //   SHOW=500 node i18n_coverage.mjs (list more problems)
 import fs from 'node:fs';
 import { CATALOGS } from '../../skoda_mate/static/i18n.js';
-import { compare, problemLines, readKeys, scan, STATIC } from './i18n_lib.mjs';
+import { compare, languages, problemLines, readKeys, scan, STATIC, unregistered } from './i18n_lib.mjs';
 
 // A key that starts in lower case is usually a piece of a sentence, which another language cannot reorder. These are the
 // ones that stand on their own, each group with the reason.
@@ -44,9 +44,11 @@ report('pieces of sentences', Object.entries(fresh)
   .filter(([k, e]) => /^\p{Ll}/u.test(k) && !/\{\w+\}/.test(k) && !STANDALONE.has(k) && !(e.files.includes('pages/settings.js') && k.endsWith('.')))
   .map(([k, e]) => `[${e.files}] ${k}`));
 
-for (const code of Object.keys(CATALOGS)) {
+const registered = languages();
+report('languages.py', unregistered(Object.keys(CATALOGS), registered));
+for (const { code, locale } of registered.filter((l) => Object.hasOwn(CATALOGS, l.code))) {
   const catalog = JSON.parse(fs.readFileSync(`${STATIC}/i18n/${code}.json`, 'utf8'));
-  report(code, compare(all, catalog, code.replace('_', '-')));
+  report(code, compare(all, catalog, locale));
 }
 console.log(failed ? `${failed} problem(s)` : `all catalogs complete: ${Object.keys(all).length} keys`);
 process.exit(failed ? 1 : 0);
