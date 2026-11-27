@@ -257,6 +257,11 @@ translated word into another sentence, and do not change a translation's case in
 
 ## After batch 1 (separate plan)
 
+**Decided 2026-11-27, after trials on 50 German texts:** translation subagents write the catalogs, each getting the
+English, a usage note, the code line that shows the text and a glossary with the form of address; DeepL is only a
+second opinion on doubtful or short texts. DeepL Free ignored the context setting and the formality setting, and
+rejected document uploads (403, cause unknown). This replaces the "DeepL draft" step below where they differ.
+
 **DeepL (does not affect batch 1).** Use DeepL's hosted connector, `https://mcp.deepl.com/v1/mcp`, which signs in with
 OAuth. No DeepL API key and no local `deepl-mcp-server`: nothing secret goes into the repository, a project
 `.mcp.json`, a script, a prompt or CI. Translating stays a manual step; the app and CI never call DeepL.
