@@ -146,7 +146,7 @@ export default async function control(root, ctx) {
     const status = h('div', { class: 'stack' }, h('div', { class: 'row' },
       cs ? chip(t(cs[0]), cs[1], s.charging ? 'bolt' : 'plug') : chip(t('Unknown'), '', 'plug'),
       s.charging && s.charge_power_kw != null ? chip(f.kw(s.charge_power_kw), 'good') : null,
-      s.charging && s.remaining_min != null ? chip(`${f.duration(s.remaining_min)} ${t('remaining')}`, '') : null,
+      s.charging && s.remaining_min != null ? chip(t('{duration} remaining', { duration: f.duration(s.remaining_min) }), '') : null,
       s.soc != null ? chip(`${live ? '≈ ' : ''}${Math.round(live ? live.soc : s.soc)} %`, '', 'battery') : null,
       // with a single mode there is nothing to choose: just state it
       modes.length <= 1 && ch?.settings?.preferred_mode ? chip(`${t('Charge mode')}: ${t(MODE_LABEL[ch.settings.preferred_mode] || ch.settings.preferred_mode)}`, '', 'sliders') : null),
@@ -173,8 +173,8 @@ export default async function control(root, ctx) {
     const auxState = ['HEATING_AUXILIARY', 'VENTILATION'].includes(cl?.state);
     const running = !!cl?.running && !auxState;
     const state = cl ? h('div', { class: 'row' }, chip(cl.running ? t('Running') : t('Off'), cl.running ? 'good' : '', 'thermo'),
-      cl.target?.value != null ? chip(`${t('target')} ${f.temp(cl.target.value)}`, '') : null,
-      cl.running && cl.reach_at ? chip(`${t('ready')} ${f.time(cl.reach_at)}`, 'info', 'clock') : null)
+      cl.target?.value != null ? chip(t('target {temp}', { temp: f.temp(cl.target.value) }), '') : null,
+      cl.running && cl.reach_at ? chip(t('ready {time}', { time: f.time(cl.reach_at) }), 'info', 'clock') : null)
       : h('div', { class: 'small muted' }, o.parts.airConditioning?.reason || t('Not known'));
     const going = isOn('climate', running);
     const form = going ? null : h('div', { class: 'stack' },
@@ -318,7 +318,7 @@ export default async function control(root, ctx) {
       h('summary', null, h('strong', null, p.name || `#${p.id}`), ' ',
         chip(`${d.target !== '' ? `${d.target} %` : '–'}`, ''), p.id === ctxCurrentId() ? chip(t('Charging profile at the current position'), 'info', 'pin') : null,
         p.id === ctxCurrentId() && ctx.overview.sections.profiles?.current?.next_charging_time
-          ? chip(`${t('next charge')} ${ctx.overview.sections.profiles.current.next_charging_time}`, '', 'clock') : null),
+          ? chip(t('next charge {time}', { time: ctx.overview.sections.profiles.current.next_charging_time }), '', 'clock') : null),
       form);
     return det;
   }
@@ -345,7 +345,7 @@ export default async function control(root, ctx) {
     const b = info?.budget || o.poller?.budget;
     const budget = b ? h('div', { class: 'stack' },
       h('div', { class: 'row' }, chip(`${b.used}/${b.limit}`, b.remaining_for_commands <= 0 ? 'warn' : '', 'signal'), h('span', { class: 'small' }, t('requests used this hour')),
-        b.next_free_s ? chip(`${t('next free in')} ${f.inSeconds(b.next_free_s)}`, 'warn', 'clock') : null),
+        b.next_free_s ? chip(t('next free in {time}', { time: f.inSeconds(b.next_free_s) }), 'warn', 'clock') : null),
       h('div', { class: 'tiny muted' }, t('Every command costs 1 of the 20 requests per hour Škoda allows per car.'))) : null;
     let logBody;
     if (infoError) logBody = h('div', { class: 'stack' }, banner('bad', `${t('Could not load the command list')}: ${infoError}`), button(t('Try again'), { ic: 'refresh', onClick: async () => { await loadInfo(); render(true); } }));

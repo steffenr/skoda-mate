@@ -47,7 +47,7 @@ export default async function charge(root, ctx) {
     else if (basis === 'place') explain = banner('info', t('Cost uses the price of this place.'));
     else if (basis === 'tariff') {
       const price = kind === 'home' ? [tar.home_kwh, t('home price')] : c.charge_type === 'DC' ? [tar.public_dc_kwh, t('public DC price')] : [tar.public_ac_kwh, t('public AC price')];
-      explain = banner('info', `${t('Calculated: delivered energy × your price')}: ${f.kwh(c.energy_kwh)} × ${price[0] != null ? f.money(price[0], ctx.currency, 3) : '–'} ${t('per kWh')} (${price[1]}).`);
+      explain = banner('info', `${t('Calculated: delivered energy × your price')}: ${f.kwh(c.energy_kwh)} × ${t('{price} per kWh', { price: price[0] != null ? f.money(price[0], ctx.currency, 3) : '–' })} (${price[1]}).`);
     } else explain = banner('info', t('No cost: the delivered energy is unknown.'));
 
     const placeSeg = seg([['', t('Auto')], ['home', t('Home')], ['public', t('Public')]], c.place_kind || '', async (v) => {
@@ -84,7 +84,7 @@ export default async function charge(root, ctx) {
     const eff = c.energy_kwh > 0 ? (c.energy_battery_kwh / c.energy_kwh) * 100 : null;
     return card(t('Delivered vs into the battery'), h('div', { class: 'stack' },
       h('div', { class: 'grid g3' }, stat(t('Delivered (from the grid)'), f.num(c.energy_kwh, 1), { unit: 'kWh' }), stat(t('Into the battery'), f.num(c.energy_battery_kwh, 1), { unit: 'kWh' }),
-        stat(t('Difference'), `${d >= 0 ? '' : '−'}${f.num(Math.abs(d), 1)}`, { unit: 'kWh', sub: d > 0 && eff != null ? `${t('efficiency')} ${f.num(eff, 0)} %` : null })),
+        stat(t('Difference'), `${d >= 0 ? '' : '−'}${f.num(Math.abs(d), 1)}`, { unit: 'kWh', sub: d > 0 && eff != null ? t('efficiency {value} %', { value: f.num(eff, 0) }) : null })),
       d < 0 ? banner('warn', t('Delivered energy is lower than the energy into the battery. That cannot be real: the power readings were too far apart to integrate well. Treat both numbers as rough estimates.'))
         : h('p', { class: 'small muted' }, t('The difference is charging loss (heat in the charger, cable and car), usually 5 to 15 %. Both values are estimates: delivered energy is integrated from the power readings, battery energy from the change in battery level and your battery capacity.'))), { ic: 'bolt' });
   }
@@ -106,7 +106,7 @@ export default async function charge(root, ctx) {
       ...(c.inferred
         // Not measured: dividing the energy by the whole parked window would give a meaningless "average power".
         ? [card(null, stat(t('Charging power'), t('unknown'), { ic: 'gauge',
-          sub: c.hours_at_typical_wallbox != null ? `${t('At')} ${f.num(c.typical_wallbox_kw, 0)} kW ${t('this takes about')} ${f.duration(c.hours_at_typical_wallbox * 60)}` : null }))]
+          sub: c.hours_at_typical_wallbox != null ? t('At {power} kW this takes about {duration}', { power: f.num(c.typical_wallbox_kw, 0), duration: f.duration(c.hours_at_typical_wallbox * 60) }) : null }))]
         : [card(null, stat(t('Average power'), f.num(c.avg_power_kw, 1), { unit: c.avg_power_kw != null ? 'kW' : null, ic: 'gauge' })),
           card(null, stat(t('Max power'), f.num(c.max_power_kw, 1), { unit: c.max_power_kw != null ? 'kW' : null, ic: 'gauge' }))]));
 

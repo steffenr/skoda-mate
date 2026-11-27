@@ -4,12 +4,12 @@ import { banner, card, chip, empty, stat, table } from './ui.js';
 import { barChart } from './charts.js';
 import { heatmap } from './heatmap.js';
 import * as f from './format.js';
-import { t } from '../i18n.js';
+import { t, tn } from '../i18n.js';
 
 const DASH = '–';
 
 // A total that is missing some costs says "at least", an unknown one stays a dash.
-const costText = (row, cur) => (row.cost == null ? DASH : `${row.cost_partial ? `${t('at least')} ` : ''}${f.money(row.cost, cur)}`);
+const costText = (row, cur) => (row.cost == null ? DASH : (row.cost_partial ? t('at least {amount}', { amount: f.money(row.cost, cur) }) : f.money(row.cost, cur)));
 
 function curveCard(title, bins) {
   const body = bins.length
@@ -25,11 +25,11 @@ export function renderCharging(data) {
   if (!tt.sessions) return [empty(t('No charges in this period'), t('Pick a longer period to see charging insight.'), 'bolt')];
 
   const totals = h('div', { class: 'grid auto' },
-    card(null, stat(t('Energy charged'), f.num(tt.energy_kwh, 0), { unit: 'kWh', ic: 'bolt', sub: `${tt.sessions} ${t('Charges').toLowerCase()}` })),
+    card(null, stat(t('Energy charged'), f.num(tt.energy_kwh, 0), { unit: 'kWh', ic: 'bolt', sub: tn('{n} charge', '{n} charges', tt.sessions) })),
     card(null, stat(t('Charging cost'), costText(tt, cur), { ic: 'coin', sub: tt.cost_partial ? t('Some costs are unknown and not included.') : null })),
     card(null, stat(t('Cost per kWh'), f.money(tt.cost_per_kwh, cur, 3), { ic: 'coin' })),
     card(null, stat(t('Measured share'), tt.inferred_share == null ? DASH : f.num((1 - tt.inferred_share) * 100, 0), {
-      unit: tt.inferred_share == null ? null : '%', ic: 'gauge', sub: `${f.kwh(tt.measured_kwh, 0)} ${t('of the energy')}` })),
+      unit: tt.inferred_share == null ? null : '%', ic: 'gauge', sub: t('{energy} of the energy', { energy: f.kwh(tt.measured_kwh, 0) }) })),
     tt.session_fees > 0 ? card(null, stat(t('Session fees'), f.money(tt.session_fees, cur), { ic: 'coin', sub: t('included in the cost') })) : null);
 
   const inferred = tt.inferred_sessions ? banner('info', `${t('Inferred or imported charges in this period:')} ${tt.inferred_sessions} (${f.kwh(tt.inferred_kwh, 1)}). `,

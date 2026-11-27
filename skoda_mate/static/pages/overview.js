@@ -6,7 +6,7 @@ import { carView } from '../lib/car.js';
 import { lineChart } from '../lib/charts.js';
 import { mapView } from '../lib/mapview.js';
 import * as f from '../lib/format.js';
-import { t, tx } from '../i18n.js';
+import { t, tx, tn } from '../i18n.js';
 import { estimateNote, liveSoc } from '../lib/livesoc.js';
 import { kwhOrFloor, medianLossStat } from '../lib/floor.js';
 
@@ -65,7 +65,7 @@ export default async function overview(root, ctx) {
     const typeLabel = s.charge_type && s.charge_type !== 'OFF' ? s.charge_type : null;
     const figs = s.charging ? [
       s.charge_power_kw != null ? [f.kw(s.charge_power_kw), t('Power'), false] : null,
-      s.remaining_min != null ? [f.duration(s.remaining_min), showLimit ? `${t('Until')} ${Math.round(s.target_soc)} %` : t('Time left'), true] : null,
+      s.remaining_min != null ? [f.duration(s.remaining_min), showLimit ? t('Until {soc} %', { soc: Math.round(s.target_soc) }) : t('Time left'), true] : null,
       ch?.fully_charged_at ? [f.time(ch.fully_charged_at), t('Done at'), false] : null,
     ].filter(Boolean) : [];
     const live = hasBattery ? liveSoc(s, o.vehicle?.capacity_kwh) : null;
@@ -76,10 +76,10 @@ export default async function overview(root, ctx) {
         h('div', { class: 'stat' }, h('div', { class: 'label' }, icon('battery', { size: 15 }), t('Battery')),
           h('div', { class: 'row-base' },
             h('div', { class: 'value', style: { fontSize: '44px', marginTop: 0 } }, shownSoc != null ? `${live ? '≈ ' : ''}${Math.round(shownSoc)}` : '–', h('small', null, '%')),
-            s.range_km != null ? h('span', { class: 'range' }, `${f.km(s.range_km)} ${t('range')}`) : null), estNote),
+            s.range_km != null ? h('span', { class: 'range' }, t('{distance} range', { distance: f.km(s.range_km) })) : null), estNote),
         socBar(shownSoc, s.target_soc, { togo: togo && shownSoc < s.target_soc }),
         showLimit ? h('div', { class: 'limit-lbl' }, h('span', { class: s.target_soc > 88 ? 'end' : '', style: s.target_soc > 88 ? null : { left: `${s.target_soc}%` } }, `${t('Charge limit')} ${Math.round(s.target_soc)} %`)) : null) : null,
-      fuel ? h('div', null, stat(t('Fuel'), s.fuel_pct != null ? `${Math.round(s.fuel_pct)}` : '–', { unit: '%', ic: 'gauge', sub: s.fuel_range_km != null ? `${f.km(s.fuel_range_km)} ${t('range')}` : null })) : null,
+      fuel ? h('div', null, stat(t('Fuel'), s.fuel_pct != null ? `${Math.round(s.fuel_pct)}` : '–', { unit: '%', ic: 'gauge', sub: s.fuel_range_km != null ? t('{distance} range', { distance: f.km(s.fuel_range_km) }) : null })) : null,
       hasBattery && cs && s.charging ? h('div', { class: 'status-line' }, icon('bolt', { size: 16 }), t(cs[0]), typeLabel ? [h('span', { class: 'sep' }, '·'), h('span', { class: 'meta' }, typeLabel)] : null)
         : hasBattery && cs ? h('div', { class: 'row' }, chip(t(cs[0]), cs[1], 'plug'), typeLabel ? chip(typeLabel, '') : null) : null,
       figs.length ? h('div', { class: 'figs', style: { gridTemplateColumns: `repeat(${figs.length}, minmax(0, 1fr))` } },
@@ -91,7 +91,7 @@ export default async function overview(root, ctx) {
     const stats = h('div', { class: 'grid auto' },
       card(null, stat(t('Odometer'), s.mileage_km != null ? f.num(f.toDist(s.mileage_km)) : '–', { unit: f.distUnit(), ic: 'gauge', sub: o.sections.info?.license_plate })),
       card(null, stat(t('Climate'), cl ? (cl.running ? t(CLIMATE_STATE[cl.state] || 'Running') : t('Off')) : '–', {
-        ic: 'thermo', sub: cl ? `${t('target')} ${f.temp(cl.target?.value ?? s.climate_target)}${cl.reach_at && cl.running ? ` · ${t('ready')} ${f.time(cl.reach_at)}` : ''}` : o.parts.airConditioning?.reason })),
+        ic: 'thermo', sub: cl ? `${t('target {temp}', { temp: f.temp(cl.target?.value ?? s.climate_target) })}${cl.reach_at && cl.running ? ` · ${t('ready {time}', { time: f.time(cl.reach_at) })}` : ''}` : o.parts.airConditioning?.reason })),
       card(null, stat(t('Plug'), s.plug_connected == null ? '–' : s.plug_connected ? t('Connected') : t('Not connected'), {
         ic: 'plug', sub: s.plug_locked == null ? null : s.plug_locked ? t('cable locked') : t('cable unlocked') })));
 
@@ -102,11 +102,11 @@ export default async function overview(root, ctx) {
     else if (map && markers.length) map.update({ markers });
     const posCard = card(t('Position'), h('div', { class: 'stack' }, markers.length ? map : empty(t('No position'), place, 'pin'),
       markers.length ? h('div', { class: 'small' }, icon('pin', { size: 14 }), ' ', place) : null,
-      pos?.captured_at ? h('div', { class: 'tiny muted' }, `${t('reported')} ${f.ago(pos.captured_at)}`) : null), { ic: 'pin' });
+      pos?.captured_at ? h('div', { class: 'tiny muted' }, t('reported {ago}', { ago: f.ago(pos.captured_at) })) : null), { ic: 'pin' });
 
     // --- last trip / charge
     const lt = o.last_trip, lc = o.last_charge, ot = o.open_trip;
-    const tripCard = card(t('Last trip'), ot ? h('div', { class: 'stack' }, chip(t('Driving now'), 'info', 'route'), h('div', { class: 'small muted' }, `${t('since')} ${f.time(ot.started_at)} · ${f.shortPlace(ot.start_place)}`))
+    const tripCard = card(t('Last trip'), ot ? h('div', { class: 'stack' }, chip(t('Driving now'), 'info', 'route'), h('div', { class: 'small muted' }, `${t('since {date}', { date: f.time(ot.started_at) })} · ${f.shortPlace(ot.start_place)}`))
       : lt ? h('a', { href: `#/trips/${lt.id}`, style: { color: 'inherit', textDecoration: 'none' } }, h('div', { class: 'stack' },
         h('div', null, h('strong', null, `${f.shortPlace(lt.start_place)} → ${f.shortPlace(lt.end_place)}`), h('div', { class: 'small muted' }, `${f.dayLabel(lt.started_at)}, ${f.time(lt.started_at)}`)),
         kv([[t('Distance'), f.km(lt.distance_km, 1)], [t('Duration'), f.duration(lt.duration_min)], [t('Energy'), f.kwh(lt.energy_kwh)], [t('Consumption'), f.cons(lt.avg_kwh_100km)]])))
@@ -124,14 +124,14 @@ export default async function overview(root, ctx) {
     const pUsable = (parked?.total || 0) > pWarn;
     const parkedCard = !parked ? null : card(t('Parked, last 7 days'), !pUsable
       ? h('div', { class: 'stack' }, h('p', { class: 'small muted' }, t('No parked stand long enough yet.'), ' ', t('A session needs at least six hours, a charge level at both ends and no charging or driving in between.')),
-        pWarn ? h('div', { class: 'tiny muted' }, `${f.num(pWarn)} ${t('left out as likely unrecorded charges')}`) : null)
+        pWarn ? h('div', { class: 'tiny muted' }, tn('{n} left out as likely unrecorded charge', '{n} left out as likely unrecorded charges', pWarn, { n: f.num(pWarn) })) : null)
       : h('div', { class: 'stack' },
         medianLossStat(pa.median_kwh_per_day),
         // an energy total of exactly zero reads as the floor text (null, shown as a dash, means no stand counted)
         kv([[t('Parked sessions'), pa.count != null ? f.num(pa.count) : '–'], [t('Energy'), kwhOrFloor(pa.kwh)]]),
         // two translated fragments around the number: t() takes one argument, so the sentence cannot carry a placeholder
-        parked.detection_floor_kwh != null ? h('div', { class: 'tiny muted' }, `${t('One percent of the battery is about')} ${f.kwh(parked.detection_floor_kwh, 2)}, ${t('so smaller losses are not measurable.')}`) : null,
-        pWarn ? h('div', { class: 'tiny muted' }, `${f.num(pWarn)} ${t('left out as likely unrecorded charges')}`) : null,
+        parked.detection_floor_kwh != null ? h('div', { class: 'tiny muted' }, t('One percent of the battery is about {energy}, so smaller losses are not measurable.', { energy: f.kwh(parked.detection_floor_kwh, 2) })) : null,
+        pWarn ? h('div', { class: 'tiny muted' }, tn('{n} left out as likely unrecorded charge', '{n} left out as likely unrecorded charges', pWarn, { n: f.num(pWarn) })) : null,
         h('div', null, h('a', { class: 'btn sm', href: '#/stats' }, t('Details')))), { ic: 'clock' });
 
     // --- history chart
@@ -155,7 +155,7 @@ export default async function overview(root, ctx) {
     if (feat.charge_control?.available) quick.push(s.charging ? asyncButton(t('Stop charging'), call('stop_charging'), { ic: 'stop', kind: 'danger' })
       : asyncButton(t('Start charging'), call('start_charging'), { ic: 'play', kind: 'primary', disabled: unplugged, title: unplugged ? t('Plug in the car to start charging.') : undefined }));
     if (feat.climate?.available) quick.push(climateOn ? asyncButton(t('Stop climate'), call('stop_climate'), { ic: 'x', kind: 'danger' })
-      : asyncButton(`${t('Start climate')} ${f.num(cl?.target?.value ?? 21, 1)} °C`, call('start_climate', { temperature: cl?.target?.value ?? 21, without_external_power: unplugged }), { ic: 'thermo' }));
+      : asyncButton(t('Start climate {temp} °C', { temp: f.num(cl?.target?.value ?? 21, 1) }), call('start_climate', { temperature: cl?.target?.value ?? 21, without_external_power: unplugged }), { ic: 'thermo' }));
     if (feat.ventilation?.available) quick.push(ventOn ? asyncButton(t('Stop ventilation'), call('stop_ventilation'), { ic: 'x', kind: 'danger' }) : asyncButton(t('Start ventilation'), call('start_ventilation'), { ic: 'fan' }));
     const unpluggedHint = unplugged && feat.charge_control?.available ? h('div', { class: 'small muted' }, icon('info', { size: 14 }), ' ', t('Plug in the car to start charging.')) : null;
     const controls = card(t('Quick controls'), h('div', { class: 'stack' }, h('div', { class: 'row' }, ...quick), unpluggedHint,

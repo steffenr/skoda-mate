@@ -3,7 +3,7 @@ import { h, mount } from '../lib/dom.js';
 import { icon } from '../lib/icons.js';
 import { banner, button, card, chip, empty, field, loading, stat } from '../lib/ui.js';
 import * as f from '../lib/format.js';
-import { t } from '../i18n.js';
+import { t, tn } from '../i18n.js';
 import { setQuery } from './trips.js';
 
 const PAGE = 30;
@@ -15,7 +15,7 @@ const FILTERS = [['', 'All'], ['home', 'Home'], ['public', 'Public'], ['AC', 'AC
 export function chargePlace(c) {
   if (c.source === 'import-trip') {
     const dest = (c.address || '').replace(/^Public charging (?:on the way to|during a trip)\s*/i, '').trim();
-    return { title: t('Charging during a trip'), sub: dest ? `${t('Trip to')} ${f.shortPlace(dest)}` : null };
+    return { title: t('Charging during a trip'), sub: dest ? t('Trip to {place}', { place: f.shortPlace(dest) }) : null };
   }
   return { title: c.address ? f.shortPlace(c.address) : t('Unknown place'), sub: null };
 }
@@ -80,7 +80,7 @@ export default async function charges(root, ctx) {
       card(null, stat(t('Sessions'), f.num(S.total), { ic: 'plug', sub: closed.length !== items.length ? `${items.length - closed.length} ${t('Running')}` : null })),
       card(null, stat(t('Energy charged'), f.num(kwh, 1), { unit: 'kWh', ic: 'bolt' })),
       card(null, stat(t('Total cost'), f.money(sum(items, (c) => c.cost), ctx.currency), { ic: 'coin', sub: guess ? t('Costs are estimates based on your tariff.') : null })),
-      card(null, stat(t('Home vs public'), `${f.num(home, 0)} / ${f.num(pub, 0)}`, { unit: 'kWh', ic: 'home', sub: unk > 0.05 ? `+ ${f.num(unk, 0)} kWh ${t('unknown place')}` : null })),
+      card(null, stat(t('Home vs public'), `${f.num(home, 0)} / ${f.num(pub, 0)}`, { unit: 'kWh', ic: 'home', sub: unk > 0.05 ? t('+ {energy} kWh unknown place', { energy: f.num(unk, 0) }) : null })),
       card(null, stat(t('AC vs DC'), `${f.num(ac, 0)} / ${f.num(dc, 0)}`, { unit: 'kWh', ic: 'bolt' })));
   }
 
@@ -95,7 +95,7 @@ export default async function charges(root, ctx) {
       h('dl', { class: 'a-metrics' },
         metric(t('Energy'), f.kwh(c.energy_kwh)), metric(t('Battery'), f.socText(c)), metric(c.source === 'import-trip' ? t('Trip duration') : c.inferred ? t('Time window') : t('Duration'), c.open ? `${f.duration(c.duration_min)} …` : f.duration(c.duration_min)),
         // an inferred charge has no known power: the window is the parked time, so say what a typical wallbox would have needed
-        c.inferred ? metric(`${t('At')} ${f.num(c.typical_wallbox_kw, 0)} kW`, c.hours_at_typical_wallbox != null ? `≈ ${f.duration(c.hours_at_typical_wallbox * 60)}` : '–')
+        c.inferred ? metric(t('At {power} kW', { power: f.num(c.typical_wallbox_kw, 0) }), c.hours_at_typical_wallbox != null ? `≈ ${f.duration(c.hours_at_typical_wallbox * 60)}` : '–')
           : metric(t('Average power'), f.kw(c.avg_power_kw)), metric(t('Cost'), c.cost != null ? `${guess ? '≈ ' : ''}${f.money(c.cost, ctx.currency)}` : '–')),
       icon('right', { size: 16 }));
   };
@@ -106,7 +106,7 @@ export default async function charges(root, ctx) {
     if (!S.items.length) { mount(body, empty(t('No charges found'), S.kind || S.from || S.to ? t('Try other filters.') : t('Charges are detected while the car reports that it is charging.'), 'plug')); return; }
     const open = S.items.filter((c) => c.open), rest = S.items.filter((c) => !c.open);
     const visible = rest.slice(0, S.shown);
-    const cap = S.serverTotal > S.fetched ? banner('info', t('Showing the newest {n} of {total} charges. Narrow the filters to see the rest.').replace('{n}', S.fetched).replace('{total}', S.serverTotal)) : null;
+    const cap = S.serverTotal > S.fetched ? banner('info', tn('Showing the newest {shown} of {n} charge. Narrow the filters to see the rest.', 'Showing the newest {shown} of {n} charges. Narrow the filters to see the rest.', S.serverTotal, { shown: S.fetched })) : null;
     mount(body, totals(S.items), cap,
       open.length ? h('div', { class: 'card a-rows a-pinned', 'aria-label': t('Charging now') }, ...open.map(row)) : null,
       visible.length ? h('div', { class: 'card a-rows' }, ...visible.map(row)) : null,

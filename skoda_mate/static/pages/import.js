@@ -5,7 +5,7 @@ import { h, mount } from '../lib/dom.js';
 import { icon } from '../lib/icons.js';
 import { asyncButton, banner, button, card, chip, empty, field, stat, table, toast } from '../lib/ui.js';
 import * as f from '../lib/format.js';
-import { t, tm } from '../i18n.js';
+import { t, tm, tn } from '../i18n.js';
 
 const STATUS = { new: ['new', 'good'], updated: ['completed', 'info'], unchanged: ['known', ''] };
 
@@ -40,15 +40,15 @@ export default async function importPage(root, ctx) {
     return h('div', { class: 'stack' },
       fileErrors.length ? banner('warn', h('b', null, t('Some files or rows could not be used:')), h('ul', { class: 'b-notes small' }, ...fileErrors.slice(0, 8).map((e) => h('li', null, e)))) : null,
       h('div', { class: 'grid auto' },
-        card(null, stat(t('new trips'), f.num(r.new), { ic: 'plus', sub: r.km ? `${f.km(r.km, 0)} ${t('in these files')}` : null })),
+        card(null, stat(t('new trips'), f.num(r.new), { ic: 'plus', sub: r.km ? t('{distance} in these files', { distance: f.km(r.km, 0) }) : null })),
         card(null, stat(t('already known'), f.num(r.unchanged), { ic: 'check' })),
         card(null, stat(t('completed with the car’s figures'), f.num(r.updated), { ic: 'edit' })),
         card(null, stat(t('repeated in your files'), f.num(r.duplicates_in_upload), { ic: 'list', sub: t('counted once') }))),
       h('div', { class: 'small muted' }, [
         r.first ? `${t('Period')}: ${f.date(r.first)} – ${f.date(r.last)}` : null,
-        r.skipped_no_distance ? `${r.skipped_no_distance} ${t('without distance (skipped)')}` : null,
-        r.public_charges ? `${r.public_charges} ${t('public charging stops found')}` : null,
-        !r.dry_run && r.charges_inferred ? `${r.charges_inferred} ${t('overnight charges derived')}` : null].filter(Boolean).join(' · ')),
+        r.skipped_no_distance ? t('{n} without distance (skipped)', { n: r.skipped_no_distance }) : null,
+        r.public_charges ? tn('{n} public charging stop found', '{n} public charging stops found', r.public_charges) : null,
+        !r.dry_run && r.charges_inferred ? tn('{n} overnight charge derived', '{n} overnight charges derived', r.charges_inferred) : null].filter(Boolean).join(' · ')),
       r.preview.length ? table([
         { label: t('Start'), render: (x) => f.dateTime(x.start), cls: 'nowrap' }, { label: t('From'), render: (x) => f.shortPlace(x.from) },
         { label: t('To##place'), render: (x) => f.shortPlace(x.to) }, { label: t('Distance'), render: (x) => f.km(x.km, 0), num: true },
@@ -63,7 +63,7 @@ export default async function importPage(root, ctx) {
     mount(box, card(report.dry_run ? t('Preview') : t('Imported'), h('div', { class: 'stack' }, summary(report),
       report.dry_run
         ? h('div', { class: 'row' }, todo
-          ? asyncButton(t('Import {n} trips').replace('{n}', todo), async () => {
+          ? asyncButton(tn('Import {n} trip', 'Import {n} trips', todo), async () => {
             const done = await send(false);
             report = done;
             toast(t('Done. You can import the same files again at any time: nothing is added twice.'), 'good');

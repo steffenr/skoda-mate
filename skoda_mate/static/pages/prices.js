@@ -5,7 +5,7 @@ import { h, mount } from '../lib/dom.js';
 import { icon } from '../lib/icons.js';
 import { asyncButton, banner, button, card, field, toast } from '../lib/ui.js';
 import * as f from '../lib/format.js';
-import { t } from '../i18n.js';
+import { t, tn } from '../i18n.js';
 
 const DEFAULTS = { home: 0.30, ac: 0.55, dc: 0.79 };
 const ROWS = [
@@ -91,7 +91,7 @@ export default async function prices(root, ctx) {
     mount(homeBox, h('div', { class: 'row between' },
       h('div', null,
         h('strong', null, homeName()),
-        h('div', { class: 'small muted' }, `${radiusText(home.radius_m)} · ${f.num(home.visit_count ?? 0)} ${t('Visits')}`)),
+        h('div', { class: 'small muted' }, `${radiusText(home.radius_m)} · ${tn('{n} Visit', '{n} Visits', home.visit_count ?? 0, { n: f.num(home.visit_count ?? 0) })}`)),
       h('a', { class: 'btn sm', href: `#/places/${home.id}` }, icon('edit', { size: 16 }), t('Edit home place'))));
   }
   async function loadHome() {

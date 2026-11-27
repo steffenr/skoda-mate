@@ -6,7 +6,7 @@ import { banner, button, card, chip, empty, kv, loading, seg, stat } from '../li
 import { lineChart } from '../lib/charts.js';
 import * as f from '../lib/format.js';
 import { rangeCard } from '../lib/rangecard.js';
-import { t } from '../i18n.js';
+import { t, tn } from '../i18n.js';
 
 const RANGES = [[24, '24 h'], [168, '7 d'], [720, '30 d'], [8760, '1 y']];
 const MODE_LABEL = {
@@ -64,7 +64,7 @@ export default async function battery(root, ctx) {
         h('div', { class: 'small muted' }, [
           s.maxChargingCurrent ? `${t('Maximum current')}: ${word(WORDS, s.maxChargingCurrent)}` : null,
           s.autoUnlockPlugWhenCharged ? `${t('Unlock plug when charged')}: ${word(WORDS, s.autoUnlockPlugWhenCharged)}` : null,
-          m?.enabled ? `${t('minimum charge')} ${m.minimumBatteryStateOfChargeInPercent} %` : null,
+          m?.enabled ? t('minimum charge {soc} %', { soc: m.minimumBatteryStateOfChargeInPercent }) : null,
           `${t('time windows')}: ${(x.preferredChargingTimes || []).length}`, `${t('timers')}: ${(x.timers || []).length}`].filter(Boolean).join(' · ')));
     }), h('a', { href: '#/control' }, t('Edit profiles under Control'))), { ic: 'sliders' });
   }
@@ -80,7 +80,7 @@ export default async function battery(root, ctx) {
     }
     return card(t('Battery capacity estimate'), h('div', { class: 'stack' },
       h('div', { class: 'grid auto' },
-        stat(t('Wall energy per 100 % charge'), f.num(est, 1), { unit: 'kWh', ic: 'bolt', sub: `${data.samples} ${t('Charges used').toLowerCase()}` }),
+        stat(t('Wall energy per 100 % charge'), f.num(est, 1), { unit: 'kWh', ic: 'bolt', sub: tn('{n} charge used', '{n} charges used', data.samples) }),
         data.nominal_kwh != null ? stat(t('Nominal capacity'), f.num(data.nominal_kwh, 1), { unit: 'kWh', ic: 'battery' })
           : stat(t('Nominal capacity'), t('Not set'), { ic: 'battery', sub: h('a', { href: '#/settings' }, t('Set in Settings')) }),
         data.charging_efficiency != null ? stat(t('Charging efficiency'), f.num(data.charging_efficiency * 100, 1), { unit: '%', ic: 'gauge' }) : null),

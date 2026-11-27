@@ -6,7 +6,7 @@ import { banner, button, card, chip, empty, field, loading, seg } from '../lib/u
 import * as f from '../lib/format.js';
 import { barBox, clockAt, dayStartMs } from '../lib/dates.js';
 import { actionLabel, checkLabel } from '../lib/quality.js';
-import { t } from '../i18n.js';
+import { t, tn } from '../i18n.js';
 
 const KINDS = {
   locked: ['Locked', 'lock', 'good'], unlocked: ['Unlocked', 'unlock', 'warn'],
@@ -40,7 +40,7 @@ function detail(e) {
   }
   // Data quality (quality.fix / quality.review): "<action>:<rows changed>" and "<check>:on|off"
   const fixed = e.kind === 'quality_fix' && /^(\w+):(\d+)$/.exec(d || '');
-  if (fixed) return `${actionLabel(fixed[1])}: ${f.num(+fixed[2])} ${t('changed')}`;
+  if (fixed) return `${actionLabel(fixed[1])}: ${t('{n} changed', { n: f.num(+fixed[2]) })}`;
   const reviewed = e.kind === 'quality_review' && /^(\w+):(on|off)$/.exec(d || '');
   if (reviewed) return `${checkLabel(reviewed[1])}: ${reviewed[2] === 'on' ? t('marked as reviewed') : t('review undone')}`;
   if (!d) return null;
@@ -94,7 +94,7 @@ async function listTab(root, ctx) {
           h('span', { class: 'b-event-main' }, h('strong', null, kindLabel(e.kind)), detail(e) ? h('span', { class: 'b-event-detail' }, detail(e)) : null),
           h('time', { class: 'small muted nowrap', datetime: e.at }, f.time(e.at)));
       })))));
-    info.textContent = `${t('Showing')} ${items.length} ${t('of')} ${total} ${t('events')}`;
+    info.textContent = tn('Showing {shown} of {n} event', 'Showing {shown} of {n} events', total, { shown: items.length });
     mount(moreBox, items.length < total ? button(t('Load more'), { ic: 'down', onClick: () => load(false) }) : null);
   }
 
@@ -165,7 +165,7 @@ function summaryParts(s, currency) {
     `${t('Parked')} ${f.duration(s.parked_min)}`,
     s.unknown_min > 0 ? `${t('Not heard from')} ${f.duration(s.unknown_min)}` : null,
     s.km > 0 ? f.km(s.km, 1) : null,
-    s.cost >= MONEY_STEP / 2 ? `${s.cost_partial ? `${t('at least')} ` : ''}${f.money(s.cost, currency)}`
+    s.cost >= MONEY_STEP / 2 ? (s.cost_partial ? t('at least {amount}', { amount: f.money(s.cost, currency) }) : f.money(s.cost, currency))
       : s.cost != null && s.cost >= 0 && !s.cost_partial ? t('free') : null].filter(Boolean);
 }
 

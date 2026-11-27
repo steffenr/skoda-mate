@@ -4,7 +4,7 @@ import { h, mount } from '../lib/dom.js';
 import { icon } from '../lib/icons.js';
 import { banner, card, chip, empty, stat } from '../lib/ui.js';
 import * as f from '../lib/format.js';
-import { t, tEnum } from '../i18n.js';
+import { t, tEnum, tn } from '../i18n.js';
 
 const GROUPS = { read: 'Read', charging: 'Charging', climate: 'Climate' };
 const fmtVal = (r) => {
@@ -45,7 +45,7 @@ export default async function capabilities(root, ctx) {
 
   const parts = card(t('Data the car reports'), h('div', { class: 'stack' }, ...data.parts.filter((p) => !['unsupported', 'disabled', 'unavailable', 'missing'].includes(p.state)).map((p) =>
     h('details', { class: 'b-profile' },
-      h('summary', null, h('strong', null, t(p.label)), ' ', stateChip(p.state), ' ', h('span', { class: 'tiny muted' }, `${p.reported}/${p.fields.length} ${t('fields reported')}`)),
+      h('summary', null, h('strong', null, t(p.label)), ' ', stateChip(p.state), ' ', h('span', { class: 'tiny muted' }, tn('{reported}/{n} field reported', '{reported}/{n} fields reported', p.fields.length, { reported: p.reported }))),
       p.reason ? h('div', { class: 'small muted' }, t(p.reason)) : null,
       h('div', { class: 'scroll-x', tabindex: 0, role: 'region', 'aria-label': t(p.label) }, h('table', { class: 't' }, h('tbody', null, ...p.fields.map((r) =>
         h('tr', null, h('td', null, t(r.label)), h('td', { class: 'tiny muted' }, h('code', null, r.api)), h('td', { class: 'num' }, fmtVal(r)))))))))), { ic: 'activity' });

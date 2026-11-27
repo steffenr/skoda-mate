@@ -19,7 +19,7 @@ export function renderDriving(data) {
     card(null, stat(t('Trips'), f.num(tt.trips), { ic: 'route' })),
     card(null, stat(t('Distance'), distance(tt.km), { unit, ic: 'gauge' })),
     card(null, stat(t('Average trip'), tt.avg_km == null ? DASH : f.km(tt.avg_km, 1), { ic: 'route',
-      sub: tt.avg_duration_min == null ? null : `${t('average duration')} ${f.duration(tt.avg_duration_min)}` })),
+      sub: tt.avg_duration_min == null ? null : t('average duration {duration}', { duration: f.duration(tt.avg_duration_min) }) })),
     // shown only once the server has enough tracked days; it always says what it is
     data.projection ? card(null, stat(t('Projected distance per year'), distance(data.projection.annual_km), { unit, ic: 'trend',
       sub: `${t('A projection from the odometer over this many days:')} ${data.projection.days}` })) : null);
