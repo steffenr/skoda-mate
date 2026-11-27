@@ -3,11 +3,12 @@ from __future__ import annotations
 
 import json
 import math
+from dataclasses import asdict
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from .. import costs, places, store
+from .. import costs, languages, places, store
 from ..deps import ContextDep
 from ..presenters import rows
 from ..store import get_setting, set_setting
@@ -31,9 +32,12 @@ class SettingsBody(BaseModel):
 def get_settings(ctx: ContextDep):
     conn = ctx.conn
     idle, active = ctx.poller.intervals() if ctx.poller else (1200, 300)
+    # A stored code that is not offered (a downgrade, a hand edit) reads as English.
+    language = languages.BY_CODE.get(get_setting(conn, "language", "en"), languages.DEFAULT)
     return {"tariff": ctx.tariff(), "poll_idle_s": idle, "poll_active_s": active, "poll_min_s": 180,
             "command_reserve": store.int_setting(conn, "command_reserve", 4, 0, 10),
-            "units": get_setting(conn, "units", "km"), "language": get_setting(conn, "language", "en"),
+            "units": get_setting(conn, "units", "km"), "language": language.code, "locale": language.locale,
+            "languages": [asdict(x) for x in languages.LANGUAGES],
             "theme": get_setting(conn, "theme", "auto"),
             "battery_kwh_default": get_setting(conn, "battery_kwh"),
             "vehicles": [{"id": v["id"], "name": v["name"], "vin": v["vin"], "battery_kwh": v["battery_kwh"]}
@@ -60,7 +64,7 @@ def put_settings(body: SettingsBody, ctx: ContextDep):
             if not lo <= val <= hi:
                 raise HTTPException(400, f"{key} must be between {lo} and {hi}")
             set_setting(conn, key, str(val))
-    for key, choice, allowed in (("units", body.units, ("km", "mi")), ("language", body.language, ("en", "de")),
+    for key, choice, allowed in (("units", body.units, ("km", "mi")), ("language", body.language, tuple(languages.BY_CODE)),
                                  ("theme", body.theme, ("auto", "light", "dark"))):
         if choice is not None:
             if choice not in allowed:

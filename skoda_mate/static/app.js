@@ -80,9 +80,9 @@ function applyTheme(theme) {
 
 async function loadSettings() {
   S.settings = await api.get("/api/settings");
-  f.setLocale({ units: S.settings.units, language: S.settings.language });
-  await setLang(S.settings.language);
-  document.documentElement.lang = S.settings.language;
+  f.setLocale({ units: S.settings.units, locale: S.settings.locale });
+  await setLang(S.settings.language, S.settings.locale);
+  document.documentElement.lang = S.settings.locale;
   applyTheme(S.settings.theme);
 }
 
