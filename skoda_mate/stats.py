@@ -35,7 +35,7 @@ def monthly(conn, vid: int, tariff: dict) -> list[dict]:
         k = c["energy_kwh"] or 0
         r["charges"] += 1
         r["charged_kwh"] += k
-        if c.get("source") in ("inferred", "import-trip"):  # read off other data, not measured: never mixed into AC/DC
+        if c.get("source") in costs.INFERRED_SOURCES:  # read off other data, not measured: never mixed into AC/DC
             r["inferred_kwh"] += k
             r["inferred_charges"] += 1
         else:

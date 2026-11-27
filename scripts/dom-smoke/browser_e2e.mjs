@@ -257,7 +257,7 @@ check('Overview parked card (real demo) fits a 360 px phone', ov0.sw <= ov0.iw, 
 await narrow.goto(`${BASE}/#/stats`, { waitUntil: 'networkidle0' });
 await sleep(1500);
 const so = await narrow.evaluate(() => ({ tabs: [...document.querySelectorAll('#main .seg button')].map((b) => b.textContent), cards: document.querySelectorAll('#main .card').length, text: document.getElementById('main').innerText }));
-check('Statistics opens on Overview with an Overview/Parked tab control', so.tabs[0] === 'Overview' && so.tabs[1] === 'Parked' && /Monthly overview/.test(so.text), `tabs=${so.tabs}, cards=${so.cards}`);
+check('Statistics opens on Overview with the Overview/Charging/Driving/Parked tabs', so.tabs.slice(0, 4).join() === 'Overview,Charging,Driving,Parked' && /Monthly overview/.test(so.text), `tabs=${so.tabs}, cards=${so.cards}`);
 await narrow.evaluate(() => [...document.querySelectorAll('#main .seg button')].find((b) => b.textContent === 'Parked').click());
 await sleep(1500);
 const pk = await narrow.evaluate(() => {
@@ -268,7 +268,7 @@ const pk = await narrow.evaluate(() => {
     empty: !!main.querySelector('.empty') && /No parked sessions/.test(main.innerText), cards: main.querySelectorAll('.stat').length, inRegion: !!wrap && wrap.getBoundingClientRect().right <= window.innerWidth + 1,
     pressed: [...main.querySelectorAll('.seg')[0].querySelectorAll('button')].map((b) => b.getAttribute('aria-pressed')), note: /detection floor/.test(main.innerText) };
 });
-check('Parked tab (real demo) is active and renders sessions or the empty state', pk.pressed[1] === 'true' && (pk.rows > 0 || pk.empty), `rows=${pk.rows}, empty=${pk.empty}`);
+check('Parked tab (real demo) is active and renders sessions or the empty state', pk.pressed[3] === 'true' && (pk.rows > 0 || pk.empty), `rows=${pk.rows}, empty=${pk.empty}`);
 check('Parked tab (real demo) fits a 360 px phone', pk.sw <= pk.iw, `scrollWidth=${pk.sw}/${pk.iw}`);
 await narrow.evaluate(() => [...document.querySelectorAll('#main .seg button')].find((b) => b.textContent === 'Overview').click());
 await sleep(800);
@@ -285,14 +285,23 @@ const parkedFixture = (() => {
     { ...base, place: null, end_soc: 80, soc_delta: 0, kwh: 0.0, kwh_per_day: 0.0, cost: null, below_detection_floor: true },
     { ...base, end_soc: 95, soc_delta: -15, kwh: -11.2, kwh_per_day: -11.2, cost: 3.33, warning: 'likely an unrecorded charge' },
     { ...base, place: 'Work', kwh: null, kwh_per_day: null, cost: null },
-  ], aggregates: { count: 1, median_kwh_per_day: 1.5, mean_kwh_per_day: 1.5, kwh: 1.5, kwh_7d: 1.5, kwh_30d: 1.5, cost: 0.4 }, min_hours: 6, detection_floor_kwh: 0.77 };
+  ], total: 4, limit: 50, offset: 0,
+  aggregates: { count: 1, flagged: 1, median_kwh_per_day: 1.5, mean_kwh_per_day: 1.5, kwh: 1.5, kwh_7d: 1.5, kwh_30d: 1.5, cost: 0.4 }, min_hours: 6, detection_floor_kwh: 0.77 };
 })();
 let parkedReq = '';
 let parkedMode = 'normal';  // normal | fail | empty | zero: which answer the parked-loss request gets
 let statsMode = 'real', statsReqs = 0;  // real | fail: the /stats request is answered by the server or refused; counted either way
 const json = (req, body, status = 200) => req.respond({ status, contentType: 'application/json', body: JSON.stringify(body) });
-const parkedBody = () => (parkedMode === 'zero' ? { ...parkedFixture, aggregates: { ...parkedFixture.aggregates, count: 2, median_kwh_per_day: 0, mean_kwh_per_day: 0, kwh: 0, kwh_7d: 0, kwh_30d: 0, cost: null } }
-  : parkedMode === 'empty' ? { ...parkedFixture, sessions: [], aggregates: { ...parkedFixture.aggregates, count: 0, median_kwh_per_day: null } } : parkedFixture);
+// 120 stands, newest first as the server sends them, paged by the request's limit and offset like the server does;
+// stand n (1-120) lasted 6 + n hours, so the hours name the row
+const manyParked = Array.from({ length: 120 }, (_, i) => ({ ...parkedFixture.sessions[0],
+  start: new Date(Date.UTC(2026, 8, 120 - i, 20)).toISOString(), end: new Date(Date.UTC(2026, 8, 121 - i, 20)).toISOString(), hours: 126 - i }));
+const manyBody = () => {
+  const q = new URL(parkedReq).searchParams, limit = Number(q.get('limit')), offset = Number(q.get('offset'));
+  return { ...parkedFixture, sessions: manyParked.slice(offset, offset + limit), total: 120, limit, offset, aggregates: { ...parkedFixture.aggregates, count: 120, flagged: 0 } };
+};
+const parkedBody = () => (parkedMode === 'many' ? manyBody() : parkedMode === 'zero' ? { ...parkedFixture, aggregates: { ...parkedFixture.aggregates, count: 2, median_kwh_per_day: 0, mean_kwh_per_day: 0, kwh: 0, kwh_7d: 0, kwh_30d: 0, cost: null } }
+  : parkedMode === 'empty' ? { ...parkedFixture, sessions: [], total: 0, aggregates: { ...parkedFixture.aggregates, count: 0, flagged: 0, median_kwh_per_day: null } } : parkedFixture);
 const intercept = (req) => {
   if (/\/api\/vehicles\/[^/]+\/parked-loss/.test(req.url())) { parkedReq = req.url();
     if (parkedMode === 'fail') json(req, { detail: 'boom' }, 500); else json(req, parkedBody()); }
@@ -322,6 +331,37 @@ check('Parked below-floor row says so once (energy column), shows a dash for the
 check('Parked warning row has exactly one chip and dashes for kWh, kWh/day and cost', pf.chips === 1 && rWarn && /unrecorded charge/.test(rWarn[0]) && rWarn[4] === '–' && rWarn[5] === '–' && rWarn[6] === '–', `chips=${pf.chips} ${JSON.stringify(rWarn)}`);
 check('Parked row without capacity shows dashes, not NaN or null', rNull && rNull[4] === '–' && rNull[5] === '–' && rNull[6] === '–' && !/NaN|null/.test(rNull.join(' ')), JSON.stringify(rNull));
 check('Parked table fits a 360 px phone: page does not scroll sideways, table sits in its scroll region', pf.wrap && pf.sw <= pf.iw && pf.wrapRight <= pf.iw + 1, `scrollWidth=${pf.sw}/${pf.iw}, region right=${Math.round(pf.wrapRight)}`);
+// A long history: 50 stands a page, newest first, with Newer/Older; the totals always cover the whole period
+parkedMode = 'many';
+const pageProbe = () => narrow.evaluate(() => {
+  const main = document.getElementById('main');
+  const hours = [...main.querySelectorAll('table.t tbody tr')].map((tr) => Number(tr.children[2].textContent));
+  const buttons = [...main.querySelectorAll('.pager button')];
+  const focused = buttons.find((b) => b === document.activeElement)?.textContent || '';
+  return { rows: hours.length, first: hours[0], last: hours.at(-1), label: main.querySelector('.pager > span')?.textContent || null,
+    disabled: buttons.map((b) => b.disabled).join(), focused, totals: /Parked sessions\s*120\b/.test(main.innerText), sw: document.documentElement.scrollWidth, iw: window.innerWidth };
+});
+const parkedClick = async (re) => {
+  await narrow.evaluate((s) => [...document.querySelectorAll('#main button')].find((b) => new RegExp(s).test(b.textContent))?.click(), re);
+  await sleep(500);
+};
+await parkedClick('^6 months$');
+const pg1 = await pageProbe();
+check('Parked shows the newest 50 of 120 stands with totals over all of them', pg1.rows === 50 && pg1.first === 126 && pg1.last === 77 && pg1.label === '1–50 of 120' && pg1.disabled === 'true,false' && pg1.totals && pg1.sw <= pg1.iw, JSON.stringify(pg1));
+check('Parked asks the server for one page only', /limit=50&offset=0\b/.test(parkedReq), parkedReq);
+await parkedClick('^Older');
+const pg2 = await pageProbe();
+check('Parked "Older" asks for the next page, keeps the totals and the keyboard on the button', /offset=50\b/.test(parkedReq) && pg2.rows === 50 && pg2.first === 76 && pg2.label === '51–100 of 120' && pg2.disabled === 'false,false' && /Older/.test(pg2.focused) && pg2.totals, JSON.stringify(pg2));
+await parkedClick('^Older');
+const pg3 = await pageProbe();
+check('Parked last page shows the rest and moves the keyboard to "Newer"', pg3.rows === 20 && pg3.last === 7 && pg3.label === '101–120 of 120' && pg3.disabled === 'false,true' && /Newer/.test(pg3.focused), JSON.stringify(pg3));
+await parkedClick('Newer$');
+const pg4 = await pageProbe();
+check('Parked "Newer" goes back a page', pg4.first === 76 && pg4.label === '51–100 of 120', JSON.stringify(pg4));
+await parkedClick('^12 months$');
+const pg5 = await pageProbe();
+check('Parked starts on the first page again after the period changes', /offset=0\b/.test(parkedReq) && pg5.label === '1–50 of 120' && pg5.first === 126, JSON.stringify(pg5));
+parkedMode = 'normal';
 // Overview parked card with the same fixture: median, count, energy, floor subtitle, warning count and the Details link
 await narrow.goto(`${BASE}/#/`, { waitUntil: 'networkidle0' });
 await sleep(1500);
@@ -384,12 +424,12 @@ await narrow.goto(`${BASE}/#/stats`, { waitUntil: 'networkidle0' });
 await sleep(1200);
 const rem = await narrow.evaluate(() => ({ pressed: [...document.querySelectorAll('#main .seg')[0].querySelectorAll('button')].map((b) => b.getAttribute('aria-pressed')), rows: document.querySelectorAll('#main table.t tbody tr').length,
   banner: document.querySelectorAll('#main .banner.bad').length }));
-check('Statistics reopens on the remembered Parked tab', rem.pressed[1] === 'true' && rem.rows > 0, JSON.stringify(rem));
+check('Statistics reopens on the remembered Parked tab', rem.pressed[3] === 'true' && rem.rows > 0, JSON.stringify(rem));
 check('The Parked tab does not ask for /stats and shows no error when /stats fails', statsReqs === 0 && rem.banner === 0, `statsReqs=${statsReqs} banners=${rem.banner}`);
 await narrow.evaluate(() => [...document.querySelectorAll('#main .seg button')].find((b) => b.textContent === 'Overview').click());
 await sleep(900);
 const sf = await narrow.evaluate(() => ({ tabs: [...document.querySelectorAll('#main .seg')[0]?.querySelectorAll('button') || []].map((b) => b.textContent), banner: /Could not load statistics/.test(document.getElementById('main').innerText) }));
-check('A failing Overview keeps the tab bar so the viewer can still switch', sf.banner && sf.tabs.join() === 'Overview,Parked', JSON.stringify(sf));
+check('A failing Overview keeps the tab bar so the viewer can still switch', sf.banner && sf.tabs.join() === 'Overview,Charging,Driving,Parked', JSON.stringify(sf));
 await narrow.evaluate(() => [...document.querySelectorAll('#main .seg button')].find((b) => b.textContent === 'Parked').click());
 await sleep(900);
 check('...and Parked still works from that error state', await narrow.evaluate(() => document.querySelectorAll('#main table.t tbody tr').length > 0));
@@ -398,6 +438,81 @@ await narrow.evaluate(() => [...document.querySelectorAll('#main .seg button')].
 await sleep(1200);
 narrow.off('request', intercept);
 await narrow.setRequestInterception(false);
+// ---------------------------------------------------------------- Insight: Charging and Driving tabs, projected range
+const clickTab = async (label) => {
+  await narrow.evaluate((l) => [...document.querySelectorAll('#main .seg button')].find((b) => b.textContent === l).click(), label);
+  await sleep(1300);
+};
+const insightProbe = () => {
+  const main = document.getElementById('main');
+  const titles = [...main.querySelectorAll('.card > header h2')].map((x) => x.textContent);
+  const cardOf = (re) => [...main.querySelectorAll('.card')].find((c) => re.test(c.querySelector('header h2')?.textContent || ''));
+  return { text: main.innerText.replace(/\s+/g, ' '), titles, sw: document.documentElement.scrollWidth, iw: window.innerWidth,
+    heatCells: main.querySelectorAll('.heat-cell').length, heatTableRows: main.querySelectorAll('.heat details tbody tr').length,
+    curveBars: ['Charge curve (AC)', 'Charge curve (DC)'].map((n) => cardOf(new RegExp(n.replace(/[()]/g, '\\$&')))?.querySelectorAll('svg rect[rx]').length || 0),
+    placeLinks: main.querySelectorAll('a[href^="#/places/"]').length, tripLinks: main.querySelectorAll('a[href^="#/trips/"]').length,
+    banner: main.querySelectorAll('.banner.bad').length,
+    // a number or a unit broken across lines fits the screen but cannot be read
+    broken: [...main.querySelectorAll('table.t td.num, .stat .value small')].filter((el) => {
+      const r = document.createRange(); r.selectNodeContents(el);
+      return new Set([...r.getClientRects()].map((x) => Math.round(x.top))).size > 1;
+    }).map((el) => el.textContent) };
+};
+await narrow.goto(`${BASE}/#/stats`, { waitUntil: 'networkidle0' });
+await sleep(1200);
+await clickTab('Charging');
+const ic = await narrow.evaluate(insightProbe);
+check('Charging tab shows totals, both power types, split, places and heatmap', ['Energy charged', 'Cost per kWh', 'Measured share', 'Average power', 'Home, public and other', 'Top charging places', 'When charging starts'].every((s) => ic.text.includes(s)) && ic.banner === 0 && !/NaN|undefined|\bnull\b/.test(ic.text), ic.titles.join(', '));
+check('Charging tab draws separate AC and DC curves', ic.curveBars[0] >= 3 && ic.curveBars[1] >= 3, JSON.stringify(ic.curveBars));
+check('Charging heatmap has 168 cells and a table fallback', ic.heatCells === 168 && ic.heatTableRows === 7, `${ic.heatCells} cells, ${ic.heatTableRows} rows`);
+check('Charging tab fits a 360 px phone', ic.sw <= ic.iw, `scrollWidth=${ic.sw}/${ic.iw}`);
+check('Charging numbers and units stay on one line on a phone', ic.broken.length === 0, ic.broken.join(' | '));
+await clickTab('Driving');
+const id = await narrow.evaluate(insightProbe);
+check('Driving tab shows destinations, buckets, longest trips, consumption and the projection', ['Top destinations', 'Trip lengths', 'Longest trips', 'Consumption trend', 'When you drive', 'Projected distance per year'].every((s) => id.text.includes(s)) && /projection/i.test(id.text) && id.banner === 0 && !/NaN|undefined|\bnull\b/.test(id.text), id.titles.join(', '));
+check('Driving numbers and units stay on one line on a phone', id.broken.length === 0, id.broken.join(' | '));
+check('Driving destinations link to places and longest trips to trips', id.placeLinks >= 2 && id.tripLinks >= 3, `places=${id.placeLinks} trips=${id.tripLinks}`);
+check('Driving tab shows no speed figures and fits a 360 px phone', !/km\/h|mph|speed/i.test(id.text) && id.sw <= id.iw, `scrollWidth=${id.sw}/${id.iw}`);
+// A failing or empty answer keeps the tab bar; an inferred-only period shows energy and no curve; a late answer never draws over another tab
+let insightMode = 'fail';
+const inferredOnly = { currency: 'EUR', totals: { sessions: 2, energy_kwh: 20, cost: null, cost_partial: true, cost_per_kwh: null, measured_sessions: 0, measured_kwh: 0, inferred_sessions: 2, inferred_kwh: 20, inferred_share: 1, unknown_energy_sessions: 0, session_fees: 0 },
+  types: Object.fromEntries(['ac', 'dc', 'unknown'].map((k) => [k, { sessions: 0, energy_kwh: 0, avg_power_kw: null, peak_power_kw: null, power_sessions: 0 }])),
+  split: Object.fromEntries(['home', 'public', 'other'].map((k) => [k, { sessions: 0, energy_kwh: 0, cost: null, cost_partial: false }])),
+  heatmap: Array.from({ length: 7 }, () => Array(24).fill(0)), heatmap_excluded: 2, top_places: [{ place_id: null, name: null, sessions: 2, energy_kwh: 20, cost: null, cost_partial: true }], curve: { ac: [], dc: [] } };
+const insightIntercept = async (req) => {
+  if (!/\/insights\/(charging|driving)/.test(req.url())) { req.continue(); return; }
+  if (insightMode === 'fail') json(req, { detail: 'boom' }, 500);
+  else if (insightMode === 'inferred') json(req, inferredOnly);
+  else { await sleep(1500); req.continue(); }
+};
+await narrow.setRequestInterception(true);
+narrow.on('request', insightIntercept);
+await clickTab('Charging');
+const ifail = await narrow.evaluate(() => ({ text: document.getElementById('main').innerText, tabs: document.querySelectorAll('#main .seg button').length }));
+check('A failing insight request shows the error, a retry and keeps the tab bar', /Could not load charging insight/.test(ifail.text) && /Try again/.test(ifail.text) && ifail.tabs >= 4, ifail.text.slice(0, 120));
+insightMode = 'inferred';
+await clickTab('Driving'); await clickTab('Overview'); await clickTab('Charging');
+const iinf = await narrow.evaluate(insightProbe);
+check('Inferred-only charging shows energy and says why there is no power or curve', /20[.,]0 kWh/.test(iinf.text) && /inferred/i.test(iinf.text) && /Not enough readings for a charge curve/.test(iinf.text) && iinf.curveBars.join() === '0,0' && /Unknown place/.test(iinf.text) && !/NaN|undefined|\bnull\b/.test(iinf.text), iinf.text.slice(0, 200));
+insightMode = 'slow';
+await narrow.evaluate(() => [...document.querySelectorAll('#main .seg button')].find((b) => b.textContent === 'Driving').click());
+await sleep(200);
+await narrow.evaluate(() => [...document.querySelectorAll('#main .seg button')].find((b) => b.textContent === 'Overview').click());
+await sleep(2500);
+const ilate = await narrow.evaluate(insightProbe);
+check('A late insight answer does not draw over the tab chosen meanwhile', ilate.titles.includes('Monthly overview') && !ilate.titles.includes('Top destinations'), ilate.titles.join(', '));
+narrow.off('request', insightIntercept);
+await narrow.setRequestInterception(false);
+await narrow.goto(`${BASE}/#/battery`, { waitUntil: 'networkidle0' });
+await sleep(1500);
+const br = await narrow.evaluate(() => {
+  const c = [...document.querySelectorAll('#main .card')].find((x) => x.querySelector('header h2')?.textContent === 'Projected range');
+  return { text: c ? c.innerText.replace(/\s+/g, ' ') : '', chart: !!c?.querySelector('svg path'), est: [...document.querySelectorAll('#main .card > header h2')].some((x) => x.textContent === 'Battery capacity estimate'),
+    sw: document.documentElement.scrollWidth, iw: window.innerWidth };
+});
+check('Battery shows the projected range with a trend chart and sample count, separate from the capacity estimate', /Projected range from reported range/.test(br.text) && /At 100 % charge \d{3} ?km/.test(br.text) && /Readings used [\d.,]+/.test(br.text) && br.chart && br.est, br.text.slice(0, 200));
+check('The projected range card never says health and fits 360 px', br.text !== '' && !/health/i.test(br.text) && br.sw <= br.iw, `scrollWidth=${br.sw}/${br.iw}`);
+await narrow.evaluate(() => { try { sessionStorage.removeItem('b-stats-tab'); } catch { /* optional */ } });
 await narrow.close();
 
 // ---------------------------------------------------------------- 2b. data-quality card on System
@@ -900,6 +1015,18 @@ for (const r of ['trips', 'charges', 'control', 'stats', 'settings', 'system']) 
   const eng = ['Export CSV', 'Total distance', 'Start charging', 'Request budget', 'Home position', 'How these numbers are made'].filter((s) => t.includes(s));
   check(`German #/${r}`, eng.length === 0, eng.join(', '));
 }
+await d.goto(`${BASE}/#/stats`, { waitUntil: 'networkidle0' }); await sleep(1300);
+for (const [tab, eng] of [['Laden', ['Energy charged', 'Average power', 'Top charging places', 'When charging starts', 'Charge curve']], ['Fahren', ['Top destinations', 'Trip lengths', 'Longest trips', 'Consumption trend', 'Projected distance']]]) {
+  await d.evaluate((l) => [...document.querySelectorAll('#main .seg button')].find((b) => b.textContent === l)?.click(), tab);
+  await sleep(1300);
+  const t = await d.evaluate(() => document.getElementById('main').innerText);
+  const left = eng.filter((s) => t.includes(s));
+  check(`German Statistics ${tab}`, left.length === 0 && t.length > 200, left.join(', '));
+}
+await d.goto(`${BASE}/#/battery`, { waitUntil: 'networkidle0' }); await sleep(1500);
+const bde = await d.evaluate(() => document.getElementById('main').innerText);
+check('German projected range', /Hochgerechnete Reichweite/.test(bde) && !/Projected range|Readings used/.test(bde), bde.slice(0, 80));
+await d.evaluate(() => { try { sessionStorage.removeItem('b-stats-tab'); } catch { /* optional */ } });
 await d.goto(`${BASE}/#/places/1`, { waitUntil: 'networkidle0' }); await sleep(1500);
 const pde = await d.evaluate(() => document.getElementById('main').innerText);
 const pEng = ['Recent visits', 'Recent charges', 'Parked time', 'Back to places', 'Arrival', 'Departure', 'Edit place', 'Date', 'Charged', 'Visits', 'Days'].filter((s) => pde.includes(s));

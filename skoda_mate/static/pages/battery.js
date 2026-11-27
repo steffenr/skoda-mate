@@ -5,6 +5,7 @@ import { icon } from '../lib/icons.js';
 import { banner, button, card, chip, empty, kv, loading, seg, stat } from '../lib/ui.js';
 import { lineChart } from '../lib/charts.js';
 import * as f from '../lib/format.js';
+import { rangeCard } from '../lib/rangecard.js';
 import { extendDE, t } from '../i18n.js';
 
 extendDE({
@@ -121,6 +122,7 @@ export default async function battery(root, ctx) {
           range),
         chartBox), { ic: 'trend' }),
       h('div', { class: 'grid g2' }, settingsCard(), profilesCard()),
+      rangeCard(data.projected_range),
       estimateCard());
     historyChart();
   }
@@ -129,7 +131,7 @@ export default async function battery(root, ctx) {
     const mine = ++seq;
     if (chartOnly) mount(chartBox, loading());
     try {
-      const d = await ctx.api.get(`${base}/battery?hours=${hours}`);
+      const d = await ctx.api.get(`${base}/battery?hours=${hours}&tz_offset=${new Date().getTimezoneOffset()}`);
       if (mine !== seq) return;
       data = d;
       if (chartOnly && root.firstChild) historyChart(); else draw();

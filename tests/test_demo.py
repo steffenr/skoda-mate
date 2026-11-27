@@ -2,7 +2,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from skoda_mate import activity, demo, quality, recorder, schema
+from skoda_mate import activity, analytics, costs, demo, quality, recorder, schema
 from skoda_mate.config import Config
 from skoda_mate.web import create_app
 
@@ -179,3 +179,21 @@ def test_demo_duplicate_trip_survives_the_startup_cleanup_only_as_a_near_copy(en
     assert schema.dedupe_trips(conn) == (1 if removed else 0)
     found = {c["id"]: c for c in quality.checks(conn, vid, "2026-05-20T08:30:00+00:00")}
     assert (found["duplicate_trips"]["count"] == 0) is removed
+
+
+def test_demo_shows_the_insight_features():
+    conn = schema.connect(":memory:")
+    now = datetime(2027, 3, 17, 12, tzinfo=UTC)
+    vid = demo.seed(conn, now=now)
+    charging = analytics.charging(conn, vid, costs.load_tariff(conn))
+    assert len(charging["curve"]["ac"]) >= 3 and len(charging["curve"]["dc"]) >= 3
+    assert charging["types"]["dc"]["avg_power_kw"] > 40 > charging["types"]["ac"]["avg_power_kw"]
+    dc_places = {r[0] for r in conn.execute("SELECT g.name FROM charges c JOIN geofences g ON g.id=c.geofence_id "
+                                            "WHERE c.charge_type='DC'")}
+    assert dc_places == {"Darmstadt"}  # fast charging happens at the public stop, never at home
+    driving = analytics.driving(conn, vid)
+    assert driving["projection"]["annual_km"] > 5000
+    assert len({d["name"] for d in driving["top_destinations"]} & {"Home", "Work", "Shop", "Darmstadt"}) >= 2
+    ranged = analytics.projected_range(conn, vid)
+    assert 500 < ranged["latest"]["range_km"] < 620 and ranged["samples"] > 500
+    assert ranged["trend_km_per_year"] is not None and ranged["degradation"] is None

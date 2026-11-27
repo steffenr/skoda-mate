@@ -1,6 +1,8 @@
 """Parked loss: SoC lost while the car stood still, as sessions plus aggregates."""
 from datetime import UTC, datetime, timedelta
 
+import pytest
+
 from skoda_mate import activity, costs, places, schema
 
 from .test_activity import _vid
@@ -306,3 +308,36 @@ def test_the_cost_basis_of_a_zero_kwh_stand_names_the_place_or_tariff_that_would
     assert garage2["cost_basis"] == "place" and garage2["cost"] == 0.6
     assert (garage0["cost_basis"], garage0["cost"]) == ("place", None)
     assert (nowhere["cost_basis"], nowhere["cost"]) == ("tariff-guess", None)
+
+
+# ---------------------------------------------------------------- pages
+
+def _many_stands(conn, vid, count):
+    """`count` twelve-hour stands, a day apart; stand n (from 0) starts on hour 24*n and drops one point."""
+    for n in range(count):
+        _stand(conn, vid, 24 * n, 24 * n + 12, 80, 79, step=1.0)
+
+
+def test_route_pages_the_sessions_newest_first_with_totals_over_the_whole_period():
+    c, conn, api, vid = connected()
+    _many_stands(conn, vid, 60)
+    conn.execute("UPDATE vehicles SET battery_kwh=77 WHERE id=?", (vid,))  # only stands with an energy figure count
+    conn.execute("UPDATE snapshots SET soc=95 WHERE vehicle_id=? AND recorded_at=?", (vid, _ts(12)))  # the oldest: a rise
+    conn.commit()
+    url = f"/api/vehicles/{vid}/parked-loss?from=2027-03-01&to=2027-05-31"
+    first = c.get(url).json()
+    assert (first["total"], first["limit"], first["offset"], len(first["sessions"])) == (60, 50, 0, 50)
+    assert first["sessions"][0]["start"] == _ts(24 * 59) and first["sessions"][-1]["start"] == _ts(24 * 10)
+    second = c.get(f"{url}&offset=50").json()
+    assert [s["start"] for s in second["sessions"]] == [_ts(24 * n) for n in range(9, -1, -1)]
+    assert second["aggregates"] == first["aggregates"]  # every page carries the whole period's figures
+    assert (first["aggregates"]["count"], first["aggregates"]["flagged"]) == (59, 1)
+    past = c.get(f"{url}&offset=500").json()
+    assert past["sessions"] == [] and past["total"] == 60
+    assert len(c.get(f"{url}&limit=5").json()["sessions"]) == 5
+
+
+@pytest.mark.parametrize("query", ["limit=0", "limit=201", "offset=-1"])
+def test_route_rejects_a_page_outside_its_bounds(query):
+    c, conn, api, vid = connected()
+    assert c.get(f"/api/vehicles/{vid}/parked-loss?{query}").status_code == 422

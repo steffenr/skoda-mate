@@ -15,6 +15,9 @@ DEFAULT_TARIFF = {"currency": "EUR", "home_kwh": 0.30, "public_ac_kwh": 0.55, "p
 # A place may set its own rate; any price field being set (or free) takes precedence over the tariff.
 PLACE_PRICE_FIELDS = ("price_kwh", "price_minute", "session_fee")
 
+# Charges that were read off other data, not measured while charging.
+INFERRED_SOURCES = ("inferred", "import-trip")
+
 
 def load_tariff(conn) -> dict:
     t = dict(DEFAULT_TARIFF)

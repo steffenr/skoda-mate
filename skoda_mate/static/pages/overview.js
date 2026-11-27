@@ -125,9 +125,10 @@ export default async function overview(root, ctx) {
       : empty(t('No charges yet'), t('Charges are detected while the car reports that it is charging.'), 'plug'), { ic: 'plug' });
 
     // --- parked loss, last seven days (sessions flagged as unrecorded charges are already out of the aggregates)
-    const pa = parked?.aggregates || {}, pRows = Array.isArray(parked?.sessions) ? parked.sessions : [], pWarn = pRows.filter((r) => r.warning).length;
+    // the counts come from the aggregates: `sessions` is only one page of the period
+    const pa = parked?.aggregates || {}, pWarn = pa.flagged || 0;
     // no stand to report: none long enough, or every one of them flagged as an unrecorded charge (then the warnings are counted)
-    const pUsable = pRows.some((r) => !r.warning);
+    const pUsable = (parked?.total || 0) > pWarn;
     const parkedCard = !parked ? null : card(t('Parked, last 7 days'), !pUsable
       ? h('div', { class: 'stack' }, h('p', { class: 'small muted' }, t('No parked stand long enough yet.'), ' ', t('A session needs at least six hours, a charge level at both ends and no charging or driving in between.')),
         pWarn ? h('div', { class: 'tiny muted' }, `${f.num(pWarn)} ${t('left out as likely unrecorded charges')}`) : null)
