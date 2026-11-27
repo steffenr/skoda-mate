@@ -41,16 +41,16 @@ Status per leapmotor-mate feature (from its README), checked against the officia
 | Range trend | Battery page, projected range at 100 % ([details](INSIGHTS.md#projected-range)) | Adapted (from the range the car reports; not battery health) |
 | Home Assistant via MQTT | Discovery with ~40 entities (sensors, tracker, Mate's own trip and charge values; buttons and charge-limit slider opt-in via "Allow commands from Home Assistant", no aux-heater start); set up in the dashboard with connection test and live status, reconnects by itself | Done |
 | Automation: MQTT field and event topics, webhooks | One retained topic per value, an event topic, and signed webhooks with retries and a delivery log under Settings → Automation ([details](WEBHOOKS.md)) | Done (events only for what Mate watched, not for inferred charges) |
-| Settings: units, language, theme | km/mi, English/German, light/dark/auto | Done |
+| Settings: units, language, theme | km/mi, seven languages, light/dark/auto | Done |
 | Login, setup wizard | First-run setup, dashboard login, encrypted API key | Done |
 | Diagnostics bundle, raw data | System page, redacted download, raw viewer | Done |
 | Backup / export | Database backup, CSV exports | Done |
 | Demo mode | `DEMO=1` | Done |
-| Languages | English, German (leapmotor-mate has 9) | Partly |
+| Languages | Seven: Danish, Dutch, English, Finnish, German, Norwegian, Swedish (leapmotor-mate has 9) | Partly |
 | Capabilities overview | Capabilities page: every operation and field, this car's support | Done (new) |
 
 Trip merging (with undo, import-safe) was built later.
 
 Deliberately not built:
 - **Time-of-use / dynamic prices:** they need the real charging power over time. Charges Mate did not watch (the usual case) only have a time window, so such a price would be a guess shown as a number. Worth adding once most charges are measured live.
-- **More languages without review:** about 1,400 texts per language, where wrong translations look finished and mislead. The translation framework is in place ([TRANSLATIONS.md](TRANSLATIONS.md)): a language is one file, checked for completeness and placeholders.
+- **Native review for the new languages:** about 1,400 texts per language, where wrong translations look finished and mislead. The catalogs are complete and checked for placeholders and plurals, but this batch is machine-drafted; [TRANSLATIONS.md](TRANSLATIONS.md) tracks the review state until a speaker checks each language.
