@@ -33,7 +33,8 @@ export default async function settings(root, ctx) {
     return card(t('Display'), h('div', { class: 'stack' },
       h('div', { class: 'grid g3' },
         group('b-units', t('Units'), [['km', t('Kilometres')], ['mi', t('Miles')]], 'units'),
-        group('b-lang', t('Language'), [['en', 'English'], ['de', 'Deutsch']], 'language'),
+        // each name in its own language, marked as such so a screen reader pronounces it
+        group('b-lang', t('Language'), S.languages.map((l) => [l.code, l.name, { lang: l.locale }]), 'language'),
         group('b-theme', t('Theme'), [['auto', t('Automatic')], ['light', t('Light')], ['dark', t('Dark')]], 'theme')),
       asyncButton(t('Save'), async () => {
         await put({ units: d.units, language: d.language, theme: d.theme });

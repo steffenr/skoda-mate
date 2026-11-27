@@ -55,8 +55,8 @@ export function seg(options, value, onChange, label) {
   const wrap = h('div', { class: 'seg', role: 'group', 'aria-label': label || null });
   const draw = (v) => {
     clear(wrap);
-    for (const [val, label] of options) {
-      wrap.append(h('button', { type: 'button', 'aria-pressed': String(val === v), onclick: () => { draw(val); onChange(val); } }, label));
+    for (const [val, label, attrs] of options) {
+      wrap.append(h('button', { ...attrs, type: 'button', 'aria-pressed': String(val === v), onclick: () => { draw(val); onChange(val); } }, label));
     }
   };
   draw(value);
