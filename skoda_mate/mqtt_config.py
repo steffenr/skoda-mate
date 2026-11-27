@@ -15,7 +15,7 @@ from .store import get_setting, set_setting
 KEY = "mqtt"
 # "commands": accept car commands from MQTT. Off unless the user ticks it: anyone who can publish to the broker could use them.
 DEFAULTS = {"enabled": False, "host": "", "port": 1883, "user": "", "prefix": "skoda_mate", "discovery": True, "commands": False,
-            "tls": False, "tls_insecure": False}
+            "tls": False, "tls_insecure": False, "publish_fields": True}
 PASSWORD_AGAIN = "Enter the password again: the broker address changed."
 PREFIX_RE = re.compile(r"^[A-Za-z0-9_-]{1,40}$")
 HOST_RE = re.compile(r"^[A-Za-z0-9._:\-\[\]]{1,253}$")  # names, IPv4, bracketed/plain IPv6
@@ -48,6 +48,7 @@ def validate(data: dict) -> dict:
     out["prefix"] = prefix
     out["discovery"] = bool(data.get("discovery", True))
     out["commands"] = bool(data.get("commands"))
+    out["publish_fields"] = bool(data.get("publish_fields", True))
     out["tls"] = bool(data.get("tls"))
     out["tls_insecure"] = bool(data.get("tls_insecure")) and out["tls"]
     if out["enabled"] and not host:

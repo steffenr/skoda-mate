@@ -159,6 +159,8 @@ extendDE({
   'a device tracker, so the car shows on the Home Assistant map.': 'ein Gerätetracker, damit das Auto auf der Home-Assistant-Karte erscheint.',
   'only if “Allow commands from Home Assistant” is ticked: buttons to start and stop charging, climate and ventilation, to stop the auxiliary heater, and a charge-limit slider. They use the same request budget as the Control page.': 'nur wenn „Befehle aus Home Assistant erlauben“ angehakt ist: Tasten zum Starten und Stoppen von Laden, Klima und Lüftung, zum Stoppen der Standheizung sowie ein Ladelimit-Regler. Sie nutzen dasselbe Anfragebudget wie die Seite „Steuerung“.',
   'Allow commands from Home Assistant': 'Befehle aus Home Assistant erlauben',
+  'Also publish one topic per value': 'Zusätzlich ein Topic pro Wert veröffentlichen',
+  'For tools other than Home Assistant: each value on its own retained topic, {prefix}/VIN/fields/…. Events are always published to {prefix}/VIN/events.': 'Für andere Werkzeuge als Home Assistant: jeder Wert auf einem eigenen, gespeicherten (retained) Topic, {prefix}/FIN/fields/…. Ereignisse werden immer an {prefix}/FIN/events gesendet.',
   'Buttons for charging, climate and ventilation and a charge-limit slider; at most one command every 30 s. The auxiliary heater can only be started on the Control page.': 'Tasten für Laden, Klima und Lüftung sowie ein Ladelimit-Regler; höchstens ein Befehl alle 30 s. Die Standheizung lässt sich nur auf der Seite „Steuerung“ starten.',
   'Anyone who can publish to your broker can then control these functions. Use broker ACLs and TLS.': 'Wer auf deinem Broker veröffentlichen kann, kann diese Funktionen dann steuern. Nutze Broker-ACLs und TLS.',
   'If something does not work': 'Wenn etwas nicht funktioniert',

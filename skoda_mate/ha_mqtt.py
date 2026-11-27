@@ -56,6 +56,7 @@ BUTTONS = [("start_charging", "Start charging"), ("stop_charging", "Stop chargin
 COMMANDS = frozenset([b[0] for b in BUTTONS] + ["set_charge_limit"])  # the only command names accepted over MQTT
 RETIRED_BUTTONS = ["start_aux_heating"]  # announced by older versions: removed from Home Assistant again
 CHARGE_LIMIT_RANGE = (50, 100)
+TIMESTAMP_FIELDS = frozenset(["captured_at"])  # published to their field topic on every poll
 COMMAND_INTERVAL_S = 30.0  # at most one MQTT command per car in this time; each one spends the car's ~20 requests/hour
 DISCOVERY_PREFIX = "homeassistant"  # Home Assistant's default; the MQTT integration's "discovery prefix" must match
 
@@ -64,7 +65,7 @@ def topics(prefix: str, vin: str) -> dict:
     base = f"{prefix}/{vin}"
     # cmd_result is deliberately NOT under cmd/: Mate subscribes to cmd/# and must not read its own answers back.
     return {"state": f"{base}/state", "avail": f"{prefix}/status", "cmd": f"{base}/cmd", "attrs": f"{base}/position",
-            "result": f"{base}/cmd_result"}
+            "result": f"{base}/cmd_result", "fields": f"{base}/fields", "events": f"{base}/events"}
 
 
 def result_payload(command: str, status: str, error: str | None = None, now: float | None = None) -> str:
@@ -129,11 +130,19 @@ def discovery(prefix: str, vin: str, name: str | None, model: str | None = None,
     return out
 
 
-def state_payload(snap: dict, extras: dict | None = None) -> str:
-    keys = [s[0] for s in SENSORS] + [b[0] for b in BINARY] + ["locked"]
-    out = {k: snap.get(k) for k in keys}
+def state_values(snap: dict, extras: dict | None = None) -> dict:
+    """Every published value by key; unknown is None. A reading read back from the database holds 0/1 for yes/no, so
+    those are turned into booleans again: both kinds of reading must publish the same."""
+    out = {s[0]: snap.get(s[0]) for s in SENSORS}
+    for key in [b[0] for b in BINARY] + ["locked"]:
+        value = snap.get(key)
+        out[key] = None if value is None else bool(value)
     out.update({k[0]: (extras or {}).get(k[0]) for k in EXTRAS})
-    return json.dumps(out)
+    return out
+
+
+def state_payload(snap: dict, extras: dict | None = None) -> str:
+    return json.dumps(state_values(snap, extras))
 
 
 def position_payload(snap: dict) -> str | None:
@@ -236,10 +245,13 @@ class Publisher:
     """
 
     def __init__(self, host, port, user, password, prefix, on_command=None, *, tls=False, tls_insecure=False, discovery=True,
-                 commands=False, extras=None, currency=lambda: "EUR", client_factory=None, clock=time.monotonic):
+                 commands=False, publish_fields=True, extras=None, currency=lambda: "EUR", client_factory=None,
+                 clock=time.monotonic):
         self.host, self.port, self.prefix, self.on_command = host, port, prefix, on_command
         self.discovery_on, self.commands_on, self.extras, self.currency = discovery, bool(commands), extras, currency
         self.clock = clock
+        self.fields_on = bool(publish_fields)
+        self.fields_sent: dict[str, dict[str, str]] = {}  # vin -> key -> the payload the broker has since this connect
         self.last_command: dict[str, float] = {}  # vin -> clock() of the last command taken from MQTT
         self.last_target: dict = {}
         self.vehicles: dict[str, tuple] = {}   # vin -> (name, model)
@@ -266,6 +278,7 @@ class Publisher:
         self.connected, self.error = True, None
         self.c.publish(f"{self.prefix}/status", "online", retain=True)
         with self._lock:
+            self.fields_sent.clear()  # a restarted broker may have lost them: publish every field again
             for vin in list(self.vehicles):
                 self._announce(vin)
             for vin, snap in list(self.last.items()):
@@ -351,11 +364,33 @@ class Publisher:
             extras = self.extras(vin) if self.extras else {}
         except Exception:
             extras = {}
-        self.c.publish(t["state"], state_payload(snap, extras), retain=True)
+        values = state_values(snap, extras)
+        self.c.publish(t["state"], json.dumps(values), retain=True)
+        if self.fields_on:
+            self._send_fields(vin, values)
         pos = position_payload(snap)
         if pos:
             self.c.publish(t["attrs"], pos, retain=True)
         self.last_publish = time.time()
+
+    def _send_fields(self, vin: str, values: dict) -> None:
+        """One retained topic per value, published when it changes (the car's timestamp every time). An unknown value
+        is an empty payload, which removes the retained one from the broker."""
+        sent = self.fields_sent.setdefault(vin, {})
+        base = topics(self.prefix, vin)["fields"]
+        for key, value in values.items():
+            payload = "" if value is None else json.dumps(value)
+            if key in TIMESTAMP_FIELDS or sent.get(key) != payload:
+                self.c.publish(f"{base}/{key}", payload, retain=True)
+                sent[key] = payload
+
+    def publish_events(self, vin: str, events: list[dict]) -> None:
+        """One message per event, not retained and not queued while the broker is away: an automation must never act
+        on an old event."""
+        if not self.connected:
+            return
+        for event in events:
+            self.c.publish(topics(self.prefix, vin)["events"], json.dumps(event), qos=0, retain=False)
 
     def publish_state(self, vin, snap, sections=None):
         self.last_target[vin] = snap.get("climate_target") or self.last_target.get(vin)

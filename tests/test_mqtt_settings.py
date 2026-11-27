@@ -34,7 +34,7 @@ class FakeClient:
     def tls_insecure_set(self, v): self.insecure = v
     def subscribe(self, t): self.subs.append(t)
 
-    def publish(self, topic, payload=None, retain=False):
+    def publish(self, topic, payload=None, retain=False, qos=0):
         self.pub.append((topic, payload))
         return types.SimpleNamespace(wait_for_publish=lambda timeout=None: None)
 
@@ -127,7 +127,7 @@ def test_publisher_announces_on_connect_republishes_after_reconnect_and_survives
     assert state["soc"] == 61 and state["last_trip_km"] == 12.3 and state["last_charge_cost"] == 6.82
     n = len(c.pub)
     pub.publish_state("VIN1", {"soc": 60})
-    assert len(c.pub) > n and json.loads(c.pub[-2][1] if c.pub[-1][0].endswith("position") else c.pub[-1][1])["soc"] == 60
+    assert [json.loads(p)["soc"] for t, p in c.pub[n:] if t == "sm/VIN1/state"] == [60]
     c.on_disconnect(c, None, {}, RC("Unspecified error"), None)   # the broker restarts ...
     assert pub.status()["state"] == "error"
     c.pub.clear(); c.broker_accepts()                                              # ... and Mate re-announces everything by itself

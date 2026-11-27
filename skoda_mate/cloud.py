@@ -10,7 +10,7 @@ import asyncio
 import logging
 from collections.abc import Callable
 
-from . import commands, costs, ha_mqtt, mqtt_config, places, recorder
+from . import automation, commands, costs, ha_mqtt, mqtt_config, places, recorder
 from .client import SkodaApi
 from .config import Config
 from .poller import Poller
@@ -50,6 +50,7 @@ class Cloud:
             vid = recorder.upsert_vehicle(self.conn, vin)
             if vin not in p.rt:
                 p.add_vehicle(vin, vid)
+        p.on_events = self.dispatch
         p.publisher = self._make_publisher(p)
         if p.publisher:
             for vin in vins:
@@ -74,6 +75,14 @@ class Cloud:
         if api:
             await api.close()
         self.poller, self.task, self.api = None, None, None
+
+    # ------------------------------------------------------------------ events
+    def dispatch(self, vid: int, events: list[dict]) -> None:
+        """Hand one reading's events to everyone who listens. Both listeners return at once."""
+        envelopes = [automation.envelope(self.conn, vid, e) for e in events]
+        publisher = self.poller.publisher if self.poller else None
+        if publisher and envelopes:
+            publisher.publish_events(envelopes[0]["vehicle"]["vin"], envelopes)
 
     # ------------------------------------------------------------------ MQTT / Home Assistant
     def mqtt_config(self) -> dict:
@@ -147,7 +156,7 @@ class Cloud:
             holder["pub"] = ha_mqtt.Publisher(
                 conf["host"], conf["port"], conf["user"], conf["password"], conf["prefix"], tls=conf["tls"],
                 tls_insecure=conf["tls_insecure"], discovery=conf["discovery"], commands=conf["commands"],
-                extras=self._extras, currency=lambda: costs.load_tariff(self.conn).get("currency", "EUR"),
+                publish_fields=conf["publish_fields"], extras=self._extras, currency=lambda: costs.load_tariff(self.conn).get("currency", "EUR"),
                 on_command=lambda vin, name, params: asyncio.run_coroutine_threadsafe(run_mqtt_command(vin, name, params), loop))
             return holder["pub"]
         except Exception as e:  # e.g. a TLS setup problem: the dashboard shows it instead of Mate failing
