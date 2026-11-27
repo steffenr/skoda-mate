@@ -5,6 +5,8 @@ import json
 
 from starlette.requests import Request
 
+from . import messages
+
 # FastAPI reads and parses a JSON body before the guard runs, so the size limit sits in front of everything. Signed-in
 # callers get room for the 8 MB history import (JSON-escaped); anyone else only needs a login form.
 MAX_BODY, MAX_ANON_BODY = 12 * 1024 * 1024, 64 * 1024
@@ -65,7 +67,8 @@ class BodyLimit:
 
     @staticmethod
     async def too_large(scope, send):
-        body = json.dumps({"detail": "The request is too large."}).encode()
+        body = json.dumps({"detail": messages.REQUEST_TOO_LARGE,
+                           "detail_i18n": messages.i18n(messages.REQUEST_TOO_LARGE)}).encode()
         await send({"type": "http.response.start", "status": 413,
                     "headers": [(b"content-type", b"application/json"), (b"content-length", str(len(body)).encode())]})
         await send({"type": "http.response.body", "body": body})

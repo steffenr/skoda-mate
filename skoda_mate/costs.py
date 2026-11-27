@@ -7,6 +7,7 @@ import json
 import math
 from contextlib import suppress
 
+from . import messages
 from .store import get_setting
 
 DEFAULT_TARIFF = {"currency": "EUR", "home_kwh": 0.30, "public_ac_kwh": 0.55, "public_dc_kwh": 0.79,
@@ -33,12 +34,12 @@ def clean_tariff(raw: dict) -> dict:
         if k in raw and raw[k] not in (None, ""):
             v = float(raw[k])
             if not 0 <= v <= 10:
-                raise ValueError(f"{k} must be between 0 and 10 per kWh")
+                raise ValueError(messages.TARIFF_PRICE_RANGE(key=k))
             out[k] = v
     if raw.get("currency"):
         cur = str(raw["currency"]).strip().upper()
         if not 1 <= len(cur) <= 4:
-            raise ValueError("currency must be a short code such as EUR")
+            raise ValueError(messages.TARIFF_CURRENCY)
         out["currency"] = cur
     for k in ("home_lat", "home_lon"):
         if k in raw:
@@ -46,7 +47,7 @@ def clean_tariff(raw: dict) -> dict:
     if "home_radius_m" in raw and raw["home_radius_m"] not in (None, ""):
         r = int(raw["home_radius_m"])
         if not 20 <= r <= 5000:
-            raise ValueError("home radius must be 20-5000 m")
+            raise ValueError(messages.TARIFF_HOME_RADIUS)
         out["home_radius_m"] = r
     return out
 

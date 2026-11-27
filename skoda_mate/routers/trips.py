@@ -4,7 +4,7 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
-from .. import importer, merge
+from .. import importer, merge, messages
 from ..deps import ContextDep
 from ..presenters import local_bound, rows, trip_out, vehicle
 
@@ -68,7 +68,7 @@ def merge_trips(vid: int, body: dict, ctx: ContextDep):
     try:
         tid = merge.merge(ctx.conn, vid, list(body.get("ids") or []))
     except (merge.MergeError, TypeError, ValueError) as e:
-        raise HTTPException(400, str(e)) from e
+        raise messages.UserError(400, e) from e
     return {"ok": True, "id": tid}
 
 
@@ -78,7 +78,7 @@ def unmerge_trip(vid: int, tid: int, ctx: ContextDep):
     try:
         return {"ok": True, "ids": merge.unmerge(ctx.conn, vid, tid)}
     except merge.MergeError as e:
-        raise HTTPException(400, str(e)) from e
+        raise messages.UserError(400, e) from e
 
 
 @router.post("/api/vehicles/{vid}/import/trips")
@@ -86,13 +86,13 @@ def import_trips(vid: int, body: ImportBody, ctx: ContextDep):
     """Import the MyŠkoda app's trip export (CSV). `dry_run` (the default) reports what would happen and writes nothing."""
     v = vehicle(ctx.conn, vid)
     if len(body.files) > MAX_IMPORT_FILES:
-        raise HTTPException(400, f"At most {MAX_IMPORT_FILES} files at once.")
+        raise messages.UserError(400, messages.IMPORT_TOO_MANY_FILES(n=MAX_IMPORT_FILES))
     if sum(len(str(f.get("text") or "")) for f in body.files) > MAX_IMPORT_CHARS:
-        raise HTTPException(413, "The files are too large (limit 8 MB in total).")
+        raise messages.UserError(413, messages.IMPORT_TOO_LARGE)
     try:
         return importer.run(ctx.conn, vid, v["vin"], body.files, body.tz, body.dry_run)
     except importer.ImportError_ as e:
-        raise HTTPException(400, str(e)) from e
+        raise messages.UserError(400, e) from e
 
 
 @router.put("/api/trips/{tid}/note")

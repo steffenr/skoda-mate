@@ -5,10 +5,10 @@ import json
 import math
 from dataclasses import asdict
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from pydantic import BaseModel
 
-from .. import costs, languages, places, store
+from .. import costs, languages, messages, places, store
 from ..deps import ContextDep
 from ..presenters import rows
 from ..store import get_setting, set_setting
@@ -51,7 +51,7 @@ def put_settings(body: SettingsBody, ctx: ContextDep):
         try:
             new = costs.clean_tariff(body.tariff)
         except (ValueError, TypeError) as e:
-            raise HTTPException(400, str(e)) from e
+            raise messages.UserError(400, e) from e
         set_setting(conn, "tariff", json.dumps({**ctx.tariff(), **new}))
         # Legacy clients still send the home coordinates with the tariff; keep the home place in step. An omitted,
         # cleared or non-finite coordinate is not a home: it leaves the place alone (SQLite stores NaN as NULL).
@@ -62,17 +62,17 @@ def put_settings(body: SettingsBody, ctx: ContextDep):
                              ("command_reserve", body.command_reserve, 0, 10)):
         if val is not None:
             if not lo <= val <= hi:
-                raise HTTPException(400, f"{key} must be between {lo} and {hi}")
+                raise messages.UserError(400, messages.SETTING_RANGE(key=key, lo=lo, hi=hi))
             set_setting(conn, key, str(val))
     for key, choice, allowed in (("units", body.units, ("km", "mi")), ("language", body.language, tuple(languages.BY_CODE)),
                                  ("theme", body.theme, ("auto", "light", "dark"))):
         if choice is not None:
             if choice not in allowed:
-                raise HTTPException(400, f"{key} must be one of {', '.join(allowed)}")
+                raise messages.UserError(400, messages.SETTING_CHOICE(key=key, choices=", ".join(allowed)))
             set_setting(conn, key, choice)
     if body.battery_kwh_default is not None:
         if not 10 <= body.battery_kwh_default <= 200:
-            raise HTTPException(400, "battery_kwh must be between 10 and 200")
+            raise messages.UserError(400, messages.BATTERY_RANGE)
         set_setting(conn, "battery_kwh", str(body.battery_kwh_default))
     conn.commit()
     p = ctx.poller

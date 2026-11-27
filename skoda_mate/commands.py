@@ -9,6 +9,8 @@ from __future__ import annotations
 import copy
 import re
 
+from . import messages
+
 CHARGE_MODES = ("MANUAL", "TIMER", "TIMER_CHARGING_WITH_CLIMATISATION", "PREFERRED_CHARGING_TIMES",
                 "ONLY_OWN_CURRENT", "IMMEDIATE_DISCHARGING", "HOME_STORAGE_CHARGING")
 DAYS = ("MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY")
@@ -47,13 +49,13 @@ COMMANDS: dict[str, dict] = {
 def _num(params: dict, key: str, lo: float, hi: float) -> float:
     v = params.get(key)
     if v is None or v == "":
-        raise CommandError(f"'{key}' is required")
+        raise CommandError(messages.CMD_REQUIRED(key=key))
     try:
         f = float(v)
     except (TypeError, ValueError):
-        raise CommandError(f"'{key}' must be a number") from None
+        raise CommandError(messages.CMD_NUMBER(key=key)) from None
     if not lo <= f <= hi:
-        raise CommandError(f"'{key}' must be between {lo:g} and {hi:g}")
+        raise CommandError(messages.CMD_RANGE(key=key, lo=f"{lo:g}", hi=f"{hi:g}"))
     return f
 
 
@@ -65,9 +67,9 @@ def _opt_num(params: dict, key: str, lo: float, hi: float) -> float | None:
 def check_supported(name: str, operations: list[str] | None) -> None:
     spec = COMMANDS.get(name)
     if spec is None:
-        raise CommandError(f"unknown command {name!r}")
+        raise CommandError(messages.CMD_UNKNOWN(name=repr(name)))
     if operations is not None and spec["op"] not in operations:
-        raise CommandError("This car does not support that operation.")
+        raise CommandError(messages.CMD_NOT_SUPPORTED)
 
 
 def build(name: str, params: dict | None, *, spin: str = "", raw_profiles: dict | None = None
@@ -76,7 +78,7 @@ def build(name: str, params: dict | None, *, spin: str = "", raw_profiles: dict 
     params = params or {}
     spec = COMMANDS.get(name)
     if spec is None:
-        raise CommandError(f"unknown command {name!r}")
+        raise CommandError(messages.CMD_UNKNOWN(name=repr(name)))
     op = spec["op"]
 
     if name == "set_charge_limit":
@@ -85,7 +87,7 @@ def build(name: str, params: dict | None, *, spin: str = "", raw_profiles: dict 
     if name == "set_charge_mode":
         mode = str(params.get("mode", "")).upper()
         if mode not in CHARGE_MODES:
-            raise CommandError("'mode' must be one of " + ", ".join(CHARGE_MODES))
+            raise CommandError(messages.CMD_CHARGE_MODE(choices=", ".join(CHARGE_MODES)))
         return op, {"chargeMode": mode}, {}
     if name == "start_climate":
         t = _num(params, "temperature", 15.5, 30)
@@ -95,7 +97,7 @@ def build(name: str, params: dict | None, *, spin: str = "", raw_profiles: dict 
         return op, body, {}
     if name == "start_aux_heating":
         if not spin:
-            raise CommandError("The auxiliary heater needs your S-PIN. Add it under Settings.")
+            raise CommandError(messages.CMD_NEEDS_SPIN)
         body = {"spin": spin}
         temp = _opt_num(params, "temperature", 15.5, 30)
         if temp is not None:
@@ -106,7 +108,7 @@ def build(name: str, params: dict | None, *, spin: str = "", raw_profiles: dict 
         if params.get("mode"):
             mode = str(params["mode"]).upper()
             if mode not in ("HEATING", "VENTILATION"):
-                raise CommandError("'mode' must be HEATING or VENTILATION")
+                raise CommandError(messages.CMD_AUX_MODE)
             body["startMode"] = mode
         return op, body, {}
     if name == "update_charging_profile":
@@ -118,31 +120,31 @@ def _profile_body(params: dict, raw_profiles: dict | None) -> tuple[dict, dict]:
     """The API takes the whole profile, so edit a copy of the last one the car reported."""
     pid = params.get("profile_id")
     if pid is None:
-        raise CommandError("'profile_id' is required")
+        raise CommandError(messages.CMD_PROFILE_REQUIRED)
     try:
         pid = int(pid)
     except (TypeError, ValueError):
-        raise CommandError("'profile_id' must be an integer") from None
+        raise CommandError(messages.CMD_PROFILE_INTEGER) from None
     current = next((p for p in (raw_profiles or {}).get("profiles", []) if p.get("id") == pid), None)
     if current is None:
-        raise CommandError("Unknown charging profile; refresh the data first.")
+        raise CommandError(messages.CMD_PROFILE_UNKNOWN)
     p = copy.deepcopy(current)
     s = p.setdefault("settings", {})
     if params.get("name") is not None:
         name = str(params["name"]).strip()
         if not name:
-            raise CommandError("'name' must not be empty")
+            raise CommandError(messages.CMD_NAME_EMPTY)
         p["name"] = name[:60]
     t = _opt_num(params, "target_soc", 1, 100)
     if t is not None:
         s["targetStateOfChargeInPercent"] = int(t)
     if params.get("max_current") is not None:
         if str(params["max_current"]).upper() not in ("REDUCED", "MAXIMUM"):
-            raise CommandError("'max_current' must be REDUCED or MAXIMUM")
+            raise CommandError(messages.CMD_MAX_CURRENT)
         s["maxChargingCurrent"] = str(params["max_current"]).upper()
     if params.get("auto_unlock") is not None:
         if str(params["auto_unlock"]).upper() not in ("PERMANENT", "OFF"):
-            raise CommandError("'auto_unlock' must be PERMANENT or OFF")
+            raise CommandError(messages.CMD_AUTO_UNLOCK)
         s["autoUnlockPlugWhenCharged"] = str(params["auto_unlock"]).upper()
     if params.get("min_soc_enabled") is not None or params.get("min_soc") is not None:
         m = s.setdefault("minBatteryStateOfCharge", {})
@@ -156,7 +158,7 @@ def _profile_body(params: dict, raw_profiles: dict | None) -> tuple[dict, dict]:
         for t_ in params["charging_times"]:
             st, en = str(t_.get("start", "")), str(t_.get("end", ""))
             if not (HHMM.match(st) and HHMM.match(en)):
-                raise CommandError("charging times need start and end as HH:mm")
+                raise CommandError(messages.CMD_CHARGING_TIMES)
             times.append({"id": int(t_["id"]), "enabled": bool(t_.get("enabled", True)), "startTime": st, "endTime": en})
         p["preferredChargingTimes"] = times
     if params.get("timers") is not None:
@@ -164,16 +166,16 @@ def _profile_body(params: dict, raw_profiles: dict | None) -> tuple[dict, dict]:
         for t_ in params["timers"]:
             tm = t_.get("time")
             if tm is not None and not HHMM.match(str(tm)):
-                raise CommandError("timer time must be HH:mm")
+                raise CommandError(messages.CMD_TIMER_TIME)
             typ = str(t_.get("type", "")).upper()
             if typ not in ("ONE_OFF", "RECURRING"):
-                raise CommandError("timer type must be ONE_OFF or RECURRING")
+                raise CommandError(messages.CMD_TIMER_TYPE)
             days = [str(d).upper() for d in (t_.get("recurring_on") or [])]
             if any(d not in DAYS for d in days):
-                raise CommandError("timer days must be MONDAY..SUNDAY")
+                raise CommandError(messages.CMD_TIMER_DAYS)
             one = t_.get("one_off_day")
             if one is not None and str(one).upper() not in DAYS:
-                raise CommandError("one_off_day must be MONDAY..SUNDAY")
+                raise CommandError(messages.CMD_ONE_OFF_DAY)
             timer = {"id": int(t_["id"]), "enabled": bool(t_.get("enabled", True)), "type": typ}
             if tm is not None:
                 timer["time"] = str(tm)

@@ -3,9 +3,9 @@ from __future__ import annotations
 
 import asyncio
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 
-from .. import ha_mqtt, mqtt_config
+from .. import ha_mqtt, messages, mqtt_config
 from ..deps import ContextDep
 
 router = APIRouter(prefix="/api/settings/mqtt")
@@ -21,7 +21,7 @@ async def mqtt_put(body: dict, ctx: ContextDep):
     try:
         mqtt_config.save(ctx.conn, ctx.box, body)
     except mqtt_config.MqttConfigError as e:
-        raise HTTPException(400, str(e)) from e
+        raise messages.UserError(400, e) from e
     ctx.cloud.apply_mqtt()
     return ctx.cloud.mqtt_payload()
 
@@ -34,9 +34,9 @@ async def mqtt_test(body: dict, ctx: ContextDep):
     try:
         clean = mqtt_config.validate({**body, "enabled": False})
     except mqtt_config.MqttConfigError as e:
-        raise HTTPException(400, str(e)) from e
+        raise messages.UserError(400, e) from e
     if not clean["host"]:
-        raise HTTPException(400, "Enter the broker address first.")
+        raise messages.UserError(400, messages.MQTT_BROKER_FIRST)
     if body.get("password"):
         password = str(body["password"])
     elif body.get("clear_password"):

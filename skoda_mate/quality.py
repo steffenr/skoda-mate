@@ -11,7 +11,7 @@ import json
 from contextlib import nullcontext
 from datetime import datetime, timedelta
 
-from . import activity, merge, recorder
+from . import activity, merge, messages, recorder
 
 # Repair action names (the allowlist of the fix endpoint is built from the same constants).
 CLOSE_OPEN_TRIPS = "close_open_trips"
@@ -367,7 +367,7 @@ def _atomic(conn):
 def fix(conn, vid: int, action: str, now_iso: str) -> dict:
     """Run one repair for one vehicle and log it. Raises ValueError("Unknown action.") for anything outside ACTIONS."""
     if action not in _FIXES:
-        raise ValueError("Unknown action.")
+        raise ValueError(messages.QUALITY_UNKNOWN_ACTION)
     run, message = _FIXES[action]
     with _atomic(conn):
         try:
@@ -385,7 +385,7 @@ def review(conn, vid: int, check: str, reviewed: bool, now_iso: str) -> dict:
     """Mark one check of one vehicle as reviewed at `now_iso` (again: the time moves forward) or clear the review, and
     log it. `missing_sections` also stores the names missing now. Raises ValueError("Unknown check.") outside CHECKS."""
     if check not in CHECKS:
-        raise ValueError("Unknown check.")
+        raise ValueError(messages.QUALITY_UNKNOWN_CHECK)
     with _atomic(conn):
         _review(conn, vid, check, reviewed, now_iso)
     return {"check": check, "reviewed_at": now_iso if reviewed else None}

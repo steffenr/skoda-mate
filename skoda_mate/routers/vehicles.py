@@ -1,9 +1,9 @@
 """The car list and one car's overview, capabilities and manual refresh."""
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 
-from .. import commands, features, recorder, store
+from .. import commands, features, messages, recorder, store
 from ..deps import ContextDep
 from ..presenters import HIDDEN_SECTIONS, charge_out, rows, snap_out, trip_out, vehicle
 
@@ -31,9 +31,9 @@ def update_vehicle(vid: int, body: dict, ctx: ContextDep):
         try:
             kwh = None if kwh == "" else float(kwh)
         except (TypeError, ValueError):
-            raise HTTPException(400, "battery_kwh must be a number") from None
+            raise messages.UserError(400, messages.BATTERY_NUMBER) from None
         if kwh is not None and not 10 <= kwh <= 200:
-            raise HTTPException(400, "battery_kwh must be between 10 and 200")
+            raise messages.UserError(400, messages.BATTERY_RANGE)
         ctx.conn.execute("UPDATE vehicles SET battery_kwh=? WHERE id=?", (kwh, vid))
         ctx.conn.commit()
     return {"ok": True}
@@ -85,7 +85,7 @@ async def refresh(vid: int, ctx: ContextDep):
     v = vehicle(ctx.conn, vid)
     p = ctx.poller
     if p is None or v["vin"] not in p.rt:
-        raise HTTPException(503, "Not connected to MyŠkoda yet. Open Settings.")
+        raise messages.UserError(503, messages.NOT_CONNECTED)
     res = await p.poll(v["vin"], reason="manual")
     res["poller"] = p.status(v["vin"])
     return res

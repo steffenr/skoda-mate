@@ -10,13 +10,13 @@ import bisect
 import statistics
 from datetime import UTC, date, datetime, timedelta
 
-from . import costs, places, presenters
+from . import costs, messages, places, presenters
 
 KINDS = ("drive", "charge", "climate", "aux", "vent", "parked", "unknown")
 CAP_DAYS = 31  # the timeline refuses a longer range
-REVERSED_RANGE = "The start must be before the end."  # the 400 for a reversed range (German in static/i18n/de.json)
-LIMIT_31 = "The range is limited to 31 days."  # German in static/i18n/de.json
-BAD_MIN_HOURS = "min_hours must be greater than 0."  # German in static/i18n/de.json
+REVERSED_RANGE = messages.RANGE_REVERSED  # the 400 for a reversed range
+LIMIT_31 = messages.RANGE_LIMIT_31
+BAD_MIN_HOURS = messages.MIN_HOURS_POSITIVE
 GAP_H = 6.0  # a reading gap longer than this is unknown, not parked
 
 

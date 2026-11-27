@@ -14,7 +14,7 @@ from collections.abc import Callable
 from contextlib import suppress
 from dataclasses import dataclass, field
 
-from . import automation, commands, normalise, recorder, store
+from . import automation, commands, messages, normalise, recorder, store
 from .budget import RequestBudget
 from .client import ApiError, RateInfo
 
@@ -200,13 +200,13 @@ class Poller:
         returned as {ok: False, ...} and logged, so the dashboard can show Škoda's own reason."""
         r = self.rt.get(vin)
         if r is None:
-            raise commands.CommandError("Unknown vehicle")
+            raise commands.CommandError(messages.CMD_UNKNOWN_VEHICLE)
         commands.check_supported(name, r.operations)
         raw = (store.load_sections(self.conn, r.vid).get("profiles") or None)
         op, body, path_args = commands.build(name, params, spin=self.spin_getter(), raw_profiles=raw)
         wait = r.budget.wait_s(command=True)
         if wait > 0:
-            raise commands.CommandError(f"Škoda's request limit is used up; try again in {round(wait / 60) or 1} min.")
+            raise commands.CommandError(messages.CMD_BUDGET(minutes=round(wait / 60) or 1))
         now = r.budget.spend()
         try:
             res = await self.api.operate(vin, op, body, **path_args)

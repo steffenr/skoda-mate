@@ -4,7 +4,7 @@ import { h, mount, clear } from './lib/dom.js';
 import { icon } from './lib/icons.js';
 import { asyncButton, banner, button, chip, empty, loading, modal, toast } from './lib/ui.js';
 import * as f from './lib/format.js';
-import { setLang, t } from './i18n.js';
+import { setLang, t, tm } from './i18n.js';
 
 // ------------------------------------------------------------------ API
 async function request(method, path, body) {
@@ -23,7 +23,7 @@ async function request(method, path, body) {
     const missing = res.status === 404 && path.startsWith('/api/') && detail === 'Not Found';
     const err = new Error(missing
       ? t('The server does not know this feature yet. Mate is probably still running an older version: restart it (ddev restart, or docker compose up -d --build).')
-      : detail || `Request failed (${res.status})`);
+      : (data?.detail_i18n ? tm(data.detail_i18n) : detail) || `Request failed (${res.status})`);
     err.status = res.status;
     throw err;
   }

@@ -7,7 +7,7 @@ import re
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
-from .. import recorder
+from .. import messages, recorder
 from ..auth import SetupError, normalise_setup_code
 from ..client import normalise_vin, valid_vin
 from ..context import client_ip
@@ -44,13 +44,13 @@ def parse_vins(raw) -> list[str]:
         if not v:
             continue
         if not valid_vin(v):
-            raise ValueError(f"'{item.strip()}' is not a valid VIN (17 characters, letters and digits, no I, O or Q).")
+            raise ValueError(messages.INVALID_VIN(vin=item.strip()))
         if v not in out:
             out.append(v)
     if not out:
-        raise ValueError("Enter at least one VIN.")
+        raise ValueError(messages.ENTER_VIN)
     if len(out) > MAX_VINS:
-        raise ValueError(f"At most {MAX_VINS} vehicles.")
+        raise ValueError(messages.TOO_MANY_VEHICLES(n=MAX_VINS))
     return out
 
 
@@ -91,7 +91,7 @@ def setup_login(body: SetupLoginBody, request: Request, ctx: ContextDep):
     try:
         ctx.auth.set_credentials(ctx.conn, body.email, body.password)
     except SetupError as e:
-        raise HTTPException(400, str(e)) from e
+        raise messages.UserError(400, e) from e
     ctx.auth.clear(ip)
     ctx.forget_setup_code()  # used up; setup-code.txt goes too
     return ctx.session_response({"ok": True}, request)  # signs the caller in with the new credentials
@@ -101,19 +101,19 @@ def setup_login(body: SetupLoginBody, request: Request, ctx: ContextDep):
 async def setup_skoda(body: ApiLoginBody, ctx: ContextDep):
     """Try the API key against every VIN for real; only a working combination is stored."""
     if ctx.demo:
-        raise HTTPException(400, "Demo mode: no account needed. Start without DEMO=1 to connect your car.")
+        raise messages.UserError(400, messages.DEMO_NO_ACCOUNT)
     if not ctx.auth.enabled:
-        raise HTTPException(400, "Create the dashboard login first.")
+        raise messages.UserError(400, messages.CREATE_LOGIN_FIRST)
     key = body.api_key.strip()
     if len(key) < 8 or re.search(r"\s", key):
-        raise HTTPException(400, "That does not look like an API key. Copy it completely from the MyŠkoda app.")
+        raise messages.UserError(400, messages.NOT_AN_API_KEY)
     try:
         vins = parse_vins(body.vins)
     except ValueError as e:
-        raise HTTPException(400, str(e)) from e
+        raise messages.UserError(400, e) from e
     pin = None if body.spin is None else body.spin.strip()
     if pin and not (pin.isdigit() and len(pin) == 4):
-        raise HTTPException(400, "The S-PIN is 4 digits (leave it empty if you do not use the auxiliary heater).")
+        raise messages.UserError(400, messages.SPIN_DIGITS_OR_EMPTY)
     new_api = ctx.api_factory(key)
     trial = Poller(ctx.conn, new_api, spin_getter=lambda: pin or "")
     created = []
@@ -128,7 +128,7 @@ async def setup_skoda(body: ApiLoginBody, ctx: ContextDep):
             for v in created:  # leave nothing behind for a VIN that never answered
                 ctx.conn.execute("DELETE FROM vehicles WHERE vin=? AND id NOT IN (SELECT vehicle_id FROM snapshots)", (v,))
             ctx.conn.commit()
-            raise HTTPException(400, f"{vin[:3]}…{vin[-4:]}: {res['error']}")
+            raise messages.UserError(400, messages.VIN_ERROR(vin=f"{vin[:3]}…{vin[-4:]}", error=res["error"]))
     await ctx.cloud.stop()  # only now: a failed attempt above must not disturb a working connection
     save_api_login(ctx.conn, ctx.box, key, vins, pin)  # pin=None keeps a previously stored S-PIN
     ctx.cloud.start(new_api, vins, trial)  # the trial poller already holds fresh data and its next poll time
@@ -141,15 +141,15 @@ async def setup_add_vehicle(body: dict, ctx: ContextDep):
     creds = load_api_login(ctx.conn, ctx.box)
     p = ctx.poller
     if not creds or p is None:
-        raise HTTPException(400, "Connect your API key first.")
+        raise messages.UserError(400, messages.CONNECT_KEY_FIRST)
     try:
         (vin,) = parse_vins(body.get("vin", ""))
     except ValueError as e:
-        raise HTTPException(400, str(e) if "VIN" in str(e) or "valid" in str(e) else "Enter exactly one VIN.") from e
+        raise messages.UserError(400, e if "VIN" in str(e) or "valid" in str(e) else messages.ENTER_ONE_VIN) from e
     if vin in creds[1]:
-        raise HTTPException(400, "That car is already connected.")
+        raise messages.UserError(400, messages.CAR_ALREADY_CONNECTED)
     if len(creds[1]) >= MAX_VINS:
-        raise HTTPException(400, f"At most {MAX_VINS} vehicles.")
+        raise messages.UserError(400, messages.TOO_MANY_VEHICLES(n=MAX_VINS))
     vid = recorder.upsert_vehicle(ctx.conn, vin)
     p.add_vehicle(vin, vid)
     res = await p.poll(vin, reason="setup")  # one real request proves the key covers this car
@@ -158,7 +158,7 @@ async def setup_add_vehicle(body: dict, ctx: ContextDep):
         if not ctx.conn.execute("SELECT 1 FROM snapshots WHERE vehicle_id=?", (vid,)).fetchone():
             ctx.conn.execute("DELETE FROM vehicles WHERE id=?", (vid,))
             ctx.conn.commit()
-        raise HTTPException(400, f"{vin[:3]}…{vin[-4:]}: {res['error']}")
+        raise messages.UserError(400, messages.VIN_ERROR(vin=f"{vin[:3]}…{vin[-4:]}", error=res["error"]))
     save_api_login(ctx.conn, ctx.box, creds[0], [*creds[1], vin], None)
     if p.publisher:
         p.publisher.announce(vin, ctx.cloud.vehicle_name(vin))
@@ -171,9 +171,9 @@ async def setup_remove_vehicle(vin: str, ctx: ContextDep):
     creds = load_api_login(ctx.conn, ctx.box)
     vin = normalise_vin(vin)
     if not creds or vin not in creds[1]:
-        raise HTTPException(404, "That car is not connected.")
+        raise messages.UserError(404, messages.CAR_NOT_CONNECTED)
     if len(creds[1]) == 1:
-        raise HTTPException(400, "This is the only car. Use Disconnect to remove the API key.")
+        raise messages.UserError(400, messages.ONLY_CAR)
     save_api_login(ctx.conn, ctx.box, creds[0], [v for v in creds[1] if v != vin], None)
     if ctx.poller is not None:
         ctx.poller.remove_vehicle(vin)
@@ -184,10 +184,10 @@ async def setup_remove_vehicle(vin: str, ctx: ContextDep):
 def setup_spin(body: SpinBody, ctx: ContextDep):
     pin = body.spin.strip()
     if pin and not (pin.isdigit() and len(pin) == 4):
-        raise HTTPException(400, "The S-PIN is 4 digits.")
+        raise messages.UserError(400, messages.SPIN_DIGITS)
     creds = load_api_login(ctx.conn, ctx.box)
     if not creds:
-        raise HTTPException(400, "Connect your API key first.")
+        raise messages.UserError(400, messages.CONNECT_KEY_FIRST)
     save_api_login(ctx.conn, ctx.box, creds[0], creds[1], pin)
     return {"ok": True, "spin_set": bool(pin)}
 

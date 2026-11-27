@@ -11,7 +11,7 @@ import sqlite3
 from bisect import bisect_right
 from datetime import datetime
 
-from . import costs, store
+from . import costs, messages, store
 
 KINDS = ("home", "work", "place")
 MIN_RADIUS_M = 20
@@ -170,7 +170,7 @@ def create(conn, data: dict) -> dict:
     except sqlite3.IntegrityError as e:
         conn.rollback()
         if "geofences.kind" in str(e) or "idx_geofences_one_home" in str(e):
-            raise PlaceConflict("Only one home place is allowed.") from None
+            raise PlaceConflict(messages.PLACE_ONE_HOME) from None
         raise
     place_id = cur.lastrowid
     conn.commit()
@@ -188,11 +188,11 @@ def update(conn, place_id: int, data: dict) -> dict:
         raise PlaceNotFound("Place not found.")
     kind = str(data.get("kind") or "place") if "kind" in data else current["kind"]
     if current["kind"] == "home" and kind != "home":
-        raise PlaceError("The home place cannot change its kind.")
+        raise PlaceError(messages.PLACE_HOME_KIND)
     if kind == "home" and current["kind"] != "home":
         other = conn.execute("SELECT 1 FROM geofences WHERE kind='home' AND id<>? LIMIT 1", (place_id,)).fetchone()
         if other:
-            raise PlaceConflict("Only one home place is allowed.")
+            raise PlaceConflict(messages.PLACE_ONE_HOME)
     changes: dict = {}
     if "name" in data:
         changes["name"] = str(data["name"] or "").strip()
@@ -215,7 +215,7 @@ def update(conn, place_id: int, data: dict) -> dict:
     except sqlite3.IntegrityError as e:
         conn.rollback()
         if "geofences.kind" in str(e) or "idx_geofences_one_home" in str(e):
-            raise PlaceConflict("Only one home place is allowed.") from None
+            raise PlaceConflict(messages.PLACE_ONE_HOME) from None
         raise
     conn.commit()
     assign_all(conn)
@@ -231,7 +231,7 @@ def delete(conn, place_id: int) -> dict[str, int]:
     if place is None:
         raise PlaceNotFound("Place not found.")
     if place["kind"] == "home":
-        raise PlaceError("The home place cannot be deleted.")
+        raise PlaceError(messages.PLACE_HOME_DELETE)
     trips = conn.execute("SELECT COUNT(*) FROM trips WHERE start_geofence_id=? OR end_geofence_id=?",
                          (place_id, place_id)).fetchone()[0]
     charges = conn.execute("SELECT COUNT(*) FROM charges WHERE geofence_id=?", (place_id,)).fetchone()[0]

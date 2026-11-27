@@ -53,6 +53,18 @@ export function tn(one, other, n, vars) {
   return fill(english(new Intl.PluralRules('en').select(Number(n)) === 'one' ? one : other), values);
 }
 
+/** A backend message, {message, params}; a parameter that is a message itself is translated too. */
+export function tm({ message, params = {} }) {
+  const vars = Object.fromEntries(Object.entries(params).map(([k, v]) => [k, v && typeof v === 'object' && v.message ? tm(v) : v]));
+  return t(message, vars);
+}
+
+/** A text field of a server answer in the user's language: obj.error_i18n if the server sent one, else obj.error as is. */
+export function tx(obj, field = 'error') {
+  const template = obj?.[`${field}_i18n`];
+  return template ? tm(template) : obj?.[field] ?? null;
+}
+
 /** Marks a text that reaches t() through a variable, so the extractor sees it. */
 export const N_ = (key) => key;
 export const hasKey = (key) => Object.hasOwn(current, key);
