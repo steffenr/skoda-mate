@@ -6,7 +6,11 @@ import { assemble, languages, lint, problemLines, readKeys } from './i18n_lib.mj
 
 const [code, folder, out] = process.argv.slice(2);
 if (!code || !folder) { console.error('usage: node i18n_assemble.mjs <code> <folder> [<output file>]'); process.exit(2); }
-const names = fs.readdirSync(folder).filter((f) => new RegExp(`^${code}\\.part\\d+\\.json$`).test(f)).sort((a, b) => a.localeCompare(b, 'en', { numeric: true }));
+// plain string checks, so no regular expression is built from the command-line argument
+const prefix = `${code}.part`;
+const names = fs.readdirSync(folder)
+  .filter((f) => f.startsWith(prefix) && f.endsWith('.json') && /^\d+$/.test(f.slice(prefix.length, -'.json'.length)))
+  .sort((a, b) => a.localeCompare(b, 'en', { numeric: true }));
 if (!names.length) { console.error(`no ${code}.part<n>.json in ${folder}`); process.exit(2); }
 const { backend, frontend } = readKeys();
 const keys = { ...backend, ...frontend };
