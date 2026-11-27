@@ -51,7 +51,7 @@ export const PAGES = [
   { path: 'map', name: 'map', label: 'Map', icon: 'map' },
   { path: 'places', name: 'places', label: 'Places', icon: 'pin' },
   { path: 'places/:id', name: 'place', section: 'places' },
-  { path: 'events', name: 'events', label: 'Events', icon: 'activity' },
+  { path: 'events', name: 'events', label: 'Activity', icon: 'activity' },
   { path: 'settings', name: 'settings', label: 'Settings', icon: 'settings', sepBefore: true },
   { path: 'system', name: 'system', label: 'System', icon: 'shield', pattern: 'system(?:/(status|capabilities|calls|diagnostics))?' },
   { path: 'import', name: 'import', section: 'trips' },

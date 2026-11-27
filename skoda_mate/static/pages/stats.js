@@ -4,6 +4,8 @@ import { banner, button, card, chip, empty, loading, modal, seg, stat, table } f
 import { icon } from '../lib/icons.js';
 import { barChart } from '../lib/charts.js';
 import * as f from '../lib/format.js';
+import { monthsAgo } from '../lib/dates.js';
+import { belowFloor, floorValue, kwhText, medianLossStat } from '../lib/floor.js';
 import { extendDE, t } from '../i18n.js';
 
 extendDE({
@@ -45,6 +47,15 @@ extendDE({
   'Odometer (lifetime)': 'Kilometerstand (gesamt)', 'measured by Mate since': 'von Mate gemessen seit', 'reported by the car': 'vom Auto gemeldet',
   'These statistics cover only what Mate has recorded since':'Diese Statistik umfasst nur, was Mate seit dem', 'of the': 'von den',
   'the car has driven in total (odometer). Škoda provides no trip history from before that.': 'insgesamt gefahrenen (Kilometerstand) erfasst hat. Škoda liefert keine Fahrten aus der Zeit davor.',
+  'View': 'Ansicht', 'Place': 'Ort', 'Hours': 'Stunden', 'SoC': 'Ladestand',
+  'Last 7 days': 'Letzte 7 Tage', 'Last 30 days': 'Letzte 30 Tage', 'Parked sessions': 'Standzeiten',
+  'Likely an unrecorded charge': 'Wahrscheinlich ein nicht erfasster Ladevorgang',
+  'No parked sessions': 'Keine Standzeiten',
+  'A session needs at least six hours, a charge level at both ends and no charging or driving in between.': 'Eine Standzeit braucht mindestens sechs Stunden, einen Ladestand an beiden Enden und kein Laden oder Fahren dazwischen.',
+  'Could not load parked loss': 'Standverlust konnte nicht geladen werden',
+  'The charge level is a whole percent, so a loss below one percent is not measurable (below the detection floor).': 'Der Ladestand ist eine ganze Prozentzahl, daher ist ein Verlust unter einem Prozent nicht messbar (unter der Nachweisgrenze).',
+  'One percent is roughly': 'Ein Prozent entspricht etwa',
+  'Costs are estimates. Sessions marked as a likely unrecorded charge are left out of the figures above.': 'Kosten sind Schätzungen. Standzeiten, die als wahrscheinlich nicht erfasster Ladevorgang markiert sind, fehlen in den Zahlen oben.',
 });
 
 const MI = 0.621371;
@@ -53,12 +64,29 @@ const sum = (rows, k) => rows.reduce((a, r) => a + (r[k] || 0), 0);
 export default async function stats(root, ctx) {
   ctx.setTitle(t('Statistics'));
   const base = `/api/vehicles/${ctx.vid}`;
-  let months = +(sessionStorage.getItem('b-stats-months') || 12);
+  // Per-viewer conveniences: the period and the tab survive navigation; both work without sessionStorage.
+  const recall = (key) => { try { return sessionStorage.getItem(key); } catch { return null; } };
+  const remember = (key, v) => { try { sessionStorage.setItem(key, v); } catch { /* optional */ } };
+  let months = +(recall('b-stats-months') || 12);
   if (![6, 12, 0].includes(months)) months = 12;
   let data = null;
+  let tab = recall('b-stats-tab') === 'parked' ? 'parked' : 'overview';
+  let parked = null;
+  let parkedSeq = 0;  // only the newest parked-loss request may draw: a slow 12-month answer must not overwrite 6 months
 
-  const fail = (e) => mount(root, h('div', { class: 'card' }, banner('bad', `${t('Could not load statistics')}: ${e.message}`),
-    h('div', { style: { marginTop: '12px' } }, button(t('Try again'), { ic: 'refresh', onClick: load }))));
+  // The tab control stays in every state (loading, error, content): a failing tab never traps the viewer on it.
+  const tabBar = () => h('div', { class: 'row', style: { marginBottom: '12px' } }, seg([['overview', t('Overview')], ['parked', t('Parked')]], tab,
+    (v) => { tab = v; remember('b-stats-tab', v); show(); }, t('View')));
+  const shell = (...body) => mount(root, tabBar(), ...body);
+  const fail = (e, message, retry) => shell(h('div', { class: 'card' }, banner('bad', `${message}: ${e.message}`),
+    h('div', { style: { marginTop: '12px' } }, button(t('Try again'), { ic: 'refresh', onClick: retry }))));
+
+  // The period control, one for both tabs; `onChange` redraws or reloads the active tab.
+  function periodControl(onChange) {
+    const period = seg([[6, t('6 months')], [12, t('12 months')], [0, t('all')]], months, (v) => { months = v; remember('b-stats-months', v); onChange(); });
+    period.setAttribute('aria-labelledby', 'b-period-label');
+    return [h('span', { class: 'small muted', id: 'b-period-label' }, t('Period')), period];
+  }
 
   // The small (i) next to the distance figures: what the number really is, and why it can be incomplete.
   // The intervals are settings: say the ones in use, and where to change them.
@@ -100,13 +128,70 @@ export default async function stats(root, ctx) {
       kwh_100km: drivenKm > 0 && driven > 0 ? (driven / drivenKm) * 100 : null, cost_per_100km: km > 0 && cost > 0 ? (cost / km) * 100 : null };
   }
 
+  // The page: the tab control, then the active tab's body. Overview is unchanged apart from the tab control.
   function draw() {
+    shell(...(tab === 'parked' ? renderParked() : renderOverview()));
+  }
+
+  // Show the active tab. Parked asks only for parked-loss and Overview only for stats, so neither one's failure blocks the other.
+  function show() {
+    parkedSeq++;  // an answer that is still on its way for the tab we left must not draw
+    if (tab === 'parked') return loadParked();
+    if (data) return draw();
+    return loadStats();
+  }
+
+  const isoDay = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+  function parkedQuery() {
+    const today = new Date(), from = monthsAgo(today, months);
+    return new URLSearchParams({ from: months ? isoDay(from) : '1970-01-01', to: isoDay(today), tz_offset: String(today.getTimezoneOffset()) });
+  }
+
+  async function loadParked() {
+    const seq = ++parkedSeq;
+    shell(loading());
+    try {
+      const out = await ctx.api.get(`${base}/parked-loss?${parkedQuery()}`);
+      if (seq === parkedSeq) { parked = out; draw(); }
+    } catch (e) { if (seq === parkedSeq) fail(e, t('Could not load parked loss'), loadParked); }
+  }
+
+  function renderParked() {
+    const header = h('div', { class: 'row' }, ...periodControl(loadParked));
+    const cur = ctx.currency, a = parked?.aggregates || {}, rows = parked?.sessions || [];
+    if (!rows.length) return [header, empty(t('No parked sessions'), t('A session needs at least six hours, a charge level at both ends and no charging or driving in between.'), 'clock')];
+    const dash = '–';
+    const totals = h('div', { class: 'grid auto' },
+      card(null, medianLossStat(a.median_kwh_per_day)),
+      card(null, stat(t('Parked sessions'), a.count != null ? f.num(a.count) : dash, { ic: 'clock' })),
+      // likewise an energy total of exactly zero; null (no stand counted in that window) stays a dash
+      card(null, stat(t('Energy'), a.kwh === 0 ? floorValue() : f.kwh(a.kwh), { ic: 'bolt',
+        sub: a.kwh_7d != null || a.kwh_30d != null ? `${t('Last 7 days')} ${kwhText(a.kwh_7d)} · ${t('Last 30 days')} ${kwhText(a.kwh_30d)}` : null })),
+      card(null, stat(t('Cost'), a.cost != null ? f.money(a.cost, cur) : dash, { ic: 'coin' })));
+    const note = h('p', { class: 'small muted' }, t('The charge level is a whole percent, so a loss below one percent is not measurable (below the detection floor).'),
+      parked.detection_floor_kwh != null ? ` ${t('One percent is roughly')} ${f.kwh(parked.detection_floor_kwh, 2)}.` : null, ' ',
+      t('Costs are estimates. Sessions marked as a likely unrecorded charge are left out of the figures above.'));
+    const tbl = table([
+      { label: t('Start'), render: (r) => h('div', null, f.dateTime(r.start), r.warning ? h('div', null, chip(t('Likely an unrecorded charge'), 'warn', 'info')) : null), cls: 'nowrap' },
+      { label: t('Place'), render: (r) => r.place || dash },
+      { label: t('Hours'), render: (r) => f.num(r.hours, 1), num: true },
+      { label: t('SoC'), render: (r) => (r.start_soc != null && r.end_soc != null ? `${r.start_soc} → ${r.end_soc} %` : dash), num: true, cls: 'nowrap' },
+      // A flagged row (likely an unrecorded charge) is not a loss: no energy, rate or cost is shown for it. A stand below the
+      // floor says so once, in the energy column; its rate is a dash, not a second copy of the sentence.
+      { label: 'kWh', render: (r) => (r.warning ? dash : r.below_detection_floor ? belowFloor() : f.kwh(r.kwh, 1)), num: true },
+      { label: t('kWh/day'), render: (r) => (r.warning || r.below_detection_floor || r.kwh_per_day == null ? dash : f.num(r.kwh_per_day, 1)), num: true },
+      { label: t('Cost'), render: (r) => (!r.warning && r.cost != null ? f.money(r.cost, cur) : dash), num: true, cls: 'nowrap' },
+    ], rows, { label: t('Parked sessions'), emptyNode: empty(t('No parked sessions')) });
+    return [header, totals, card(t('Parked sessions'), tbl, { ic: 'clock' }), note];
+  }
+
+  function renderOverview() {
     const cur = data.currency || ctx.currency;
     const all = data.monthly || [];
     const rows = months ? all.slice(-months) : all;
     if (!all.length && !(data.totals?.trips || data.totals?.charges)) {
-      mount(root, empty(t('No statistics yet'), t('Statistics appear once Mate has recorded trips and charges.'), 'chart'));
-      return;
+      return [empty(t('No statistics yet'), t('Statistics appear once Mate has recorded trips and charges.'), 'chart')];
     }
     const tot = totalsFor(rows);
     const knownPlace = (tot.home_kwh || 0) + (tot.public_kwh || 0);  // charges at an unknown place count as neither
@@ -115,10 +200,8 @@ export default async function stats(root, ctx) {
     const cats = (fn) => rows.map((r) => ({ label: f.monthLabel(r.month), tip: f.monthLabel(r.month), values: fn(r) }));
     const anyGuess = rows.some((r) => r.cost_known === false);
 
-    const period = seg([[6, t('6 months')], [12, t('12 months')], [0, t('all')]], months, (v) => { months = v; try { sessionStorage.setItem('b-stats-months', v); } catch { /* optional */ } draw(); });
-    period.setAttribute('aria-labelledby', 'b-period-label');
     const header = h('div', { class: 'row between' },
-      h('div', { class: 'row' }, h('span', { class: 'small muted', id: 'b-period-label' }, t('Period')), period),
+      h('div', { class: 'row' }, ...periodControl(draw)),
       h('div', { class: 'row' },
         h('a', { class: 'btn sm', href: `${base}/export/trips.csv`, download: 'skoda-mate-trips.csv' }, t('Export trips (CSV)')),
         h('a', { class: 'btn sm', href: `${base}/export/charges.csv`, download: 'skoda-mate-charges.csv' }, t('Export charges (CSV)'))));
@@ -167,7 +250,7 @@ export default async function stats(root, ctx) {
       ? banner('info', `${t('These statistics cover only what Mate has recorded since')} ${f.date(data.totals.since)}: ${f.km(all_km)} ${t('of the')} ${f.km(odo)} ${t('the car has driven in total (odometer). Škoda provides no trip history from before that.')}`) : null;
 
     const homeHint = needsHome ? banner('info', t('Set your home position to split charges into Home and Public.'), ' ', h('a', { href: '#/prices' }, t('Open charge prices'))) : null;
-    mount(root, coverage, homeHint, ctx.overview.needs_capacity ? banner('info', t('Škoda does not report the battery size. Enter it to get energy, consumption and costs.'), ' ', h('a', { href: '#/settings' }, t('Set battery capacity'))) : null,
+    return [coverage, homeHint, ctx.overview.needs_capacity ? banner('info', t('Škoda does not report the battery size. Enter it to get energy, consumption and costs.'), ' ', h('a', { href: '#/settings' }, t('Set battery capacity'))) : null,
       header, totals, charts, card(t('Monthly overview'), tbl, { ic: 'calendar' }),
       card(t('How these numbers are made'), h('ul', { class: 'b-notes small' },
         h('li', null, t('Trips are derived by Mate from the odometer and the parked/driving state, not delivered by Škoda.')),
@@ -175,13 +258,18 @@ export default async function stats(root, ctx) {
         h('li', null, t('Consumption is the energy used while driving divided by distance, so it is an estimate.')),
         h('li', null, t('Škoda offers no charging history. Charges Mate sees live are measured; charges it did not see are inferred from the battery level rising between trips or readings (marked “inferred”, with estimated energy).')),
         h('li', null, t('Costs use your prices from Charge prices; charges away from your home position count as public.')),
-        anyGuess ? h('li', null, chip(t('Some months contain costs that are only a tariff guess.'), 'warn', 'info')) : null), { ic: 'info' }));
+        anyGuess ? h('li', null, chip(t('Some months contain costs that are only a tariff guess.'), 'warn', 'info')) : null), { ic: 'info' })];
   }
 
-  async function load() {
-    mount(root, loading());
-    try { data = await ctx.api.get(`${base}/stats`); draw(); } catch (e) { fail(e); }
+  async function loadStats() {
+    shell(loading());
+    try { data = await ctx.api.get(`${base}/stats`); if (tab === 'overview') draw(); } catch (e) { if (tab === 'overview') fail(e, t('Could not load statistics'), loadStats); }
   }
-  await load();
-  ctx.onTick(async () => { try { data = await ctx.api.get(`${base}/stats`); draw(); } catch { /* keep the current view */ } });
+  await show();
+  // A stand counts only after six hours, so the Parked tab is not re-asked every tick (changing the period reloads it);
+  // the statistics are not asked for while the Parked tab is showing.
+  ctx.onTick(async () => {
+    if (tab === 'parked') return;
+    try { data = await ctx.api.get(`${base}/stats`); if (tab !== 'parked') draw(); } catch { /* keep the current view */ }
+  });
 }

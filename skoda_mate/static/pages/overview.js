@@ -8,8 +8,16 @@ import { mapView } from '../lib/mapview.js';
 import * as f from '../lib/format.js';
 import { extendDE, t } from '../i18n.js';
 import { estimateNote, liveSoc } from '../lib/livesoc.js';
+import { kwhOrFloor, medianLossStat } from '../lib/floor.js';
 
-extendDE({ 'Power': 'Leistung', 'Until': 'Bis', 'Time left': 'Restzeit', 'Done at': 'Fertig um' });
+extendDE({
+  'Power': 'Leistung', 'Until': 'Bis', 'Time left': 'Restzeit', 'Done at': 'Fertig um',
+  'Parked, last 7 days': 'Geparkt, letzte 7 Tage', 'No parked stand long enough yet.': 'Noch kein ausreichend langer Stand.',
+  'One percent of the battery is about': 'Ein Prozent der Batterie sind etwa', 'so smaller losses are not measurable.': 'kleinere Verluste sind daher nicht messbar.',
+  'left out as likely unrecorded charges': 'als wahrscheinlich nicht erfasste Ladevorgänge nicht mitgezählt',
+});
+
+const isoDay = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
 const CHARGE_STATE = {
   CHARGING: ['Charging', 'good'], READY_FOR_CHARGING: ['Plugged in, not charging', 'info'], CONNECT_CABLE: ['Cable not connected', ''],
@@ -21,6 +29,9 @@ const CLIMATE_STATE = { COOLING: 'Cooling', HEATING: 'Heating', HEATING_AUXILIAR
 export default async function overview(root, ctx) {
   ctx.setTitle(t('Overview'));
   let map = null;
+  let history = [];
+  let parked = null;  // the last parked-loss answer; null (never answered, or failed) draws no card
+  let parkedKey = '';
 
   const state = (o) => {
     const s = o.snapshot || {};
@@ -28,13 +39,30 @@ export default async function overview(root, ctx) {
     return s;
   };
 
+  /** The parked-loss card's data arrives after the page is on screen; the page draws again only when the answer changed. */
+  async function refreshParked() {
+    const today = new Date(), weekAgo = new Date(today);
+    weekAgo.setDate(weekAgo.getDate() - 6);
+    const q = new URLSearchParams({ from: isoDay(weekAgo), to: isoDay(today), min_hours: '6', tz_offset: String(today.getTimezoneOffset()) });
+    const out = await ctx.api.get(`/api/vehicles/${ctx.vid}/parked-loss?${q}`).catch(() => null);  // fail soft: no card, the rest stays
+    const key = JSON.stringify(out);
+    if (key === parkedKey) return;
+    parked = out; parkedKey = key;
+    render();
+  }
+
   async function draw() {
+    history = await ctx.api.get(`/api/vehicles/${ctx.vid}/history?hours=48`).catch(() => []);
+    render();
+    refreshParked();
+  }
+
+  function render() {
     const o = ctx.overview;
     const s = state(o);
     if (!s) { mount(root, empty(t('No reading yet'), t('Mate is asking Škoda for the first time. This takes a moment.'), 'refresh')); return; }
     const ch = o.sections.charging, st = o.sections.status, cl = o.sections.climate, pos = o.sections.position, fuel = o.sections.fuel;
     const hasBattery = o.parts.charging?.available;
-    const history = await ctx.api.get(`/api/vehicles/${ctx.vid}/history?hours=48`).catch(() => []);
     const cs = CHARGE_STATE[s.charge_state];
 
     // --- hero: car + battery
@@ -96,6 +124,22 @@ export default async function overview(root, ctx) {
         [t('Cost'), lc.cost != null ? f.money(lc.cost, ctx.currency) : '–']])))
       : empty(t('No charges yet'), t('Charges are detected while the car reports that it is charging.'), 'plug'), { ic: 'plug' });
 
+    // --- parked loss, last seven days (sessions flagged as unrecorded charges are already out of the aggregates)
+    const pa = parked?.aggregates || {}, pRows = Array.isArray(parked?.sessions) ? parked.sessions : [], pWarn = pRows.filter((r) => r.warning).length;
+    // no stand to report: none long enough, or every one of them flagged as an unrecorded charge (then the warnings are counted)
+    const pUsable = pRows.some((r) => !r.warning);
+    const parkedCard = !parked ? null : card(t('Parked, last 7 days'), !pUsable
+      ? h('div', { class: 'stack' }, h('p', { class: 'small muted' }, t('No parked stand long enough yet.'), ' ', t('A session needs at least six hours, a charge level at both ends and no charging or driving in between.')),
+        pWarn ? h('div', { class: 'tiny muted' }, `${f.num(pWarn)} ${t('left out as likely unrecorded charges')}`) : null)
+      : h('div', { class: 'stack' },
+        medianLossStat(pa.median_kwh_per_day),
+        // an energy total of exactly zero reads as the floor text (null, shown as a dash, means no stand counted)
+        kv([[t('Parked sessions'), pa.count != null ? f.num(pa.count) : '–'], [t('Energy'), kwhOrFloor(pa.kwh)]]),
+        // two translated fragments around the number: t() takes one argument, so the sentence cannot carry a placeholder
+        parked.detection_floor_kwh != null ? h('div', { class: 'tiny muted' }, `${t('One percent of the battery is about')} ${f.kwh(parked.detection_floor_kwh, 2)}, ${t('so smaller losses are not measurable.')}`) : null,
+        pWarn ? h('div', { class: 'tiny muted' }, `${f.num(pWarn)} ${t('left out as likely unrecorded charges')}`) : null,
+        h('div', null, h('a', { class: 'btn sm', href: '#/stats' }, t('Details')))), { ic: 'clock' });
+
     // --- history chart
     const chart = card(t('Battery, last 48 hours'), history.length > 1 ? lineChart({
       height: 210, yLeft: { min: 0, max: 100, fmt: (v) => `${v}%` }, yRight: { min: 0, fmt: (v) => `${v} kW` },
@@ -124,7 +168,7 @@ export default async function overview(root, ctx) {
       h('div', { class: 'tiny muted' }, t('Škoda confirms commands with a short delay. More options under Control.'))), { ic: 'sliders' });
 
     mount(root, hero, stats, h('div', { class: 'grid split' }, chart, quick.length ? controls : posCard),
-      h('div', { class: 'grid g3' }, quick.length ? posCard : null, tripCard, chargeCard));
+      h('div', { class: 'grid g3' }, quick.length ? posCard : null, tripCard, chargeCard, parkedCard));
   }
 
   await draw();

@@ -85,7 +85,7 @@ await d.setViewport({ width: 1280, height: 900 });
 await d.goto(BASE + '/', { waitUntil: 'networkidle0' });
 await sleep(1500);
 console.log('--- desktop click-through');
-const labels = ['Trips', 'Charges', 'Battery', 'Control', 'Statistics', 'Map', 'Places', 'Events', 'Settings', 'System'];
+const labels = ['Trips', 'Charges', 'Battery', 'Control', 'Statistics', 'Map', 'Places', 'Activity', 'Settings', 'System'];
 for (const l of labels) {
   await d.evaluate((txt) => [...document.querySelectorAll('.sidebar .nav a')].find((a) => a.textContent.trim() === txt).click(), l);
   await sleep(1300);
@@ -96,6 +96,542 @@ for (const l of labels) {
 await d.evaluate(() => document.querySelector('.brand').click());
 await sleep(900);
 check('clicking "Škoda Mate" opens the Overview', await d.evaluate(() => location.hash === '#/' || location.hash === '' || location.hash === '#'), await d.evaluate(() => location.hash));
+
+// ---------------------------------------------------------------- Activity: timeline and list
+await d.goto(`${BASE}/#/events`, { waitUntil: 'networkidle0' });
+await sleep(1500);
+const tl = await d.evaluate(() => {
+  const main = document.getElementById('main');
+  const bars = main.querySelectorAll('.tl-track .tl-bar').length;
+  const det = main.querySelector('details.tl-text');
+  if (det) det.open = true;
+  const first = main.querySelector('.tl-bar');
+  return { bars, items: main.querySelectorAll('details.tl-text li').length, label: first?.getAttribute('aria-label') || '', title: document.title, tabs: [...main.querySelectorAll('.seg button')].map((b) => b.textContent) };
+});
+check('Activity opens on the Timeline with bars', tl.bars > 0 && tl.tabs[0] === 'Timeline' && /^Activity/.test(tl.title), `${tl.bars} bars, tabs=${tl.tabs}, title=${tl.title}`);
+check('Activity bars carry a label and the Text list has items', tl.label.length > 5 && tl.items > 0, `${tl.items} items, "${tl.label}"`);
+await d.evaluate(() => [...document.querySelectorAll('#main .seg button')].find((b) => b.textContent === 'List').click());
+await sleep(1200);
+const lst = await d.evaluate(() => ({ events: document.querySelectorAll('#main .b-event').length, search: !!document.querySelector('#main input[type=search]'), more: document.getElementById('main').innerText }));
+check('Activity List tab keeps the event table and filters', lst.events > 0 && lst.search, `${lst.events} events`);
+await d.evaluate(() => [...document.querySelectorAll('#main .seg button')].find((b) => b.textContent === 'Timeline').click());
+await sleep(1000);
+const back = await d.evaluate(() => document.querySelectorAll('#main .tl-bar').length);
+check('Activity returns to the Timeline', back > 0, String(back));
+const narrow = await browser.newPage();
+watch(narrow);
+await narrow.setViewport({ width: 360, height: 800, isMobile: true, hasTouch: true });
+await narrow.goto(`${BASE}/#/events`, { waitUntil: 'networkidle0' });
+await sleep(1500);
+const nw = await narrow.evaluate(() => ({ sw: document.documentElement.scrollWidth, iw: window.innerWidth, bars: document.querySelectorAll('.tl-bar').length }));
+check('Activity timeline fits a 360 px phone', nw.sw <= nw.iw && nw.bars > 0, `scrollWidth=${nw.sw}/${nw.iw}, bars=${nw.bars}`);
+// Day lines: energy on the day a charge started, charging time on the morning after, never "0.0 kWh"
+const dayLines = await narrow.evaluate(() => [...document.querySelectorAll('.tl-day > .small.muted')].map((x) => x.textContent));
+check('Activity day lines never say 0.0 kWh and show charged energy on some day', dayLines.length === 7 && !dayLines.some((l) => /\b0[.,]0 kWh/.test(l))
+  && dayLines.some((l) => /Charged \d+[.,]\d kWh/.test(l)), JSON.stringify(dayLines));
+// The real demo week: a precision note, a week summary line, every optional day part only when non-zero, and the bars'
+// roles: a drive or charge with a record is a button, every other bar a plain labelled element
+const tlReal = await narrow.evaluate(() => {
+  const scroll = document.querySelector('.tl-scroll');
+  const btns = [...document.querySelectorAll('button.tl-bar')], plain = [...document.querySelectorAll('.tl-bar:not(button)')];
+  return { note: document.querySelector('.tl-precision')?.textContent || '', week: document.querySelector('.tl-week')?.textContent || '',
+    scrolls: scroll ? scroll.scrollWidth > scroll.clientWidth + 1 : false, buttons: btns.length, plain: plain.length,
+    buttonKinds: btns.every((b) => /tl-(drive|charge)/.test(b.className)), plainSafe: plain.every((b) => b.tabIndex === -1 && b.getAttribute('role') === 'img' && getComputedStyle(b).cursor !== 'pointer'),
+    drive: !!document.querySelector('button.tl-bar.tl-drive') };
+});
+check('Activity shows the precision note under the legend', tlReal.note === 'Times are accurate to the poll interval.', tlReal.note);
+check('Activity week summary line shows driving and parked time, no zero part', /^Week: Driving .*Parked /.test(tlReal.week) && !/\b0[.,]0 kWh|Climate 0 |Not heard from 0 /.test(tlReal.week), tlReal.week);
+check('Activity track scrolls sideways at 360 px instead of squeezing the bars', tlReal.scrolls);
+check('Only drive and charge bars with a record are buttons; other bars are plain labelled elements without a pointer', tlReal.buttons > 0 && tlReal.plain > 0 && tlReal.buttonKinds && tlReal.plainSafe, `buttons=${tlReal.buttons} plain=${tlReal.plain}`);
+if (tlReal.drive) {
+  await narrow.evaluate(() => document.querySelector('button.tl-bar.tl-drive').click());
+  await sleep(600);
+  check('Clicking a drive bar opens that trip', await narrow.evaluate(() => /^#\/trips\/\d+$/.test(location.hash)), await narrow.evaluate(() => location.hash));
+  await narrow.goto(`${BASE}/#/events`, { waitUntil: 'networkidle0' });
+  await sleep(1200);
+}
+// Timeline answered from a fixture: estimated bars, a partial cost, climate and "not heard from" time, an empty week, and how far back it goes
+const tlDays = (from, to, withData) => {
+  const out = [], d = new Date(`${from}T12:00:00Z`), end = new Date(`${to}T12:00:00Z`);
+  for (; d <= end; d.setUTCDate(d.getUTCDate() + 1)) {
+    const date = d.toISOString().slice(0, 10), at = (h, m = 0) => `${date}T${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00+00:00`;
+    out.push({ date, intervals: withData ? [
+      { kind: 'parked', start: at(0), end: at(8), minutes: 480, place: null },
+      { kind: 'drive', start: at(8), end: at(9), minutes: 60, trip_id: 1, estimated: true },
+      { kind: 'climate', start: at(9), end: at(10), minutes: 60 },
+      { kind: 'unknown', start: at(10), end: at(12), minutes: 120 },
+      { kind: 'charge', start: at(12), end: at(14), minutes: 120, charge_id: 1 },
+    ] : [], summary: { drive_min: withData ? 60 : 0, charge_min: withData ? 120 : 0, climate_min: withData ? 60 : 0, parked_min: withData ? 480 : 0, unknown_min: withData ? 120 : 0,
+      km: withData ? 12.5 : 0, kwh: 0, cost: withData ? tlCost : null, cost_partial: withData && tlCost >= 0.01 } });
+  }
+  return out;
+};
+let tlMode = 'data', tlCost = 3.2;
+const tlReqs = [];
+const tlIntercept = (req) => {
+  const m = /\/api\/vehicles\/[^/]+\/timeline\?(.*)$/.exec(req.url());
+  if (!m) { req.continue(); return; }
+  const q = new URLSearchParams(m[1]);
+  tlReqs.push({ from: q.get('from'), to: q.get('to'), tz: q.get('tz_offset') });
+  const days = tlDays(q.get('from'), q.get('to'), tlMode !== 'empty');
+  const sum = { drive_min: 60 * days.length, charge_min: 120 * days.length, climate_min: 60 * days.length, parked_min: 480 * days.length, unknown_min: 120 * days.length,
+    km: 12.5 * days.length, kwh: 0, cost: tlCost == null ? null : tlCost * days.length, cost_partial: tlCost >= 0.01 };
+  req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify({ from: q.get('from'), to: q.get('to'), days, summary: tlMode !== 'empty' ? sum : { ...sum, drive_min: 0, charge_min: 0, climate_min: 0, parked_min: 0, unknown_min: 0, km: 0, cost: null, cost_partial: false } }) });
+};
+await narrow.setRequestInterception(true);
+narrow.on('request', tlIntercept);
+await narrow.goto(`${BASE}/#/stats`, { waitUntil: 'networkidle0' });
+await narrow.goto(`${BASE}/#/events`, { waitUntil: 'networkidle0' });
+await sleep(1200);
+const tlFix = await narrow.evaluate(() => {
+  const det = document.querySelector('details.tl-text'); if (det) det.open = true;
+  const est = document.querySelector('.tl-bar.tl-estimated');
+  const first = document.querySelector('.tl-day');
+  return { week: document.querySelector('.tl-week')?.textContent || '', day: first.querySelector('.small.muted').textContent, estimated: !!est, estLabel: est?.getAttribute('aria-label') || '', estTitle: est?.title || '',
+    estClass: est ? getComputedStyle(est).opacity : '1', list: [...first.querySelectorAll('details.tl-text li')].map((x) => x.textContent), notEst: document.querySelectorAll('.tl-bar:not(.tl-estimated)').length,
+    sw: document.documentElement.scrollWidth, iw: window.innerWidth };
+});
+check('Activity day line adds climate, not-heard-from time, km and an "at least" cost, and never prints 0.0 kWh',
+  /Driving 1 h.*Parked 8 h/.test(tlFix.day) && /Climate 1 h/.test(tlFix.day) && /Not heard from 2 h/.test(tlFix.day) && /12[.,]5 km/.test(tlFix.day) && /at least .*3[.,]20/.test(tlFix.day) && !/0[.,]0 kWh/.test(tlFix.day), tlFix.day);
+check('Activity week line carries the same parts from the summary', /^Week: .*Climate .*Not heard from .*km .*at least /.test(tlFix.week), tlFix.week);
+check('Activity estimated bars are dimmed and say "estimated" in their label, title and text list', tlFix.estimated && tlFix.estimated && /estimated/.test(tlFix.estLabel) && /estimated/.test(tlFix.estTitle) && +tlFix.estClass < 1
+  && tlFix.list.some((l) => /estimated/.test(l)) && tlFix.notEst > 0, `${tlFix.estLabel} | ${tlFix.list.join(' / ')}`);
+check('Activity with the full day lines still fits 360 px', tlFix.sw <= tlFix.iw, `scrollWidth=${tlFix.sw}/${tlFix.iw}`);
+// Back as far as it goes: the oldest reachable day is today minus 30
+tlReqs.length = 0;
+const reach = await narrow.evaluate(async () => {
+  const prev = document.querySelector('button[aria-label="Previous week"]');
+  let n = 0;
+  while (!prev.disabled && n < 10) { prev.click(); n++; await new Promise((r) => setTimeout(r, 150)); }
+  const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const oldest = new Date(); oldest.setDate(oldest.getDate() - 30);
+  return { clicks: n, oldest: iso(oldest), disabled: prev.disabled };
+});
+await sleep(500);
+check('Activity goes back until the oldest reachable day, today minus 30, and stops there', reach.disabled && tlReqs.at(-1)?.from === reach.oldest && reach.clicks >= 4 && reach.clicks <= 6, `${JSON.stringify(reach)} last=${JSON.stringify(tlReqs.at(-1))}`);
+check('Activity sends the same tz_offset it positions bars with', tlReqs.every((r) => /^-?\d+$/.test(r.tz)), JSON.stringify(tlReqs.at(-1)));
+// A known cost of exactly 0 says "free" (never 0.00); an unknown cost leaves the part out
+const tlLines = () => narrow.evaluate(() => ({ week: document.querySelector('.tl-week')?.textContent || '', day: document.querySelector('.tl-day .small.muted')?.textContent || '' }));
+const tlClick = (label) => narrow.evaluate((l) => [...document.querySelectorAll('#main button')].find((b) => b.textContent === l || b.getAttribute('aria-label') === l)?.click(), label);
+tlCost = 0;
+await tlClick('Today');
+await sleep(900);
+const tlFree = await tlLines();
+check('Activity day and week line say "free" for a known zero cost, never 0.00', /· free$/.test(tlFree.day) && /· free$/.test(tlFree.week) && !/0[.,]00/.test(tlFree.day + tlFree.week), JSON.stringify(tlFree));
+tlCost = null;
+await tlClick('Previous week');
+await sleep(900);
+const tlUnknown = await tlLines();
+check('Activity day and week line leave an unknown cost out (neither "free" nor an amount)', /Driving/.test(tlUnknown.day) && !/free|€|\$|at least/.test(tlUnknown.day + tlUnknown.week), JSON.stringify(tlUnknown));
+// A cost that rounds to 0.00 in the currency reads like a known zero
+tlCost = 0.0004;  // a week of it (7 x) is still under half a cent
+await tlClick('Previous week');
+await sleep(900);
+const tlTiny = await tlLines();
+check('Activity day and week line say "free" for a cost that rounds to 0.00, never 0.00', /· free$/.test(tlTiny.day) && /· free$/.test(tlTiny.week) && !/0[.,]00/.test(tlTiny.day + tlTiny.week), JSON.stringify(tlTiny));
+tlCost = 3.2;
+await tlClick('Today');
+await sleep(900);
+// An empty week shows the empty state, not an empty grid
+tlMode = 'empty';
+await narrow.evaluate(() => [...document.querySelectorAll('#main button')].find((b) => b.textContent === 'Today').click());
+await sleep(900);
+const tlEmpty = await narrow.evaluate(() => ({ empty: /Nothing recorded in this week/.test(document.getElementById('main').innerText), bars: document.querySelectorAll('.tl-bar').length }));
+check('Activity empty week shows the empty state and no bars', tlEmpty.empty && tlEmpty.bars === 0, JSON.stringify(tlEmpty));
+narrow.off('request', tlIntercept);
+await narrow.setRequestInterception(false);
+// Overview parked card (real demo: hourly parked readings and a standby drain, so sessions with a measured median, or
+// the detection floor in a week of short stands; the empty state is covered with a mocked response further down)
+const parkedCardProbe = () => {
+  const c = [...document.querySelectorAll('#main .card')].find((x) => x.querySelector('header h2')?.textContent === 'Parked, last 7 days');
+  const titles = [...document.querySelectorAll('#main .card > header h2')].map((x) => x.textContent);
+  return { found: !!c, text: c ? c.innerText.replace(/\s+/g, ' ').trim() : '', stats: c ? c.querySelectorAll('.stat').length : 0, details: c?.querySelector('a.btn')?.getAttribute('href') || null,
+    afterCharge: titles.indexOf('Parked, last 7 days') === titles.indexOf('Last charge') + 1, sw: document.documentElement.scrollWidth, iw: window.innerWidth };
+};
+await narrow.goto(`${BASE}/#/`, { waitUntil: 'networkidle0' });
+await sleep(1500);
+const ov0 = await narrow.evaluate(parkedCardProbe);
+check('Overview parked card (real demo) shows its sessions and a median loss, after Last charge', ov0.found && ov0.stats > 0 && /Median loss (\d+[.,]\d ?kWh\/day|below the detection floor)/.test(ov0.text) && /Parked sessions [1-9]/.test(ov0.text) && ov0.details === '#/stats' && ov0.afterCharge, ov0.text);
+check('Overview parked card (real demo) fits a 360 px phone', ov0.sw <= ov0.iw, `scrollWidth=${ov0.sw}/${ov0.iw}`);
+// Statistics: the Overview stays the default tab, the Parked tab renders its table (or the empty state) without page scroll
+await narrow.goto(`${BASE}/#/stats`, { waitUntil: 'networkidle0' });
+await sleep(1500);
+const so = await narrow.evaluate(() => ({ tabs: [...document.querySelectorAll('#main .seg button')].map((b) => b.textContent), cards: document.querySelectorAll('#main .card').length, text: document.getElementById('main').innerText }));
+check('Statistics opens on Overview with an Overview/Parked tab control', so.tabs[0] === 'Overview' && so.tabs[1] === 'Parked' && /Monthly overview/.test(so.text), `tabs=${so.tabs}, cards=${so.cards}`);
+await narrow.evaluate(() => [...document.querySelectorAll('#main .seg button')].find((b) => b.textContent === 'Parked').click());
+await sleep(1500);
+const pk = await narrow.evaluate(() => {
+  const main = document.getElementById('main');
+  const tbl = main.querySelector('table.t');
+  const wrap = tbl?.closest('.scroll-x');
+  return { sw: document.documentElement.scrollWidth, iw: window.innerWidth, rows: tbl ? tbl.querySelectorAll('tbody tr').length : 0, headers: tbl ? [...tbl.querySelectorAll('th')].map((x) => x.textContent) : [],
+    empty: !!main.querySelector('.empty') && /No parked sessions/.test(main.innerText), cards: main.querySelectorAll('.stat').length, inRegion: !!wrap && wrap.getBoundingClientRect().right <= window.innerWidth + 1,
+    pressed: [...main.querySelectorAll('.seg')[0].querySelectorAll('button')].map((b) => b.getAttribute('aria-pressed')), note: /detection floor/.test(main.innerText) };
+});
+check('Parked tab (real demo) is active and renders sessions or the empty state', pk.pressed[1] === 'true' && (pk.rows > 0 || pk.empty), `rows=${pk.rows}, empty=${pk.empty}`);
+check('Parked tab (real demo) fits a 360 px phone', pk.sw <= pk.iw, `scrollWidth=${pk.sw}/${pk.iw}`);
+await narrow.evaluate(() => [...document.querySelectorAll('#main .seg button')].find((b) => b.textContent === 'Overview').click());
+await sleep(800);
+const sb = await narrow.evaluate(() => /Monthly overview/.test(document.getElementById('main').innerText));
+check('Statistics returns to the Overview from Parked', sb);
+
+// The demo has no parked stand yet, so answer the parked-loss request with a fixture to exercise the table at 360 px:
+// a normal stand, one below the detection floor, one flagged as an unrecorded charge, one without capacity (null energy).
+const parkedFixture = (() => {
+  const base = { start: '2026-11-20T20:00:00+00:00', end: '2026-11-21T20:00:00+00:00', hours: 24, place: 'Home', start_soc: 80, end_soc: 78, soc_delta: 2,
+    kwh: 1.5, kwh_per_day: 1.5, cost: 0.4, cost_basis: 'home', warning: null, below_detection_floor: false };
+  return { sessions: [
+    { ...base },
+    { ...base, place: null, end_soc: 80, soc_delta: 0, kwh: 0.0, kwh_per_day: 0.0, cost: null, below_detection_floor: true },
+    { ...base, end_soc: 95, soc_delta: -15, kwh: -11.2, kwh_per_day: -11.2, cost: 3.33, warning: 'likely an unrecorded charge' },
+    { ...base, place: 'Work', kwh: null, kwh_per_day: null, cost: null },
+  ], aggregates: { count: 1, median_kwh_per_day: 1.5, mean_kwh_per_day: 1.5, kwh: 1.5, kwh_7d: 1.5, kwh_30d: 1.5, cost: 0.4 }, min_hours: 6, detection_floor_kwh: 0.77 };
+})();
+let parkedReq = '';
+let parkedMode = 'normal';  // normal | fail | empty | zero: which answer the parked-loss request gets
+let statsMode = 'real', statsReqs = 0;  // real | fail: the /stats request is answered by the server or refused; counted either way
+const json = (req, body, status = 200) => req.respond({ status, contentType: 'application/json', body: JSON.stringify(body) });
+const parkedBody = () => (parkedMode === 'zero' ? { ...parkedFixture, aggregates: { ...parkedFixture.aggregates, count: 2, median_kwh_per_day: 0, mean_kwh_per_day: 0, kwh: 0, kwh_7d: 0, kwh_30d: 0, cost: null } }
+  : parkedMode === 'empty' ? { ...parkedFixture, sessions: [], aggregates: { ...parkedFixture.aggregates, count: 0, median_kwh_per_day: null } } : parkedFixture);
+const intercept = (req) => {
+  if (/\/api\/vehicles\/[^/]+\/parked-loss/.test(req.url())) { parkedReq = req.url();
+    if (parkedMode === 'fail') json(req, { detail: 'boom' }, 500); else json(req, parkedBody()); }
+  else if (/\/api\/vehicles\/[^/]+\/stats(\?|$)/.test(req.url())) { statsReqs++; if (statsMode === 'fail') json(req, { detail: 'boom' }, 500); else req.continue(); }
+  else req.continue();
+};
+await narrow.setRequestInterception(true);
+narrow.on('request', intercept);
+await narrow.goto(`${BASE}/#/stats`, { waitUntil: 'networkidle0' });
+await sleep(1200);
+await narrow.evaluate(() => [...document.querySelectorAll('#main .seg button')].find((b) => b.textContent === 'Parked').click());
+await sleep(1200);
+const pf = await narrow.evaluate(() => {
+  const main = document.getElementById('main');
+  const tbl = main.querySelector('table.t');
+  const wrap = tbl?.closest('.scroll-x');
+  const rows = tbl ? [...tbl.querySelectorAll('tbody tr')].map((tr) => [...tr.children].map((td) => td.innerText.replace(/\s+/g, ' ').trim())) : [];
+  return { sw: document.documentElement.scrollWidth, iw: window.innerWidth, headers: tbl ? [...tbl.querySelectorAll('th')].map((x) => x.textContent) : [], rows,
+    cards: main.querySelectorAll('.stat').length, chips: main.querySelectorAll('table.t .chip.warn').length, note: /detection floor/.test(main.innerText),
+    wrap: !!wrap, wrapRight: wrap ? wrap.getBoundingClientRect().right : 0 };
+});
+const [rNormal, rFloor, rWarn, rNull] = pf.rows;
+check('Parked fixture: 4 stat cards, 7 headers, 4 rows, detection-floor note', pf.cards === 4 && pf.headers.length === 7 && pf.rows.length === 4 && pf.note, `cards=${pf.cards}, headers=${pf.headers}, rows=${pf.rows.length}`);
+check('Parked request sends period start, today and tz_offset', /from=\d{4}-\d{2}-\d{2}&to=\d{4}-\d{2}-\d{2}&tz_offset=-?\d+/.test(parkedReq), parkedReq);
+check('Parked normal row shows its numbers', rNormal && /1\.5 kWh/.test(rNormal[4]) && rNormal[5] === '1.5' && /0[.,]40/.test(rNormal[6]), JSON.stringify(rNormal));
+check('Parked below-floor row says so once (energy column), shows a dash for the rate and no decimal loss', rFloor && /below the detection floor/.test(rFloor[4]) && rFloor[5] === '–' && !/0[.,]0/.test(`${rFloor[4]} ${rFloor[5]}`), JSON.stringify(rFloor));
+check('Parked warning row has exactly one chip and dashes for kWh, kWh/day and cost', pf.chips === 1 && rWarn && /unrecorded charge/.test(rWarn[0]) && rWarn[4] === '–' && rWarn[5] === '–' && rWarn[6] === '–', `chips=${pf.chips} ${JSON.stringify(rWarn)}`);
+check('Parked row without capacity shows dashes, not NaN or null', rNull && rNull[4] === '–' && rNull[5] === '–' && rNull[6] === '–' && !/NaN|null/.test(rNull.join(' ')), JSON.stringify(rNull));
+check('Parked table fits a 360 px phone: page does not scroll sideways, table sits in its scroll region', pf.wrap && pf.sw <= pf.iw && pf.wrapRight <= pf.iw + 1, `scrollWidth=${pf.sw}/${pf.iw}, region right=${Math.round(pf.wrapRight)}`);
+// Overview parked card with the same fixture: median, count, energy, floor subtitle, warning count and the Details link
+await narrow.goto(`${BASE}/#/`, { waitUntil: 'networkidle0' });
+await sleep(1500);
+const ov1 = await narrow.evaluate(parkedCardProbe);
+check('Overview parked card requests the last seven days with a six-hour minimum', /from=\d{4}-\d{2}-\d{2}&to=\d{4}-\d{2}-\d{2}&min_hours=6&tz_offset=-?\d+/.test(parkedReq), parkedReq);
+check('Overview parked card shows median, count, energy, floor subtitle and warning count', ov1.found && ov1.stats === 1 && /Median loss 1[.,]5 ?kWh\/day/.test(ov1.text) && /Parked sessions 1\b/.test(ov1.text) && /Energy 1[.,]5 kWh/.test(ov1.text)
+  && /One percent of the battery is about 0[.,]77 kWh, so smaller losses are not measurable\./.test(ov1.text) && /1 left out as likely unrecorded charges/.test(ov1.text) && !/NaN|null|undefined/.test(ov1.text), ov1.text);
+check('Overview parked card links Details to #/stats, sits after Last charge and fits 360 px', ov1.details === '#/stats' && ov1.afterCharge && ov1.sw <= ov1.iw, `${ov1.details} after=${ov1.afterCharge} scrollWidth=${ov1.sw}/${ov1.iw}`);
+// A failing request must not break the rest of the Overview: no card, the other cards stay
+parkedMode = 'fail';
+await narrow.goto(`${BASE}/#/events`, { waitUntil: 'networkidle0' });
+await narrow.goto(`${BASE}/#/`, { waitUntil: 'networkidle0' });
+await sleep(1500);
+const ovFail = await narrow.evaluate(() => ({ titles: [...document.querySelectorAll('#main .card > header h2')].map((x) => x.textContent) }));
+check('Overview survives a failing parked-loss request without the card', !ovFail.titles.includes('Parked, last 7 days') && ovFail.titles.includes('Last charge') && ovFail.titles.includes('Last trip'), ovFail.titles.join(', '));
+parkedMode = 'normal';
+// Fixture without sessions: the quiet line
+parkedMode = 'empty';
+await narrow.goto(`${BASE}/#/events`, { waitUntil: 'networkidle0' });
+await narrow.goto(`${BASE}/#/`, { waitUntil: 'networkidle0' });
+await sleep(1500);
+const ov2 = await narrow.evaluate(parkedCardProbe);
+check('Overview parked card with no sessions shows the quiet line only', ov2.found && /No parked stand long enough yet\./.test(ov2.text) && ov2.stats === 0 && !ov2.details, ov2.text);
+parkedMode = 'normal';
+// A median of exactly zero (at least half the counted stands below the floor) reads "below the detection floor", never "0.0"
+parkedMode = 'zero';
+await narrow.goto(`${BASE}/#/events`, { waitUntil: 'networkidle0' });
+await narrow.goto(`${BASE}/#/`, { waitUntil: 'networkidle0' });
+await sleep(1500);
+const ov3 = await narrow.evaluate(() => {
+  const s = [...document.querySelectorAll('#main .card .stat')].find((x) => x.querySelector('.label')?.textContent === 'Median loss');
+  return { text: s ? s.innerText.replace(/\s+/g, ' ').trim() : null, sw: document.documentElement.scrollWidth, iw: window.innerWidth };
+});
+check('Overview parked card with a zero median says below the detection floor, no decimal', ov3.text && /below the detection floor/.test(ov3.text) && !/0[.,]0/.test(ov3.text) && ov3.sw <= ov3.iw, JSON.stringify(ov3));
+const ov4 = await narrow.evaluate(parkedCardProbe);
+check('Overview parked card with a zero energy total says below the detection floor, nowhere 0.0', ov4.found && /Energy below the detection floor/.test(ov4.text) && !/0[.,]0 kWh/.test(ov4.text), ov4.text);
+await narrow.goto(`${BASE}/#/stats`, { waitUntil: 'networkidle0' });
+await sleep(1200);
+await narrow.evaluate(() => [...document.querySelectorAll('#main .seg button')].find((b) => b.textContent === 'Parked').click());
+await sleep(1200);
+const pz = await narrow.evaluate(() => {
+  const s = [...document.querySelectorAll('#main .stat')].find((x) => x.querySelector('.label')?.textContent === 'Median loss');
+  return { text: s ? s.innerText.replace(/\s+/g, ' ').trim() : null, sw: document.documentElement.scrollWidth, iw: window.innerWidth };
+});
+check('Parked tab with a zero median says below the detection floor, no decimal', pz.text && /below the detection floor/.test(pz.text) && !/0[.,]0/.test(pz.text) && !/kWh\/day/.test(pz.text) && pz.sw <= pz.iw, JSON.stringify(pz));
+const pe = await narrow.evaluate(() => {
+  const s = [...document.querySelectorAll('#main .stat')].find((x) => x.querySelector('.label')?.textContent === 'Energy');
+  return s ? s.innerText.replace(/\s+/g, ' ').trim() : null;
+});
+check('Parked tab with zero energy totals says below the detection floor in the tile and both windows, nowhere 0.0', pe && /^Energy below the detection floor Last 7 days below the detection floor · Last 30 days below the detection floor$/.test(pe) && !/0[.,]0/.test(pe), pe);
+parkedMode = 'normal';
+// The tab is remembered per viewer; the Parked tab never asks for /stats and survives it failing; Overview failing keeps the tab bar
+await narrow.goto(`${BASE}/#/stats`, { waitUntil: 'networkidle0' });
+await sleep(1000);
+await narrow.evaluate(() => [...document.querySelectorAll('#main .seg button')].find((b) => b.textContent === 'Parked').click());
+await sleep(900);
+await narrow.goto(`${BASE}/#/events`, { waitUntil: 'networkidle0' });
+statsMode = 'fail'; statsReqs = 0;
+await narrow.goto(`${BASE}/#/stats`, { waitUntil: 'networkidle0' });
+await sleep(1200);
+const rem = await narrow.evaluate(() => ({ pressed: [...document.querySelectorAll('#main .seg')[0].querySelectorAll('button')].map((b) => b.getAttribute('aria-pressed')), rows: document.querySelectorAll('#main table.t tbody tr').length,
+  banner: document.querySelectorAll('#main .banner.bad').length }));
+check('Statistics reopens on the remembered Parked tab', rem.pressed[1] === 'true' && rem.rows > 0, JSON.stringify(rem));
+check('The Parked tab does not ask for /stats and shows no error when /stats fails', statsReqs === 0 && rem.banner === 0, `statsReqs=${statsReqs} banners=${rem.banner}`);
+await narrow.evaluate(() => [...document.querySelectorAll('#main .seg button')].find((b) => b.textContent === 'Overview').click());
+await sleep(900);
+const sf = await narrow.evaluate(() => ({ tabs: [...document.querySelectorAll('#main .seg')[0]?.querySelectorAll('button') || []].map((b) => b.textContent), banner: /Could not load statistics/.test(document.getElementById('main').innerText) }));
+check('A failing Overview keeps the tab bar so the viewer can still switch', sf.banner && sf.tabs.join() === 'Overview,Parked', JSON.stringify(sf));
+await narrow.evaluate(() => [...document.querySelectorAll('#main .seg button')].find((b) => b.textContent === 'Parked').click());
+await sleep(900);
+check('...and Parked still works from that error state', await narrow.evaluate(() => document.querySelectorAll('#main table.t tbody tr').length > 0));
+statsMode = 'real';
+await narrow.evaluate(() => [...document.querySelectorAll('#main .seg button')].find((b) => b.textContent === 'Overview').click());
+await sleep(1200);
+narrow.off('request', intercept);
+await narrow.setRequestInterception(false);
+await narrow.close();
+
+// ---------------------------------------------------------------- 2b. data-quality card on System
+// The real demo has no important finding, so the card is first checked as is (renders, fits 360 px), then with fixtures.
+const qp = await browser.newPage();
+watch(qp);
+await qp.setViewport({ width: 360, height: 800, isMobile: true, hasTouch: true });
+await qp.goto(`${BASE}/#/system`, { waitUntil: 'networkidle0' });
+await sleep(1500);
+const qReal = await qp.evaluate(() => {
+  const c = [...document.querySelectorAll('#main .card')].find((x) => x.querySelector('h2')?.textContent === 'Data quality');
+  return { found: !!c, sw: document.documentElement.scrollWidth, iw: window.innerWidth, first: document.querySelector('#main .card h2')?.textContent };
+});
+check('System shows the Data quality card first and fits 360 px', qReal.found && qReal.first === 'Data quality' && qReal.sw <= qReal.iw, JSON.stringify(qReal));
+
+// Backend `summary` and `label` texts carry RAW markers: the card must show its own translated words, never these.
+const qItem = (id, severity, count, samples = [], fix = null, visible = true) => ({ id, severity, count, summary: `RAW_SUMMARY ${count} ${id}`, samples, fix, visible });
+const qState = { open: 3, rich: false, failReview: false, failQuality: false }, qFixCalls = [], qRevCalls = [];
+const qRev = {}, qNew = {}, qRevAt = '2026-11-20T10:00:00+00:00';
+let qFixMode = '400';
+const qReviewed = (it) => {
+  const n = qNew[it.id], at = qRev[it.id] || null;
+  if (n) return { ...it, count: n.count, total: n.total, reviewed_at: qRevAt, summary: it.summary };
+  return { ...it, total: it.count || 2, count: at ? 0 : it.count, reviewed_at: at };
+};
+const qAt = '2026-11-01T10:00:00+00:00';
+const qRich = [
+  { kind: 'odometer', from_km: 12500, to_km: 12400, at: qAt, label: 'RAW odometer label', href: null },
+  { kind: 'silence', from: qAt, to: '2026-11-01T20:00:00+00:00', hours: 10, label: 'RAW silence label', href: null },
+  { kind: 'api_error', endpoint: 'get_vehicle', at: '2026-11-01T10:30:00+00:00', label: 'RAW api label', href: null },
+  { kind: 'section', name: 'climate', label: 'RAW section label', href: null },
+  { kind: 'gap', from: qAt, to: '2026-11-01T19:00:00+00:00', hours: 9, label: 'RAW gap label', href: null },
+];
+const qBody = () => JSON.stringify({ checked_at: '2026-11-26T10:00:00+00:00', checks: [
+  qItem('open_trips', 'important', qState.open, qState.open ? [{ kind: 'trip', id: 7, at: qAt, label: 'RAW trip label', href: '#/trips/7' },
+    { kind: 'gap', from: qAt, to: '2026-11-01T18:00:00+00:00', hours: 8, label: 'RAW gap label', href: null }, { kind: 'weird', label: 'Some plain label', href: null }] : [], 'close_open_trips'),
+  qItem('open_charges', 'important', 0, [], 'close_open_charges'),
+  qItem('estimated_charges', 'info', 2, [{ kind: 'charge', id: 4, at: '2026-11-02T10:00:00+00:00', label: 'RAW charge label', href: '#/charges/4' }]),
+  qItem('reading_gaps', 'important', qState.rich ? 6 : 0, qState.rich ? qRich : []),
+  qItem('stuck_operations', 'important', 2, [{ label: 'RAW stuck label', href: null }], null, false),
+].map(qReviewed) });
+const qIntercept = (req) => {
+  const u = req.url();
+  if (/\/api\/vehicles\/[^/]+\/quality\/review/.test(u)) {
+    if (qState.failReview) { req.respond({ status: 500, contentType: 'application/json', body: '{"detail":"Review failed."}' }); return; }
+    const b = JSON.parse(req.postData()); qRevCalls.push(req.postData());
+    qRev[b.check] = b.reviewed ? qRevAt : null;
+    if (!b.reviewed) delete qNew[b.check];
+    req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify({ check: b.check, reviewed_at: qRev[b.check] }) });
+  } else if (/\/api\/vehicles\/[^/]+\/quality\/fix/.test(u)) {
+    qFixCalls.push(req.postData());
+    if (qFixMode === '400') req.respond({ status: 400, contentType: 'application/json', body: '{"detail":"Unknown action."}' });
+    else { qState.open = 0; req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify({ action: 'close_open_trips', changed: 3, message: 'ok' }) }); }
+  } else if (/\/api\/vehicles\/[^/]+\/quality(\?|$)/.test(u)) {
+    if (qState.failQuality) req.respond({ status: 500, contentType: 'application/json', body: '{"detail":"Quality unavailable."}' });
+    else req.respond({ status: 200, contentType: 'application/json', body: qBody() });
+  }
+  else req.continue();
+};
+await qp.setRequestInterception(true);
+qp.on('request', qIntercept);
+await qp.goto(`${BASE}/#/events`, { waitUntil: 'networkidle0' });
+await qp.goto(`${BASE}/#/system`, { waitUntil: 'networkidle0' });
+await sleep(1500);
+const qCard = () => qp.evaluate(() => {
+  const c = [...document.querySelectorAll('#main .card')].find((x) => x.querySelector('h2')?.textContent === 'Data quality');
+  return { text: c ? c.innerText.replace(/\s+/g, ' ') : '', rows: c ? [...c.querySelectorAll('.quality-row')].map((r) => r.dataset.check) : [],
+    bad: c?.querySelectorAll('.chip.bad').length, warn: c?.querySelectorAll('.chip.warn').length, sw: document.documentElement.scrollWidth, iw: window.innerWidth,
+    zero: c ? [...c.querySelectorAll('.quality-all .quality-row')].map((r) => ({ id: r.dataset.check, chips: r.querySelectorAll('.chip').length, none: /No findings/.test(r.textContent) })) : [],
+    neutral: c ? [...c.querySelectorAll('.row.tight .chip')].filter((x) => !/\b(bad|warn|good|info)\b/.test(x.className)).map((x) => x.textContent.trim()) : [] };
+});
+const q1 = await qCard();
+check('Quality card lists the two findings, severity chips, quiet line, zero checks hidden', q1.rows.slice(0, 2).join() === 'open_trips,estimated_charges' && q1.bad >= 1 && q1.warn >= 1
+  && /Everything else looks consistent\./.test(q1.text) && /Show all checks/.test(q1.text) && q1.sw <= q1.iw, JSON.stringify(q1));
+check('Quality card shows its own translated label, never the backend summary text or a raw id', /Trips that never ended/.test(q1.text) && !/RAW_SUMMARY|open_trips|estimated_charges/.test(q1.text), q1.text);
+check('A check marked visible:false is nowhere on the card: no row, not under Show all checks, not in the header counts', !q1.rows.includes('stuck_operations') && !/stuck|Operations/i.test(q1.text)
+  && q1.text.includes('1 Important') && q1.text.includes('1 Info') && q1.neutral.length === 0, JSON.stringify(q1));
+check('Zero-count rows under Show all checks carry no severity chip, only "No findings"', q1.zero.length === 2 && q1.zero.every((z) => z.chips === 0 && z.none), JSON.stringify(q1.zero));
+const reviewBtn = (id) => qp.evaluate((cid) => document.querySelector(`.quality-row[data-check="${cid}"] button`).click(), id);
+const modalProbe = () => qp.evaluate(() => {
+  const ms = [...document.querySelectorAll('.modal')], m = ms[ms.length - 1];
+  return m ? { n: ms.length, title: m.querySelector('h2').textContent, text: m.innerText.replace(/\s+/g, ' '), links: [...m.querySelectorAll('a')].map((a) => `${a.textContent}>${a.getAttribute('href')}`),
+    buttons: [...m.querySelectorAll('.actions button')].map((b) => b.textContent.trim()), banner: m.querySelector('.banner')?.textContent || '' } : null;
+});
+const modalBtn = (label) => qp.evaluate((txt) => { const ms = [...document.querySelectorAll('.modal')]; [...ms[ms.length - 1].querySelectorAll('button')].find((b) => b.textContent.trim() === txt).click(); }, label);
+await reviewBtn('estimated_charges');
+await sleep(300);
+const m0 = await modalProbe();
+check('Review of a check without fix shows the sample link with its date, "and 1 more" and no Fix button', m0 && m0.links.includes('Charge #4>#/charges/4') && /Charge #4, \w{3}, Nov 2/.test(m0.text)
+  && /and 1 more/.test(m0.text) && !/RAW/.test(m0.text) && !m0.buttons.includes('Fix') && m0.buttons.includes('Close'), JSON.stringify(m0));
+await modalBtn('Close');
+await reviewBtn('open_trips');
+await sleep(300);
+const m1 = await modalProbe();
+check('Review shows count, trip link, plain label and a Fix button', m1 && /Findings: 3/.test(m1.text) && m1.links.includes('Trip #7>#/trips/7') && /Gap: 8 h, .* → /.test(m1.text) && /Some plain label/.test(m1.text) && !/RAW/.test(m1.text) && !/and \d+ more/.test(m1.text)
+  && m1.buttons.includes('Fix'), JSON.stringify(m1));
+check('Review explains what Fix does before anyone clicks it', m1 && /What Fix does/.test(m1.text)
+  && /first reading after its start that shows the car parked/.test(m1.text) && /approximate/.test(m1.text), JSON.stringify(m1));
+await modalBtn('Fix');
+await sleep(300);
+const m2 = await modalProbe();
+check('Fix asks for confirmation with the count', m2 && m2.n === 2 && m2.title === 'Apply this fix?' && /Findings this fix changes: 3\./.test(m2.text) && /Nothing is lost\./.test(m2.text), JSON.stringify(m2));
+check('The confirmation says what the fix does and names the trips it changes', m2 && /first reading after its start that shows the car parked/.test(m2.text)
+  && /Trip #7/.test(m2.text) && /Gap: 8 h/.test(m2.text) && !/RAW/.test(m2.text), JSON.stringify(m2));
+// every way out of the confirmation resolves it: Escape and a scrim click close only the confirmation (the review stays),
+// and the Fix button works again afterwards
+await qp.keyboard.press('Escape');
+await sleep(300);
+const e1 = await modalProbe();
+const fixBusy = () => qp.evaluate(() => { const ms = [...document.querySelectorAll('.modal')]; return [...(ms[ms.length - 1]?.querySelectorAll('.actions button') || [])].find((b) => b.textContent.trim() === 'Fix')?.classList.contains('busy'); });
+const e1Busy = await fixBusy();
+await modalBtn('Fix');
+await sleep(300);
+const e2 = await modalProbe();
+await qp.evaluate(() => { const s = [...document.querySelectorAll('.scrim')].pop(); s.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
+await sleep(300);
+const e3 = await modalProbe();
+await modalBtn('Fix');
+await sleep(300);
+const e4 = await modalProbe();
+check('Escape closes only the confirmation and releases the Fix button', e1 && e1.n === 1 && e1.title !== 'Apply this fix?' && e1Busy === false, JSON.stringify({ e1, e1Busy }));
+check('Fix asks again after Escape, a scrim click closes the confirmation too, and Fix asks once more, with no POST', e2 && e2.n === 2 && e3 && e3.n === 1 && e4 && e4.n === 2 && qFixCalls.length === 0,
+  JSON.stringify({ e2, e3, e4, calls: qFixCalls.length }));
+await modalBtn('Confirm');
+await sleep(600);
+const m3 = await modalProbe();
+check('A 400 shows the message in a banner inside the modal, which stays open, nothing refreshed', m3 && m3.n === 1 && /Unknown action\./.test(m3.banner) && qFixCalls.length === 1 && JSON.parse(qFixCalls[0]).action === 'close_open_trips' && (await qCard()).rows[0] === 'open_trips', JSON.stringify(m3));
+qFixMode = 'ok';
+await modalBtn('Fix'); await sleep(300); await modalBtn('Confirm'); await sleep(1200);
+const q2 = await qCard();
+const toastText = await qp.evaluate(() => document.querySelector('.toasts')?.textContent || '');
+check('A successful fix toasts the changed count, closes the modal and refreshes the card', /Fixed: 3/.test(toastText) && !(await modalProbe()) && q2.rows.join() === 'estimated_charges,open_trips,open_charges,reading_gaps' && q2.bad === 0, `${toastText} ${JSON.stringify(q2)}`);
+// review and undo
+await reviewBtn('estimated_charges');
+await sleep(300);
+const r0 = await modalProbe();
+check('Review modal offers Mark as reviewed', r0 && r0.buttons.includes('Mark as reviewed'), JSON.stringify(r0));
+// a failing review POST: banner inside the modal, modal stays, button released, no toast, nothing posted or refreshed
+const clearToasts = () => qp.evaluate(() => document.querySelector('.toasts')?.replaceChildren());
+await clearToasts();
+qState.failReview = true;
+await modalBtn('Mark as reviewed');
+await sleep(600);
+const rf = await modalProbe();
+const rfBusy = await qp.evaluate(() => [...document.querySelectorAll('.modal .actions button')].some((b) => b.classList.contains('busy')));
+const rfToast = await qp.evaluate(() => document.querySelector('.toasts')?.textContent || '');
+check('A failed review POST shows the message in the modal, keeps it open, releases the button and toasts no success',
+  rf && rf.n === 1 && /Review failed\./.test(rf.banner) && !rfBusy && !/Reviewed/.test(rfToast) && qRevCalls.length === 0, JSON.stringify({ rf, rfBusy, rfToast }));
+qState.failReview = false;
+// a double click on Mark as reviewed posts once
+await qp.evaluate(() => { const b = [...document.querySelectorAll('.modal .actions button')].find((x) => x.textContent.trim() === 'Mark as reviewed'); b.click(); b.click(); });
+await sleep(1200);
+const r1 = await qCard();
+const rToast = await qp.evaluate(() => document.querySelector('.toasts')?.textContent || '');
+check('Review modal posts {check, reviewed:true} once (double click), toasts, closes and refreshes', qRevCalls.length === 1 && qRevCalls[0] === JSON.stringify({ check: 'estimated_charges', reviewed: true })
+  && /Reviewed/.test(rToast) && !(await modalProbe()) && r1.rows.join() === 'open_trips,open_charges,estimated_charges,reading_gaps', `${qRevCalls[0]} ${rToast} ${JSON.stringify(r1)}`);
+check('The header counts reviewed checks in a neutral chip, so an all-clear card is not ambiguous', r1.neutral.join() === '1 reviewed' && /Everything else looks consistent or was reviewed\./.test(r1.text), JSON.stringify(r1));
+const rAll = () => qp.evaluate(() => {
+  const a = document.querySelector('.quality-all');
+  const row = a?.querySelector('.quality-row[data-check="estimated_charges"]');
+  const c = [...document.querySelectorAll('#main .card')].find((x) => x.querySelector('h2')?.textContent === 'Data quality');
+  const vis = [...(c?.querySelectorAll('.quality-row') || [])].filter((r) => !r.closest('.quality-all')).map((r) => r.dataset.check);
+  return { inAll: !!row, text: row ? row.textContent.replace(/\s+/g, ' ') : '', undo: !![...(row?.querySelectorAll('button') || [])].find((b) => b.textContent.trim() === 'Undo'),
+    vis, bad: c?.querySelectorAll('.chip.bad').length, warn: c?.querySelectorAll('.chip.warn').length, sw: document.documentElement.scrollWidth, iw: window.innerWidth,
+    quiet: c ? c.innerText.replace(/\s+/g, ' ') : '' };
+});
+const r2 = await rAll();
+check('A reviewed check with no new findings sits under Show all checks with Reviewed <date> and Undo', r2.inAll && /Reviewed \w{3}, Nov 20/.test(r2.text) && r2.undo && !r2.vis.includes('estimated_charges')
+  && r2.warn === 0 && r2.bad === 0 && /Everything else looks consistent or was reviewed\./.test(r2.quiet) && r2.sw <= r2.iw, JSON.stringify(r2));
+await qp.evaluate(() => [...document.querySelectorAll('.quality-all .quality-row[data-check="estimated_charges"] button')].find((b) => b.textContent.trim() === 'Undo').click());
+await sleep(1200);
+const r3 = await qCard();
+check('Undo posts {check, reviewed:false} and refreshes with the full count', qRevCalls.length === 2 && qRevCalls[1] === JSON.stringify({ check: 'estimated_charges', reviewed: false })
+  && r3.rows.join() === 'estimated_charges,open_trips,open_charges,reading_gaps' && r3.warn >= 1 && r3.neutral.length === 0, `${qRevCalls[1]} ${JSON.stringify(r3)}`);
+qNew.open_charges = { count: 1, total: 3 };
+qp.evaluate(() => [...document.querySelectorAll('#main .card button')].find((b) => b.textContent.trim() === 'Check again').click());
+await sleep(1200);
+const r4 = await qp.evaluate(() => {
+  const row = document.querySelector('.quality-row[data-check="open_charges"]');
+  return { vis: !!row && !row.closest('.quality-all'), text: row ? row.textContent.replace(/\s+/g, ' ') : '', sw: document.documentElement.scrollWidth, iw: window.innerWidth };
+});
+check('A reviewed check with new findings shows them marked new since <date>, and fits 360 px', r4.vis && /new since/.test(r4.text) && r4.sw <= r4.iw, JSON.stringify(r4));
+// Review panel of a reviewed check with new findings and a fix: four footer buttons at 360 px, Undo from inside
+await reviewBtn('open_charges');
+await sleep(300);
+const u0 = await qp.evaluate(() => {
+  const ms = [...document.querySelectorAll('.modal')], m = ms[ms.length - 1];
+  return m ? { buttons: [...m.querySelectorAll('.actions button')].map((b) => b.textContent.trim()),
+    out: [...m.querySelectorAll('.actions button')].filter((b) => { const r = b.getBoundingClientRect(); return r.left < 0 || r.right > window.innerWidth; }).map((b) => b.textContent.trim()),
+    icons: [...m.querySelectorAll('.actions button')].filter((b) => b.querySelector('svg')).map((b) => b.textContent.trim()),
+    sw: document.documentElement.scrollWidth, iw: window.innerWidth } : null;
+});
+check('Review panel with Fix, Mark as reviewed and Undo fits 360 px: all four buttons inside the viewport, no sideways scroll',
+  u0 && ['Close', 'Fix', 'Mark as reviewed', 'Undo'].every((x) => u0.buttons.includes(x)) && u0.out.length === 0 && u0.sw <= u0.iw, JSON.stringify(u0));
+check('The Undo button in the review panel has an icon like Fix and Mark as reviewed', u0 && ['Fix', 'Mark as reviewed', 'Undo'].every((x) => u0.icons.includes(x)), JSON.stringify(u0));
+await modalBtn('Undo');
+await sleep(1200);
+const u1 = await qCard();
+const uToast = await qp.evaluate(() => document.querySelector('.toasts')?.textContent || '');
+check('Undo in the review panel posts {check, reviewed:false}, toasts, closes and refreshes the card', qRevCalls[qRevCalls.length - 1] === JSON.stringify({ check: 'open_charges', reviewed: false })
+  && /Review undone/.test(uToast) && !(await modalProbe()) && !/new since/.test(u1.text), `${qRevCalls[qRevCalls.length - 1]} ${uToast} ${JSON.stringify(u1)}`);
+// every sample kind is rendered from its structured fields, translated words and formatted numbers and dates, never the English label
+qState.rich = true;
+const checkAgain = () => qp.evaluate(() => [...document.querySelectorAll('#main .card button')].find((b) => b.textContent.trim() === 'Check again').click());
+await checkAgain();
+await sleep(1200);
+await reviewBtn('reading_gaps');
+await sleep(300);
+const k0 = await modalProbe();
+check('Every sample kind (odometer, silence, API error, section, gap) is built from its fields with formatted numbers and dates, and "and 1 more" follows', k0
+  && /Odometer 12,500 → 12,400 km, \w{3}, Nov 1/.test(k0.text) && /Silent since \w{3}, Nov 1 \(10 h\)/.test(k0.text) && /get_vehicle failed, \w{3}, Nov 1 .*\d/.test(k0.text)
+  && /Section Climate data missing/.test(k0.text) && /Gap: 9 h, \w{3}, Nov 1 → \w{3}, Nov 1/.test(k0.text) && /and 1 more/.test(k0.text) && !/RAW/.test(k0.text), JSON.stringify(k0));
+await modalBtn('Close');
+qState.rich = false;
+// the POST succeeds but the refresh after it fails: no success toast, the card shows its error
+await checkAgain();
+await sleep(1200);
+await reviewBtn('estimated_charges');
+await sleep(300);
+const callsBefore = qRevCalls.length;
+await clearToasts();
+qState.failQuality = true;
+await modalBtn('Mark as reviewed');
+await sleep(1200);
+const fr = await qCard();
+const frToast = await qp.evaluate(() => document.querySelector('.toasts')?.textContent || '');
+check('A failed refresh after a successful review POST shows the card error and no success toast', qRevCalls.length === callsBefore + 1 && /Could not load/.test(fr.text) && /Quality unavailable\./.test(fr.text)
+  && !/Reviewed/.test(frToast) && !(await modalProbe()), JSON.stringify({ fr, frToast }));
+qState.failQuality = false;
+await checkAgain();
+await sleep(1200);
+qp.off('request', qIntercept);
+await qp.setRequestInterception(false);
+await qp.close();
 
 // ---------------------------------------------------------------- 3. map clustering and its fallback
 await d.goto(`${BASE}/#/map`, { waitUntil: 'networkidle0' });
@@ -375,6 +911,24 @@ check('German #/map', mEng.length === 0, mEng.join(', '));
 await d.goto(`${BASE}/#/places/999999`, { waitUntil: 'networkidle0' }); await sleep(1200);
 const pdeMissing = await d.evaluate(() => document.getElementById('main').innerText);
 check('German place not found', /Ort nicht gefunden\./.test(pdeMissing) && !/Place not found/.test(pdeMissing), pdeMissing.slice(0, 80));
+// Activity List tab: a data-quality repair and review read as words in the user's language, never the raw kind/detail
+const qev = await browser.newPage();
+watch(qev);
+await qev.setRequestInterception(true);
+qev.on('request', (req) => {
+  if (!/\/api\/vehicles\/[^/]+\/events(\?|$)/.test(req.url())) { req.continue(); return; }
+  req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify({ total: 2, kinds: ['quality_fix', 'quality_review'], items: [
+    { id: 2, vehicle_id: 1, at: '2026-11-26T10:05:00+00:00', kind: 'quality_fix', detail: 'close_open_trips:3' },
+    { id: 1, vehicle_id: 1, at: '2026-11-26T10:00:00+00:00', kind: 'quality_review', detail: 'open_trips:on' }] }) });
+});
+await qev.goto(`${BASE}/#/events`, { waitUntil: 'networkidle0' }); await sleep(1200);
+await qev.evaluate(() => document.querySelectorAll('#main .seg button')[1].click());
+await sleep(1200);
+const qevText = await qev.evaluate(() => [...document.querySelectorAll('#main .b-event')].map((e) => e.innerText.replace(/\s+/g, ' ')).join(' | '));
+check('German Activity List shows quality events translated, not raw',
+  /Daten korrigiert/.test(qevText) && /Offene Fahrten abschließen: 3 geändert/.test(qevText) && /Daten geprüft/.test(qevText)
+    && /Fahrten ohne Ende: als geprüft markiert/.test(qevText) && !/quality|close open|open trips|_/i.test(qevText), qevText);
+await qev.close();
 await d.goto(`${BASE}/#/trips`, { waitUntil: 'networkidle0' }); await sleep(1500);
 if (SHOTS) await d.screenshot({ path: `${SHOTS}/german-trips.png` });
 // restore and finish
