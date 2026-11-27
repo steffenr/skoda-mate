@@ -1,12 +1,14 @@
-// Number, date and unit formatting. Units (km/mi) and language come from Settings via setLocale().
+// Number, date and unit formatting. Units (km/mi) and the BCP-47 locale come from Settings via setLocale().
+import { t } from '../i18n.js';
+
 let units = 'km';
-let lang = 'en';
+let lang = 'en';  // BCP-47, what Intl and the toLocale* methods take
 export function setLocale(opts) {
   if (opts.units) units = opts.units;
-  if (opts.language) lang = opts.language;
+  if (opts.locale || opts.language) lang = opts.locale || opts.language;
 }
 export const getUnits = () => units;
-export const getLang = () => lang;
+export const getLocale = () => lang;
 
 const DASH = '–';
 const MI = 0.621371;
@@ -68,8 +70,8 @@ export function dayLabel(iso) {
   const today = new Date();
   const same = (a, b) => a.toDateString() === b.toDateString();
   const yest = new Date(today); yest.setDate(today.getDate() - 1);
-  if (same(d, today)) return lang === 'de' ? 'Heute' : 'Today';
-  if (same(d, yest)) return lang === 'de' ? 'Gestern' : 'Yesterday';
+  if (same(d, today)) return t('Today');
+  if (same(d, yest)) return t('Yesterday');
   return d.toLocaleDateString(lang, { weekday: 'short', day: 'numeric', month: 'short' });
 }
 
@@ -79,7 +81,7 @@ export function ago(src) {
   if (s == null || Number.isNaN(s)) return DASH;
   const rtf = new Intl.RelativeTimeFormat(lang, { numeric: 'auto' });
   const a = Math.abs(s);
-  if (a < 90) return lang === 'de' ? 'gerade eben' : 'just now';
+  if (a < 90) return t('just now');
   if (a < 5400) return rtf.format(-Math.round(s / 60), 'minute');
   if (a < 129600) return rtf.format(-Math.round(s / 3600), 'hour');
   return rtf.format(-Math.round(s / 86400), 'day');

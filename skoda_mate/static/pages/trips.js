@@ -139,7 +139,7 @@ export default async function trips(root, ctx) {
     const lead = (first.getDay() + 6) % 7;  // Monday first
     const days = new Date(y, m, 0).getDate();
     const maxKm = Math.max(1, ...[...byDay.values()].map((e) => e.km));
-    const lang = f.getLang();
+    const lang = f.getLocale();
     const cells = [];
     for (let i = 0; i < lead; i++) cells.push(h('div', { class: 'a-cell blank', 'aria-hidden': 'true' }));
     for (let d = 1; d <= days; d++) {

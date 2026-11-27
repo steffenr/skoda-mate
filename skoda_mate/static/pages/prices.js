@@ -19,7 +19,7 @@ const fail = (msg) => { throw new Error(msg); };
 
 /** The currency symbol for an ISO code in the current language ("€"), or the code itself. */
 function symbolOf(code) {
-  try { return new Intl.NumberFormat(f.getLocale?.() || undefined, { style: 'currency', currency: code }).formatToParts(0).find((p) => p.type === 'currency')?.value || code; } catch { return code; }
+  try { return new Intl.NumberFormat(f.getLocale(), { style: 'currency', currency: code }).formatToParts(0).find((p) => p.type === 'currency')?.value || code; } catch { return code; }
 }
 
 export default async function prices(root, ctx) {

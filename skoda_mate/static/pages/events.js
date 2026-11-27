@@ -145,7 +145,7 @@ const todayNoon = () => parseDay(isoDay(new Date()));
  * with a record to open is a button; every other bar is a plain labelled element (no focus stop, no pointer cursor). */
 function bar(iv, dayStart, dayEnd, tzOffset) {
   const { left, width } = barBox(iv.start, iv.minutes, dayStart, dayEnd);
-  const text = `${segLabel(iv.kind)} ${clockAt(iv.start, tzOffset, f.getLang())} – ${clockAt(iv.end, tzOffset, f.getLang())}${iv.estimated ? ` (${t('estimated')})` : ''}`;
+  const text = `${segLabel(iv.kind)} ${clockAt(iv.start, tzOffset, f.getLocale())} – ${clockAt(iv.end, tzOffset, f.getLocale())}${iv.estimated ? ` (${t('estimated')})` : ''}`;
   const href = iv.kind === 'drive' && iv.trip_id != null ? `#/trips/${iv.trip_id}` : iv.kind === 'charge' && iv.charge_id != null ? `#/charges/${iv.charge_id}` : null;
   const attrs = { class: ['tl-bar', `tl-${SEGMENT_COLOUR[iv.kind] || iv.kind}`, iv.estimated ? 'tl-estimated' : ''], style: { left: `${left}%`, width: `${width}%` }, title: text };
   return href ? h('button', { ...attrs, type: 'button', 'aria-label': text, onclick: () => { location.hash = href; } })
@@ -178,7 +178,7 @@ function dayBlock(day, tzOffset, currency) {
     h('div', { class: 'small muted' }, summaryParts(day.summary, currency).join(' · ')),
     h('details', { class: 'tl-text' }, h('summary', null, t('Text list')),
       h('ul', null, ...day.intervals.map((iv) => h('li', null,
-        `${segLabel(iv.kind)}, ${clockAt(iv.start, tzOffset, f.getLang())} – ${clockAt(iv.end, tzOffset, f.getLang())} (${f.duration(iv.minutes)})${iv.estimated ? ` · ${t('estimated')}` : ''}${iv.place ? ` · ${iv.place}` : ''}`)))));
+        `${segLabel(iv.kind)}, ${clockAt(iv.start, tzOffset, f.getLocale())} – ${clockAt(iv.end, tzOffset, f.getLocale())} (${f.duration(iv.minutes)})${iv.estimated ? ` · ${t('estimated')}` : ''}${iv.place ? ` · ${iv.place}` : ''}`)))));
 }
 
 /** The week timeline. Mounts into `root` and returns the refresh to run on a poll tick. */

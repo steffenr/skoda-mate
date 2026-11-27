@@ -98,5 +98,35 @@ await i18n.setLang('fast');
 release();
 await first;
 assert.deepEqual([i18n.getLang(), i18n.t('Word')], ['fast', 'fast']);
+
+// ------------------------------------------------------------------ formats and raw API values
+const f = await import('../../skoda_mate/static/lib/format.js');
+use('zz', { Today: 'T!', Yesterday: 'Y!', 'just now': 'J!', 'Connect cable': 'Kabel anschließen' });
+await i18n.setLang('zz', 'en-GB');
+f.setLocale({ language: 'zz', locale: 'en-GB' });
+assert.equal(f.getLocale(), 'en-GB', 'formats take the BCP-47 locale, not the language code');
+const noonToday = new Date(); noonToday.setHours(12, 0, 0, 0);
+const noonBefore = new Date(noonToday); noonBefore.setDate(noonToday.getDate() - 1);
+assert.deepEqual([f.dayLabel(noonToday.toISOString()), f.dayLabel(noonBefore.toISOString()), f.ago(10)], ['T!', 'Y!', 'J!'],
+  'today, yesterday and "just now" come from the catalog');
+assert.equal(i18n.tEnum('CONNECT_CABLE'), 'Kabel anschließen');
+await i18n.setLang('en');
+f.setLocale({ language: 'en', locale: 'en' });
+assert.equal(i18n.tEnum('CONNECT_CABLE'), 'Connect cable');
+assert.equal(i18n.tEnum('AC'), 'Ac', 'the English wording stays as it was');
+assert.equal(i18n.tEnum('NEW_VALUE'), 'New value', 'a value the table does not know yet is made readable');
+assert.deepEqual([i18n.tEnum('Plain text'), i18n.tEnum(5), i18n.tEnum(null)], ['Plain text', 5, null], 'only raw API values are touched');
+const KNOWN = ('YES NO ON OFF OPEN OPENED CLOSED LOCKED UNLOCKED UNKNOWN UNSUPPORTED INVALID TRUNK_OPENED PARKED IN_MOTION CONNECTED '
+  + 'DISCONNECTED CHARGING READY_FOR_CHARGING CONNECT_CABLE CONSERVING DISCHARGING CHARGING_INTERRUPTED AC DC COOLING HEATING HEATING_AUXILIARY '
+  + 'VENTILATION PREHEATING COMPLETED MANUAL TIMER TIMER_CHARGING_WITH_CLIMATISATION PREFERRED_CHARGING_TIMES ONLY_OWN_CURRENT '
+  + 'IMMEDIATE_DISCHARGING HOME_STORAGE_CHARGING PERMANENT MAXIMUM REDUCED ACTIVATED DEACTIVATED ELECTRIC GASOLINE DIESEL CNG LPG HYBRID '
+  + 'RECURRING ONE_OFF CELSIUS FAHRENHEIT MONDAY TUESDAY WEDNESDAY THURSDAY FRIDAY SATURDAY SUNDAY').split(' ');
+assert.deepEqual(KNOWN.filter((v) => !i18n.ENUM_LABELS[v]), [], 'every value that had a German word still has a label');
+const german = JSON.parse((await import('node:fs')).readFileSync(new URL('../../skoda_mate/static/i18n/de.json', import.meta.url), 'utf8'));
+i18n.CATALOGS.de = async () => german;
+await i18n.setLang('de');
+assert.deepEqual(['CHARGING', 'VENTILATION', 'OPEN', 'AC', 'CELSIUS'].map(i18n.tEnum), ['Lädt', 'Lüften', 'Offen', 'AC', '°C'],
+  'German values read as before, also where the same English word means something else elsewhere');
+assert.deepEqual(Object.keys(german).filter((k) => k.startsWith('enum:')), [], 'no enum: keys are left');
 await i18n.setLang('en');
 console.log('frontend unit checks OK');
