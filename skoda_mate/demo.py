@@ -21,6 +21,12 @@ WORK = (50.0686, 8.2386, "Kaiser-Friedrich-Ring 5, 65185 Wiesbaden, Germany")
 SHOP = (50.1213, 8.6564, "Zeil 90, 60313 Frankfurt am Main, Germany")
 FAR = (49.8728, 8.6512, "Luisenplatz 5, 64283 Darmstadt, Germany")
 PLACES = [WORK, SHOP, FAR]
+# The real poller reads a parked car every 20 minutes (poller.DEFAULT_IDLE_S). The seed writes one parked reading per
+# hour: no false reading gaps (quality, timeline) and unbroken parked runs (activity.RUN_GAP_H), at a third of the rows.
+PARKED_EVERY = timedelta(hours=1)
+# Standby loss of a parked car (12 V system, connectivity module), drawn per stand. The API reports whole percent, so
+# short stands land below the detection floor and longer ones show a measurable loss, as on a real car.
+PARKED_DRAIN_PCT_PER_DAY = (0.8, 2.0)
 
 
 def vehicle_response(now: datetime, soc: float, charging: bool, parked_at=HOME, moving=False, odo=14820,
@@ -125,6 +131,22 @@ def _seed_places(conn) -> None:
             places.create(conn, {"name": place_name, "kind": kind, "lat": coords[0], "lon": coords[1], "radius_m": 150})
 
 
+def _seed_duplicate_trip(conn, vid: int, now: datetime) -> None:
+    """Store the newest finished trip of the last week a second time, ending one second later, so the data-quality card
+    has a real, important finding. Same start and distance, different end: the quality check groups it, but the
+    startup clean-up (`schema.dedupe_trips`, exact start and end only) leaves it alone. Unlike an open trip, it
+    survives the live demo's first poll and a restart until the owner uses Fix or Mark as reviewed."""
+    row = conn.execute("SELECT * FROM trips WHERE vehicle_id=? AND ended_at IS NOT NULL AND distance_km IS NOT NULL "
+                       "AND started_at >= ? ORDER BY started_at DESC LIMIT 1",
+                       (vid, (now - timedelta(days=6)).isoformat())).fetchone()
+    if row is None:
+        return
+    copy = {k: v for k, v in dict(row).items() if k != "id"}
+    copy["cloud_id"] = f"{row['cloud_id']}-copy"
+    copy["ended_at"] = (datetime.fromisoformat(row["ended_at"]) + timedelta(seconds=1)).isoformat()
+    conn.execute(f"INSERT INTO trips({', '.join(copy)}) VALUES({', '.join('?' * len(copy))})", tuple(copy.values()))
+
+
 def seed(conn, days: int = 60, now: datetime | None = None, rng_seed: int = 7, vin: str = DEMO_VIN, name: str = "Demo Enyaq",
          plate: str = "F-DM 2026", model: str = "Enyaq 85") -> int:
     """Write believable history through the real recorder. Returns the vehicle id."""
@@ -142,14 +164,48 @@ def seed(conn, days: int = 60, now: datetime | None = None, rng_seed: int = 7, v
     soc, odo = 70.0, 9800.0
     start = (now - timedelta(days=days)).replace(hour=6, minute=0, second=0, microsecond=0)
 
+    last: dict = {}  # the newest reading written: its time, its fields and the unrounded level behind its soc
+    drain = random.Random(rng_seed + 1)  # its own stream, so trips and charges stay the same for a given seed
+
+    def write(t, reading, level):
+        recorder.ingest(conn, vid, {**reading, "ts": t.isoformat()})
+        last.update(t=t, reading=reading, level=level)
+
+    def stand_until(until):
+        """Repeat the newest reading every PARKED_EVERY up to `until` while the car stands still (never mid-drive or
+        mid-charge, whose own readings are close enough). The battery drains meanwhile, as a parked car's does.
+
+        It drains from the level of the last reading WRITTEN: the schedule may already have moved `soc` on for events
+        after `now` that were never written (a 22:00 charge), and those must not leak into the history."""
+        nonlocal soc
+        if not last or last["reading"]["in_motion"] or last["reading"]["charging"]:
+            return
+        still = {k: v for k, v in last["reading"].items() if k != "park_captured_at"}
+        per_hour = drain.uniform(*PARKED_DRAIN_PCT_PER_DAY) / 24
+        level = last["level"]
+        t = last["t"] + PARKED_EVERY
+        while t < until:
+            level -= per_hour
+            write(t, {**still, "soc": round(level)}, level)
+            t += PARKED_EVERY
+        soc = level
+
     def snap(t, **kw):
         if t > now:  # a day's schedule can run past midnight: that is not history yet, the live demo continues
             return
-        base = {"ts": t.isoformat(), "soc": round(soc, 1), "charging": False, "mileage_km": round(odo, 1), "in_motion": False,
+        stand_until(t)
+        # whole percent and whole km, exactly as the API (and the live DemoApi via vehicle_response) reports them
+        base = {"soc": round(soc), "charging": False, "mileage_km": int(odo), "in_motion": False,
                 "lat": HOME[0], "lon": HOME[1], "address": HOME[2], "locked": True, "plug_connected": False, "charge_state": None,
                 "climate_state": "OFF", "climate_target": 21.0}
         base.update(kw)
-        recorder.ingest(conn, vid, base)
+        write(t, base, soc)
+
+    # One weekday-morning pre-heat in the last week (parked, before the first commute that is written).
+    preheat_day = (now - timedelta(days=2)).date()
+    while preheat_day.weekday() >= 5:
+        preheat_day -= timedelta(days=1)
+    preheated = False
 
     day = start
     here = HOME
@@ -163,6 +219,10 @@ def seed(conn, days: int = 60, now: datetime | None = None, rng_seed: int = 7, v
                     break
                 km = round(rng.uniform(34, 41), 1)
                 t0 = day.replace(hour=7, minute=rng.randint(10, 50)) if not back else day.replace(hour=17, minute=rng.randint(0, 50))
+                if not back and not preheated and day.date() >= preheat_day:
+                    preheated = True
+                    for lead in (20, 10):  # the car heats itself for the commute: 20 minutes of climate on the timeline
+                        snap(t0 - timedelta(minutes=lead), climate_state="HEATING", lat=here[0], lon=here[1], address=here[2])
                 snap(t0, lat=here[0], lon=here[1], address=here[2])
                 snap(t0 + timedelta(minutes=8), in_motion=True, lat=None, lon=None, address=None)
                 soc -= km * rng.uniform(0.27, 0.36)
@@ -201,5 +261,7 @@ def seed(conn, days: int = 60, now: datetime | None = None, rng_seed: int = 7, v
             snap(t, charge_state="READY_FOR_CHARGING", plug_connected=True, lat=HOME[0], lon=HOME[1], address=HOME[2])
             here = HOME
         day += timedelta(days=1)
+    stand_until(now)  # up to the moment the live demo takes over
+    _seed_duplicate_trip(conn, vid, now)
     conn.commit()
     return vid
