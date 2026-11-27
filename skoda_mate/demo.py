@@ -16,6 +16,10 @@ from .secrets_store import SecretBox
 
 DEMO_VIN = "TMBDEMO0000000001"
 DEMO_VIN2 = "TMBDEMO0000000002"  # second car, only with DEMO_CARS=2 (to try switching between cars)
+# A real Škoda render for the demo car (the API host the CSP already allows); None would draw the silhouette.
+RENDER_URL = ("https://iprenders.blob.core.windows.net/base5azv23200005/"
+              "5X5XPawIvAgN0CK-W9Zpg0iQkduqX6JN8mR-9Z0uKAb2IOPUxtyih6_B-Mwqxg09cEBhHk3YT16uJsbRolW8-"
+              "CKGNEBJ-19201080dayvext_side1080.png")
 SECOND: dict[str, Any] = {"name": "Demo Elroq", "plate": "F-DM 2027", "model": "Elroq 85", "soc": 42.0, "odo": 3120}
 HOME = (50.1109, 8.6821, "Römerberg 1, 60311 Frankfurt am Main, Germany")
 WORK = (50.0686, 8.2386, "Kaiser-Friedrich-Ring 5, 65185 Wiesbaden, Germany")
@@ -42,6 +46,8 @@ def vehicle_response(now: datetime, soc: float, charging: bool, parked_at=HOME, 
     state = "CHARGING" if charging else "READY_FOR_CHARGING"
     veh = {
         "vin": vin, "name": name, "licensePlate": plate,
+        # the API reports the car's picture here; carView() scales it, the silhouette shows if it cannot load
+        "renderUrl": RENDER_URL if vin == DEMO_VIN else None,
         "status": {"overall": {"doorsLocked": "YES", "locked": "YES", "doors": "CLOSED", "windows": "CLOSED", "lights": "OFF",
                                "reliableLockStatus": "LOCKED"},
                    "detail": {"sunroof": "UNSUPPORTED", "trunk": "CLOSED", "bonnet": "CLOSED"}, "carCapturedTimestamp": ts},
@@ -167,12 +173,14 @@ def _seed_duplicate_trip(conn, vid: int, now: datetime) -> None:
 
 
 def seed(conn, days: int = 75, now: datetime | None = None, rng_seed: int = 7, vin: str = DEMO_VIN, name: str = "Demo Enyaq",
-         plate: str = "F-DM 2026", model: str = "Enyaq 85") -> int:
+         plate: str = "F-DM 2026", model: str = "Enyaq 85", render_url: str | None = RENDER_URL) -> int:
     """Write believable history through the real recorder. Returns the vehicle id."""
     rng = random.Random(rng_seed)
     now = now or datetime.now(UTC)
     vid = recorder.upsert_vehicle(conn, vin, name, model, 77.0)
-    store.save_sections(conn, vid, {"info": {"vin": vin, "name": name, "license_plate": plate, "render_url": None}},
+    # The demo shows a real Škoda render (1920×1080, transparent) instead of the drawn silhouette;
+    # carView() scales it to fit, and if it cannot load, the silhouette shows as usual.
+    store.save_sections(conn, vid, {"info": {"vin": vin, "name": name, "license_plate": plate, "render_url": render_url}},
                         now.isoformat())
     import json
 

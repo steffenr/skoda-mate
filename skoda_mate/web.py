@@ -86,7 +86,7 @@ def _start_demo(ctx: AppContext) -> None:
         demo.seed_webhook(conn, ctx.box)
     if ctx.cfg.demo_cars >= 2 and not conn.execute("SELECT 1 FROM vehicles WHERE vin=?", (demo.DEMO_VIN2,)).fetchone():
         demo.seed(conn, rng_seed=11, vin=demo.DEMO_VIN2, name=demo.SECOND["name"], plate=demo.SECOND["plate"],
-                  model=demo.SECOND["model"])
+                  model=demo.SECOND["model"], render_url=None)
     last = recorder.last_snapshot(conn, conn.execute("SELECT id FROM vehicles WHERE vin=?", (demo.DEMO_VIN,)).fetchone()["id"])
     vins = [demo.DEMO_VIN, *([demo.DEMO_VIN2] if ctx.cfg.demo_cars >= 2 else [])]
     ctx.cloud.start(demo.DemoApi(odo=(last["mileage_km"] if last and last["mileage_km"] else 14820),

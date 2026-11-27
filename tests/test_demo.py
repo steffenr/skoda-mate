@@ -203,3 +203,18 @@ def test_demo_shows_the_insight_features():
     ranged = analytics.projected_range(conn, vid)
     assert 500 < ranged["latest"]["range_km"] < 620 and ranged["samples"] > 500
     assert ranged["trend_km_per_year"] is not None and ranged["degradation"] is None
+
+
+def test_the_demo_car_has_a_real_render_url():
+    with demo_client() as c:
+        info = c.get("/api/vehicles/1/overview").json()["sections"]["info"]
+    # The overview shows Škoda's own render (the demo API answers with it on every poll);
+    # the second car gets none, so its picture cannot contradict its model.
+    assert info["render_url"] and info["render_url"].startswith("https://iprenders.blob.core.windows.net/")
+
+
+def test_the_second_demo_car_has_no_render_url():
+    cfg = Config(db_path=":memory:", demo=True, demo_cars=2)
+    with client_for(create_app(cfg, schema.connect(":memory:"))) as c:
+        second = c.get("/api/vehicles/2/overview").json()["sections"]["info"]
+    assert second["render_url"] is None
