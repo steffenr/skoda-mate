@@ -15,7 +15,7 @@ from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
 from starlette.background import BackgroundTask
 
-from .. import __version__, activity, commands, places, recorder, stats, store
+from .. import __version__, activity, analytics, commands, places, recorder, stats, store
 from ..deps import ContextDep
 from ..presenters import csv_cell, local_bound, local_day, redact, rows, snap_out, vehicle
 
@@ -35,10 +35,12 @@ def statistics(vid: int, ctx: ContextDep):
 
 
 @router.get("/api/vehicles/{vid}/battery")
-def battery(vid: int, ctx: ContextDep, hours: int = Query(168, ge=1, le=24 * 365)):
+def battery(vid: int, ctx: ContextDep, hours: int = Query(168, ge=1, le=24 * 365),
+            tz_offset: int = Query(0, ge=-840, le=840)):
     vehicle(ctx.conn, vid)
     sec = store.load_sections(ctx.conn, vid)
     b = stats.battery(ctx.conn, vid)
+    b["projected_range"] = analytics.projected_range(ctx.conn, vid, tz_offset)
     b["history"] = stats.soc_history(ctx.conn, vid, hours, ctx.now_iso())
     b["charging"] = sec.get("charging")
     b["profiles"] = sec.get("profiles")
@@ -93,7 +95,8 @@ def timeline_view(vid: int, ctx: ContextDep, from_: str | None = Query(None, ali
 
 @router.get("/api/vehicles/{vid}/parked-loss")
 def parked_loss_view(vid: int, ctx: ContextDep, from_: str | None = Query(None, alias="from"),
-                     to: str | None = None, min_hours: float = 6, tz_offset: int = Query(0, ge=-840, le=840)):
+                     to: str | None = None, min_hours: float = 6, tz_offset: int = Query(0, ge=-840, le=840),
+                     limit: int = Query(50, ge=1, le=200), offset: int = Query(0, ge=0)):
     vehicle(ctx.conn, vid)
     if not 1 <= min_hours <= 168:
         raise HTTPException(400, "min_hours must be between 1 and 168.")
@@ -106,10 +109,35 @@ def parked_loss_view(vid: int, ctx: ContextDep, from_: str | None = Query(None, 
     from_iso, to_iso = local_bound(from_day, tz_offset), local_bound(to_day, tz_offset, end=True)
     assert from_iso is not None and to_iso is not None
     try:
-        return activity.parked_loss(ctx.conn, vid, from_iso, to_iso, min_hours,
-                                    recorder.battery_kwh(ctx.conn, vid), ctx.tariff())
+        result = activity.parked_loss(ctx.conn, vid, from_iso, to_iso, min_hours,
+                                      recorder.battery_kwh(ctx.conn, vid), ctx.tariff())
+        return activity.parked_page(result, limit, offset)
     except activity.RangeError as e:  # a reversed range; no length cap, the computation is linear in the readings
         raise HTTPException(400, str(e)) from e
+
+
+def _range_bounds(from_: str | None, to: str | None, tz_offset: int) -> tuple[str | None, str | None]:
+    """The optional local days of an insight period as UTC bounds; `to` counts through the end of its day."""
+    lo, hi = local_bound(from_, tz_offset), local_bound(to, tz_offset, end=True)
+    if lo and hi and lo >= hi:
+        raise HTTPException(400, "The range ends before it starts.")
+    return lo, hi
+
+
+@router.get("/api/vehicles/{vid}/insights/charging")
+def charging_insight(vid: int, ctx: ContextDep, from_: str | None = Query(None, alias="from"),
+                     to: str | None = None, tz_offset: int = Query(0, ge=-840, le=840)):
+    vehicle(ctx.conn, vid)
+    tariff = ctx.tariff()
+    out = analytics.charging(ctx.conn, vid, tariff, *_range_bounds(from_, to, tz_offset), tz_offset=tz_offset)
+    return {**out, "currency": tariff["currency"]}
+
+
+@router.get("/api/vehicles/{vid}/insights/driving")
+def driving_insight(vid: int, ctx: ContextDep, from_: str | None = Query(None, alias="from"),
+                    to: str | None = None, tz_offset: int = Query(0, ge=-840, le=840)):
+    vehicle(ctx.conn, vid)
+    return analytics.driving(ctx.conn, vid, *_range_bounds(from_, to, tz_offset), tz_offset=tz_offset)
 
 
 @router.get("/api/vehicles/{vid}/map")

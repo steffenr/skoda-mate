@@ -1,6 +1,6 @@
 """Demo mode (DEMO=1): a believable Enyaq without any Škoda account, for trying the dashboard and for development.
 
-`DemoApi` stands in for the HTTP client and answers in the exact shape of the official API; `seed()` writes ~60 days
+`DemoApi` stands in for the HTTP client and answers in the exact shape of the official API; `seed()` writes ~75 days
 of history through the same recorder the real poller uses, so every page has something to show. Nothing here talks
 to the network.
 """
@@ -27,6 +27,12 @@ PARKED_EVERY = timedelta(hours=1)
 # Standby loss of a parked car (12 V system, connectivity module), drawn per stand. The API reports whole percent, so
 # short stands land below the detection floor and longer ones show a measurable loss, as on a real car.
 PARKED_DRAIN_PCT_PER_DAY = (0.8, 2.0)
+KM_PER_PCT = 5.6  # reported range per percent of battery, the same figure the live DemoApi answers with
+RANGE_NOISE = 0.015  # day-to-day scatter of the reported range
+# (below this level of charge, kW): a fast charger slows down as the battery fills
+DC_TAPER = ((40, 125.0), (55, 105.0), (70, 78.0), (101, 52.0))
+DC_TARGET = 80
+DC_STEP = timedelta(minutes=2)
 
 
 def vehicle_response(now: datetime, soc: float, charging: bool, parked_at=HOME, moving=False, odo=14820,
@@ -147,7 +153,7 @@ def _seed_duplicate_trip(conn, vid: int, now: datetime) -> None:
     conn.execute(f"INSERT INTO trips({', '.join(copy)}) VALUES({', '.join('?' * len(copy))})", tuple(copy.values()))
 
 
-def seed(conn, days: int = 60, now: datetime | None = None, rng_seed: int = 7, vin: str = DEMO_VIN, name: str = "Demo Enyaq",
+def seed(conn, days: int = 75, now: datetime | None = None, rng_seed: int = 7, vin: str = DEMO_VIN, name: str = "Demo Enyaq",
          plate: str = "F-DM 2026", model: str = "Enyaq 85") -> int:
     """Write believable history through the real recorder. Returns the vehicle id."""
     rng = random.Random(rng_seed)
@@ -166,9 +172,11 @@ def seed(conn, days: int = 60, now: datetime | None = None, rng_seed: int = 7, v
 
     last: dict = {}  # the newest reading written: its time, its fields and the unrounded level behind its soc
     drain = random.Random(rng_seed + 1)  # its own stream, so trips and charges stay the same for a given seed
+    scatter = random.Random(rng_seed + 2)  # likewise for the reported range
 
     def write(t, reading, level):
-        recorder.ingest(conn, vid, {**reading, "ts": t.isoformat()})
+        km = round(reading["soc"] * KM_PER_PCT * (1 + scatter.uniform(-RANGE_NOISE, RANGE_NOISE)))
+        recorder.ingest(conn, vid, {**reading, "range_km": km, "ts": t.isoformat()})
         last.update(t=t, reading=reading, level=level)
 
     def stand_until(until):
@@ -200,6 +208,18 @@ def seed(conn, days: int = 60, now: datetime | None = None, rng_seed: int = 7, v
                 "climate_state": "OFF", "climate_target": 21.0}
         base.update(kw)
         write(t, base, soc)
+
+    def fast_charge(t):
+        """A public DC stop in Darmstadt: readings every two minutes while the power tapers, then unplugged."""
+        nonlocal soc
+        at = {"lat": FAR[0], "lon": FAR[1], "address": FAR[2]}
+        while soc < DC_TARGET:
+            kw = next(power for below, power in DC_TAPER if soc < below)
+            snap(t, charging=True, charge_state="CHARGING", charge_power_kw=kw, charge_type="DC", plug_connected=True,
+                 target_soc=DC_TARGET, **at)
+            soc = min(DC_TARGET, soc + kw * DC_STEP.total_seconds() / 3600 / 77 * 100 * 0.93)
+            t += DC_STEP
+        snap(t, charge_state="READY_FOR_CHARGING", plug_connected=False, **at)
 
     # One weekday-morning pre-heat in the last week (parked, before the first commute that is written).
     preheat_day = (now - timedelta(days=2)).date()
@@ -239,18 +259,18 @@ def seed(conn, days: int = 60, now: datetime | None = None, rng_seed: int = 7, v
             snap(t0 + timedelta(minutes=6), in_motion=True, lat=None, lon=None, address=None)
             soc -= km * rng.uniform(0.28, 0.4)
             odo += km
-            end = t0 + timedelta(minutes=round(km * 1.3))
+            end = t0 + timedelta(minutes=max(8, round(km * 1.3)))  # a short hop still arrives after the moving reading
             snap(end, lat=dest[0], lon=dest[1], address=dest[2])
             here = dest
-        # evening home charge when low (or DC on a long day away)
+            if dest is FAR and soc < DC_TARGET - 10:
+                fast_charge(end + timedelta(minutes=4))
+        # evening home charge when low
         if here is not HOME and soc < 35:
             here = HOME
         if soc < 45 or (day.weekday() == 6):
             t = day.replace(hour=22, minute=0)
             target = rng.choice([80, 80, 90])
             kind, kw = ("AC", 10.8)
-            if here is FAR:
-                kind, kw = "DC", 48.0
             steps = 0
             while soc < target and steps < 40:
                 snap(t, charging=True, charge_state="CHARGING", charge_power_kw=kw + rng.uniform(-0.3, 0.3), charge_type=kind,

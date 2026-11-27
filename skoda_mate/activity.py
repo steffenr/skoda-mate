@@ -424,11 +424,17 @@ def _aggregates(sessions: list[dict], to_iso: str) -> dict:
 
     rates = [s["kwh_per_day"] for s in valid]
     amounts = [s["cost"] for s in valid if s["cost"] is not None]
-    return {"count": len(valid),
+    return {"count": len(valid), "flagged": sum(1 for s in sessions if s["warning"] is not None),
             "median_kwh_per_day": round(statistics.median(rates), 2) if rates else None,
             "mean_kwh_per_day": round(statistics.fmean(rates), 2) if rates else None,
             "kwh": total(valid), "kwh_7d": recent(7), "kwh_30d": recent(30),
             "cost": round(sum(amounts), 2) if amounts else None}
+
+
+def parked_page(result: dict, limit: int, offset: int) -> dict:
+    """One page of a `parked_loss` answer, newest stand first. The aggregates still cover the whole period."""
+    newest = result["sessions"][::-1]  # computed in time order
+    return {**result, "sessions": newest[offset:offset + limit], "total": len(newest), "limit": limit, "offset": offset}
 
 
 def _busy(conn, vid: int, from_iso: str, to_iso: str) -> list[tuple[datetime, datetime]]:

@@ -13,7 +13,6 @@ from fastapi import HTTPException
 
 from . import costs, places, recorder
 
-INFERRED_SOURCES = ("inferred", "import-trip")  # charges that were read off other data, not measured while charging
 TYPICAL_WALLBOX_KW = 11.0  # a home AC charger: only used to say how long an inferred charge probably took
 HIDDEN_SECTIONS = {"raw", "operations", "part_state", "api_errors"}
 FORMULA_START = ("=", "+", "-", "@", "\t", "\r")
@@ -134,7 +133,7 @@ def charge_out(c: dict, tariff: dict, conn) -> dict:
     c["cost"], c["cost_basis"], c["place_kind_resolved"] = cc["amount"], cc["basis"], cc["kind"]
     c["place"] = {"id": place["id"], "name": place["name"], "kind": place["kind"]} if place else None
     c["open"] = c["ended_at"] is None
-    c["inferred"] = c.get("source") in INFERRED_SOURCES  # read off the battery level / a trip export, not measured live
+    c["inferred"] = c.get("source") in costs.INFERRED_SOURCES  # read off the battery level / a trip export, not measured live
     # A charge imported from a trip export knows only how much the level ROSE, not the levels before and after.
     c["soc_gained"] = None
     if c.get("source") == "import-trip":

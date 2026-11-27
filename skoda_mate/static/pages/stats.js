@@ -6,6 +6,8 @@ import { barChart } from '../lib/charts.js';
 import * as f from '../lib/format.js';
 import { monthsAgo } from '../lib/dates.js';
 import { belowFloor, floorValue, kwhText, medianLossStat } from '../lib/floor.js';
+import { renderCharging } from '../lib/insight-charging.js';
+import { renderDriving } from '../lib/insight-driving.js';
 import { extendDE, t } from '../i18n.js';
 
 extendDE({
@@ -56,7 +58,16 @@ extendDE({
   'The charge level is a whole percent, so a loss below one percent is not measurable (below the detection floor).': 'Der Ladestand ist eine ganze Prozentzahl, daher ist ein Verlust unter einem Prozent nicht messbar (unter der Nachweisgrenze).',
   'One percent is roughly': 'Ein Prozent entspricht etwa',
   'Costs are estimates. Sessions marked as a likely unrecorded charge are left out of the figures above.': 'Kosten sind Schätzungen. Standzeiten, die als wahrscheinlich nicht erfasster Ladevorgang markiert sind, fehlen in den Zahlen oben.',
+  'Charging': 'Laden', 'Driving': 'Fahren', 'Newer': 'Neuer', 'Older': 'Älter', 'Pages': 'Seiten',
+  'Could not load charging insight': 'Ladeauswertung konnte nicht geladen werden', 'Could not load driving insight': 'Fahrtenauswertung konnte nicht geladen werden',
 });
+
+const TABS = ['overview', 'charging', 'driving', 'parked'];
+const PARKED_PAGE = 50;  // stands per page of the Parked table
+const INSIGHTS = {
+  charging: { render: renderCharging, error: 'Could not load charging insight' },
+  driving: { render: renderDriving, error: 'Could not load driving insight' },
+};
 
 const MI = 0.621371;
 const sum = (rows, k) => rows.reduce((a, r) => a + (r[k] || 0), 0);
@@ -70,18 +81,19 @@ export default async function stats(root, ctx) {
   let months = +(recall('b-stats-months') || 12);
   if (![6, 12, 0].includes(months)) months = 12;
   let data = null;
-  let tab = recall('b-stats-tab') === 'parked' ? 'parked' : 'overview';
+  let tab = TABS.includes(recall('b-stats-tab')) ? recall('b-stats-tab') : 'overview';
   let parked = null;
-  let parkedSeq = 0;  // only the newest parked-loss request may draw: a slow 12-month answer must not overwrite 6 months
+  let parkedOffset = 0;
+  let seq = 0;  // only the newest tab request may draw: a slow 12-month answer must not overwrite 6 months or another tab
 
   // The tab control stays in every state (loading, error, content): a failing tab never traps the viewer on it.
-  const tabBar = () => h('div', { class: 'row', style: { marginBottom: '12px' } }, seg([['overview', t('Overview')], ['parked', t('Parked')]], tab,
+  const tabBar = () => h('div', { class: 'row', style: { marginBottom: '12px' } }, seg([['overview', t('Overview')], ['charging', t('Charging')], ['driving', t('Driving')], ['parked', t('Parked')]], tab,
     (v) => { tab = v; remember('b-stats-tab', v); show(); }, t('View')));
   const shell = (...body) => mount(root, tabBar(), ...body);
   const fail = (e, message, retry) => shell(h('div', { class: 'card' }, banner('bad', `${message}: ${e.message}`),
     h('div', { style: { marginTop: '12px' } }, button(t('Try again'), { ic: 'refresh', onClick: retry }))));
 
-  // The period control, one for both tabs; `onChange` redraws or reloads the active tab.
+  // The period control, one for all tabs; `onChange` redraws or reloads the active tab.
   function periodControl(onChange) {
     const period = seg([[6, t('6 months')], [12, t('12 months')], [0, t('all')]], months, (v) => { months = v; remember('b-stats-months', v); onChange(); });
     period.setAttribute('aria-labelledby', 'b-period-label');
@@ -135,8 +147,9 @@ export default async function stats(root, ctx) {
 
   // Show the active tab. Parked asks only for parked-loss and Overview only for stats, so neither one's failure blocks the other.
   function show() {
-    parkedSeq++;  // an answer that is still on its way for the tab we left must not draw
-    if (tab === 'parked') return loadParked();
+    seq++;  // an answer that is still on its way for the tab we left must not draw
+    if (tab === 'parked') return firstParkedPage();
+    if (INSIGHTS[tab]) return loadInsight();
     if (data) return draw();
     return loadStats();
   }
@@ -145,22 +158,75 @@ export default async function stats(root, ctx) {
 
   function parkedQuery() {
     const today = new Date(), from = monthsAgo(today, months);
-    return new URLSearchParams({ from: months ? isoDay(from) : '1970-01-01', to: isoDay(today), tz_offset: String(today.getTimezoneOffset()) });
+    return new URLSearchParams({ from: months ? isoDay(from) : '1970-01-01', to: isoDay(today), tz_offset: String(today.getTimezoneOffset()),
+      limit: String(PARKED_PAGE), offset: String(parkedOffset) });
   }
 
-  async function loadParked() {
-    const seq = ++parkedSeq;
-    shell(loading());
+  // `quiet` keeps the page on screen while another page of the table is fetched.
+  async function loadParked({ quiet = false } = {}) {
+    const mine = ++seq;
+    if (!quiet) shell(loading());
     try {
       const out = await ctx.api.get(`${base}/parked-loss?${parkedQuery()}`);
-      if (seq === parkedSeq) { parked = out; draw(); }
-    } catch (e) { if (seq === parkedSeq) fail(e, t('Could not load parked loss'), loadParked); }
+      if (mine !== seq) return false;
+      if (parkedOffset && !out.sessions.length) {  // the history shrank under this page: show the last one there is
+        parkedOffset = Math.max(0, Math.ceil(out.total / PARKED_PAGE) - 1) * PARKED_PAGE;
+        return loadParked({ quiet });
+      }
+      parked = out;
+      draw();
+      return true;
+    } catch (e) { if (mine === seq) fail(e, t('Could not load parked loss'), () => loadParked()); }
+    return false;
+  }
+
+  function firstParkedPage() {
+    parkedOffset = 0;
+    return loadParked();
+  }
+
+  // Redrawing replaces the button that was pressed: put the keyboard back on it, or on its partner at either end.
+  async function goParked(offset, pressed) {
+    parkedOffset = offset;
+    if (!await loadParked({ quiet: true })) return;
+    const buttons = [...root.querySelectorAll('.pager button')];
+    if (pressed === 'older') buttons.reverse();
+    buttons.find((b) => !b.disabled)?.focus({ preventScroll: true });
+  }
+
+  function parkedPager() {
+    const { total, offset } = parked;
+    if (total <= PARKED_PAGE) return null;
+    const to = Math.min(offset + PARKED_PAGE, total);
+    return h('div', { class: 'pager', role: 'navigation', 'aria-label': t('Pages') },
+      button(t('Newer'), { ic: 'left', size: 'sm', disabled: offset <= 0, onClick: () => goParked(Math.max(0, offset - PARKED_PAGE), 'newer') }),
+      h('span', { class: 'small muted' }, `${f.num(offset + 1)}–${f.num(to)} ${t('of')} ${f.num(total)}`),
+      button(`${t('Older')} →`, { size: 'sm', disabled: to >= total, onClick: () => goParked(offset + PARKED_PAGE, 'older') }));
+  }
+
+  // Charging and Driving start on the first day of a month, so a period lines up with the rows of the monthly table.
+  function insightQuery() {
+    const today = new Date(), q = new URLSearchParams({ tz_offset: String(today.getTimezoneOffset()) });
+    if (months) {
+      q.set('from', isoDay(new Date(today.getFullYear(), today.getMonth() - (months - 1), 1)));
+      q.set('to', isoDay(today));
+    }
+    return q;
+  }
+
+  async function loadInsight() {
+    const mine = ++seq, kind = tab;
+    shell(loading());
+    try {
+      const out = await ctx.api.get(`${base}/insights/${kind}?${insightQuery()}`);
+      if (mine === seq) shell(h('div', { class: 'row' }, ...periodControl(loadInsight)), ...INSIGHTS[kind].render(out));
+    } catch (e) { if (mine === seq) fail(e, t(INSIGHTS[kind].error), loadInsight); }
   }
 
   function renderParked() {
-    const header = h('div', { class: 'row' }, ...periodControl(loadParked));
+    const header = h('div', { class: 'row' }, ...periodControl(firstParkedPage));
     const cur = ctx.currency, a = parked?.aggregates || {}, rows = parked?.sessions || [];
-    if (!rows.length) return [header, empty(t('No parked sessions'), t('A session needs at least six hours, a charge level at both ends and no charging or driving in between.'), 'clock')];
+    if (!parked?.total) return [header, empty(t('No parked sessions'), t('A session needs at least six hours, a charge level at both ends and no charging or driving in between.'), 'clock')];
     const dash = '–';
     const totals = h('div', { class: 'grid auto' },
       card(null, medianLossStat(a.median_kwh_per_day)),
@@ -183,7 +249,7 @@ export default async function stats(root, ctx) {
       { label: t('kWh/day'), render: (r) => (r.warning || r.below_detection_floor || r.kwh_per_day == null ? dash : f.num(r.kwh_per_day, 1)), num: true },
       { label: t('Cost'), render: (r) => (!r.warning && r.cost != null ? f.money(r.cost, cur) : dash), num: true, cls: 'nowrap' },
     ], rows, { label: t('Parked sessions'), emptyNode: empty(t('No parked sessions')) });
-    return [header, totals, card(t('Parked sessions'), tbl, { ic: 'clock' }), note];
+    return [header, totals, card(t('Parked sessions'), h('div', { class: 'stack' }, tbl, parkedPager()), { ic: 'clock' }), note];
   }
 
   function renderOverview() {
@@ -267,9 +333,9 @@ export default async function stats(root, ctx) {
   }
   await show();
   // A stand counts only after six hours, so the Parked tab is not re-asked every tick (changing the period reloads it);
-  // the statistics are not asked for while the Parked tab is showing.
+  // Charging and Driving likewise change only with a new trip or charge. The statistics are refreshed on Overview alone.
   ctx.onTick(async () => {
-    if (tab === 'parked') return;
-    try { data = await ctx.api.get(`${base}/stats`); if (tab !== 'parked') draw(); } catch { /* keep the current view */ }
+    if (tab !== 'overview') return;
+    try { data = await ctx.api.get(`${base}/stats`); if (tab === 'overview') draw(); } catch { /* keep the current view */ }
   });
 }
