@@ -426,6 +426,28 @@ so no RTL work. Browser tests render a long-string locale at 360 px.
 **Batches.** Framework and en/de migration first; then da/nl/sv/nb/fi; fr/es/it/ca; hu/tr/uk; ja/ko/zh_Hans. Each batch
 runs the extractor, coverage, a browser pass and a native review where available.
 
+**Added 2026-11-27, after reading the code again.** Approaches for the migration: (A) rebuild sentences that are pieced
+together from several translations while migrating, so every later catalog is written against final keys; (B) migrate
+them as they are and repair them later, which makes the first PR smaller but needs a second translation of the changed
+text. **A was chosen.** It also settles three gaps in the text above:
+
+- One English key can need two translations (`Range`: `Reichweite` or `Zeitraum`; `Open`: `Offen` or `Öffnen`). Today
+  the last registration wins. A key may carry a context suffix, `'Open##action'`; English shows the part before `##`.
+- Many strings reach `t()` through a variable. They are marked where they are written with `N_('…')`, which returns its
+  argument, and the extractor scans `N_` as well as `t`. A catalog key that the extractor does not find fails coverage,
+  so a missed marker cannot go unnoticed.
+- The string fallback: an error keeps its formatted English string where it is today (`detail`, `error`, `message`) and
+  gains a sibling `<field>_i18n: {message, params}`.
+
+After checking W3C, CLDR and MDN guidance the same day, these replace the text above where they differ:
+
+- Catalogs are JSON files (`static/i18n/<code>.json`), fetched on demand, instead of modules: a contributed translation
+  is then data that cannot run code, and translation tools can read it.
+- Counts use plural forms chosen with the built-in `Intl.PluralRules`; a catalog entry holds every category its
+  language has, and coverage checks that.
+- The key list records where each text is used, and a pseudo-language browser pass looks for missed or pieced-together
+  text and for layouts that break with longer text.
+
 **Done when.** All 17 locales appear in Settings with native names; switching updates the whole UI, `Intl` formats and the
 `lang` attribute without a reload; every catalog has every key and matching placeholders; Japanese and Simplified Chinese
 render without missing glyphs; a long German string does not break a 360 px layout.
