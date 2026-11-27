@@ -24,11 +24,14 @@ export const CATALOGS = {
   da: jsonCatalog('da'),
   es: jsonCatalog('es'),
   fr: jsonCatalog('fr'),
+  hu: jsonCatalog('hu'),
   it: jsonCatalog('it'),
   nl: jsonCatalog('nl'),
   nb: jsonCatalog('nb'),
   fi: jsonCatalog('fi'),
   sv: jsonCatalog('sv'),
+  tr: jsonCatalog('tr'),
+  uk: jsonCatalog('uk'),
 };
 
 let lang = 'en';

@@ -20,11 +20,14 @@ LANGUAGES = (
     Language("da", "Dansk", "da"),
     Language("es", "Español", "es"),
     Language("fr", "Français", "fr"),
+    Language("hu", "Magyar", "hu"),
     Language("it", "Italiano", "it"),
     Language("nl", "Nederlands", "nl"),
     Language("nb", "Norsk bokmål", "nb"),
     Language("fi", "Suomi", "fi"),
     Language("sv", "Svenska", "sv"),
+    Language("tr", "Türkçe", "tr"),
+    Language("uk", "Українська", "uk"),
 )
 BY_CODE = {language.code: language for language in LANGUAGES}
 DEFAULT = BY_CODE["en"]

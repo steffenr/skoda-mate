@@ -18,11 +18,14 @@ def test_settings_list_the_languages_and_the_locale():
         {"code": "da", "name": "Dansk", "locale": "da"},
         {"code": "es", "name": "Español", "locale": "es"},
         {"code": "fr", "name": "Français", "locale": "fr"},
+        {"code": "hu", "name": "Magyar", "locale": "hu"},
         {"code": "it", "name": "Italiano", "locale": "it"},
         {"code": "nl", "name": "Nederlands", "locale": "nl"},
         {"code": "nb", "name": "Norsk bokmål", "locale": "nb"},
         {"code": "fi", "name": "Suomi", "locale": "fi"},
         {"code": "sv", "name": "Svenska", "locale": "sv"},
+        {"code": "tr", "name": "Türkçe", "locale": "tr"},
+        {"code": "uk", "name": "Українська", "locale": "uk"},
     ]
     assert (s["language"], s["locale"]) == ("en", "en")
     assert c.put("/api/settings", json={"language": "de"}).json()["locale"] == "de"
@@ -31,7 +34,7 @@ def test_settings_list_the_languages_and_the_locale():
 def test_a_language_that_is_not_offered_is_refused():
     c, conn, api, vid = connected()
     r = c.put("/api/settings", json={"language": "xx"})
-    assert r.status_code == 400 and r.json()["detail"] == "language must be one of en, de, ca, da, es, fr, it, nl, nb, fi, sv"
+    assert r.status_code == 400 and r.json()["detail"] == "language must be one of en, de, ca, da, es, fr, hu, it, nl, nb, fi, sv, tr, uk"
 
 
 def test_a_stored_language_that_is_no_longer_offered_reads_as_english():
