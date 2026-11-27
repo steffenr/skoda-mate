@@ -187,6 +187,11 @@ The API returns **one live reading per request** and a short command list. It ha
 - **Quota: about 20 requests per hour per car.** Parked: every 20 minutes. Charging, climatising or driving: every 5
   minutes. Settings can change the intervals, never below what Škoda allows. 4 requests stay reserved for commands and
   *Refresh now*. Škoda's `RateLimit-*` headers are authoritative.
+- **The counter in the top bar (e.g. `15/16`)** reads *requests used in the last 60 minutes / requests available for
+  background reading*. The second number is the quota minus the commands reserve (20 − 4 = 16), so it is not "15 left":
+  here one automatic read remains, and the 4 reserved requests are still free for commands and *Refresh now*. The
+  counter turns amber when no reading slot is left; Mate then waits until the oldest request ages out of the hour
+  (the status line shows when the next check happens). Details are on the **System** page.
 - **Not offered, because the API cannot:** lock/unlock, honk/flash, wake-up, outside temperature, maintenance and
   warning lights, battery health (an estimate is shown instead), push updates, sending a destination to the car.
 - **Battery capacity** is not reported; enter it in Settings to get energy, consumption and costs.
