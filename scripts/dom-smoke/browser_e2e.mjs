@@ -3,6 +3,7 @@
 // 1. phone viewport: every page must fit the screen (no horizontal scroll) and nothing may throw
 // 2. click-through: navigation, refresh, a command, a setting, units, language, the mobile "More" menu
 import puppeteer from 'puppeteer-core';
+import { pseudoPass } from './pseudo_pass.mjs';
 
 const BASE = process.env.BASE || 'http://localhost:8765';
 const SHOTS = process.env.SHOTS || '';
@@ -1048,6 +1049,18 @@ await d.goto(`${BASE}/#/settings`, { waitUntil: 'networkidle0' });
 await sleep(1200);
 const press = (label) => d.evaluate((txt) => [...document.querySelectorAll('.seg button')].find((b) => b.textContent.trim() === txt).click(), label);
 await press('Miles'); await press('Deutsch');
+await d.evaluate(() => { window.__stillTheSamePage = true; });
+await d.evaluate(() => [...document.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Save').click());
+await sleep(1500);
+const inGerman = await d.evaluate(() => document.documentElement.lang);
+await press('English');
+await d.evaluate(() => [...document.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Speichern').click());
+await sleep(1500);
+const back = await d.evaluate(() => ({ lang: document.documentElement.lang, same: window.__stillTheSamePage === true,
+  nav: [...document.querySelectorAll('.sidebar .nav a')].map((a) => a.textContent.trim()).join(',') }));
+check('switching to German and back updates <html lang> and the navigation without a reload',
+  inGerman === 'de' && back.lang === 'en' && back.same && /Overview/.test(back.nav) && !/Übersicht/.test(back.nav), `${inGerman} -> ${back.lang} ${back.nav}`);
+await press('Deutsch');
 await d.evaluate(() => [...document.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Save').click());
 await sleep(1500);
 const nav = await d.evaluate(() => [...document.querySelectorAll('.sidebar .nav a')].map((a) => a.textContent.trim()).join(','));
@@ -1109,6 +1122,8 @@ await d.goto(`${BASE}/#/trips`, { waitUntil: 'networkidle0' }); await sleep(1500
 if (SHOTS) await d.screenshot({ path: `${SHOTS}/german-trips.png` });
 // restore and finish
 await d.evaluate(() => fetch('/api/settings', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ units: 'km', language: 'en' }) }));
+// a fake, longer language: text that bypasses t() shows up, and every page must still fit a narrow phone
+await pseudoPass(browser, BASE, check, errors);
 check('no JavaScript errors during the whole session', errors.length === 0, errors.slice(0, 3).join(' | '));
 await browser.close();
 console.log(failed ? `\n${failed} check(s) FAILED` : '\nend-to-end OK');

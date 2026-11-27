@@ -83,7 +83,8 @@ p { margin: 0 0 8px; }
   .tabbar { display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; background: var(--surface); border-top: 1px solid var(--line);
     padding: 6px 4px calc(6px + env(safe-area-inset-bottom)); justify-content: space-around; }
   .tabbar a, .tabbar button { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 2px; font-size: 11px;
-    color: var(--muted); text-decoration: none; background: none; border: 0; font-family: inherit; cursor: pointer; border-radius: 10px; }
+    color: var(--muted); text-decoration: none; background: none; border: 0; font-family: inherit; cursor: pointer; border-radius: 10px;
+    min-width: 0; overflow-wrap: anywhere; hyphens: auto; text-align: center; }  /* a long word in some language wraps */
   .tabbar a[aria-current="page"] { color: var(--accent); }
 }
 
@@ -375,6 +376,10 @@ a.card:hover { border-color: var(--control-line); }
 .set-col .grid.g2 { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
 @media (max-width: 1100px) { .set-cols { grid-template-columns: 1fr; } }
 .seg button { white-space: nowrap; }
+/* Other languages need more room: segments move to a second line, and a long chip wraps inside itself (table cells keep
+   one line: they scroll). */
+.seg { flex-wrap: wrap; max-width: 100%; }
+div > .chip, summary .chip { max-width: 100%; white-space: normal; }
 .set-col .grid.g3:has(.seg) { grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }  /* segmented controls need their full width */
 
 /* overview hero: battery number with range on the same baseline, striped "still to charge" stretch, one charging block */

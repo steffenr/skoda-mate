@@ -840,6 +840,7 @@
  "Radius must be between 20 and 5000 metres.": "Der Radius muss zwischen 20 und 5000 Metern liegen.",
  "Range##period": "Zeitraum",
  "Raw data": "Rohdaten",
+ "Read": "Lesen",
  "Read from a trip export.": "Aus dem Fahrtenexport gelesen.",
  "Read the vehicle": "Fahrzeug auslesen",
  "Reading costs one request; every command costs one more.": "Lesen kostet eine Anfrage; jeder Befehl eine weitere.",

@@ -108,5 +108,6 @@ Everything animated turns off under `prefers-reduced-motion`.
 
 - Write **Škoda** with the háček, also in German ("Škodas" for the genitive).
 - Plain, short sentences that say what happened and what to do next ("Škoda's request limit is used up; try again in 5 min.").
-- Every visible string goes through `t('English')` and has a German entry. `scripts/dom-smoke/i18n_coverage.mjs` and
-  `german_leaks.mjs` find gaps.
+- Every visible string goes through `t('English')` and has a German entry. `scripts/dom-smoke/i18n_coverage.mjs`,
+  `pseudo_pass.mjs` and `german_leaks.mjs` find gaps ([docs/TRANSLATIONS.md](docs/TRANSLATIONS.md)).
+- Leave room: other languages run about 40 % longer. Let rows, tabs and chips wrap; never size a control to its English.

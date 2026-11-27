@@ -53,4 +53,4 @@ Trip merging (with undo, import-safe) was built later.
 
 Deliberately not built:
 - **Time-of-use / dynamic prices:** they need the real charging power over time. Charges Mate did not watch (the usual case) only have a time window, so such a price would be a guess shown as a number. Worth adding once most charges are measured live.
-- **More languages:** about 900 strings per language that cannot be verified without native speakers; wrong translations look finished and mislead. `static/i18n.js` and `scripts/dom-smoke/i18n_coverage.mjs` make adding one a mechanical task for someone who speaks it.
+- **More languages without review:** about 1,400 texts per language, where wrong translations look finished and mislead. The translation framework is in place ([TRANSLATIONS.md](TRANSLATIONS.md)): a language is one file, checked for completeness and placeholders.

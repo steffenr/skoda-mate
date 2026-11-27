@@ -4,9 +4,9 @@ import { h, mount } from '../lib/dom.js';
 import { icon } from '../lib/icons.js';
 import { banner, card, chip, empty, stat } from '../lib/ui.js';
 import * as f from '../lib/format.js';
-import { t, tEnum, tn } from '../i18n.js';
+import { N_, t, tEnum, tn } from '../i18n.js';
 
-const GROUPS = { read: 'Read', charging: 'Charging', climate: 'Climate' };
+const GROUPS = { read: N_('Read'), charging: N_('Charging'), climate: N_('Climate') };
 const fmtVal = (r) => {
   const v = r.value;
   if (v == null) return '–';
