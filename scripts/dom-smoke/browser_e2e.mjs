@@ -446,10 +446,10 @@ const clickTab = async (label) => {
 const insightProbe = () => {
   const main = document.getElementById('main');
   const titles = [...main.querySelectorAll('.card > header h2')].map((x) => x.textContent);
-  const cardOf = (re) => [...main.querySelectorAll('.card')].find((c) => re.test(c.querySelector('header h2')?.textContent || ''));
+  const cardOf = (title) => [...main.querySelectorAll('.card')].find((c) => (c.querySelector('header h2')?.textContent || '').includes(title));
   return { text: main.innerText.replace(/\s+/g, ' '), titles, sw: document.documentElement.scrollWidth, iw: window.innerWidth,
     heatCells: main.querySelectorAll('.heat-cell').length, heatTableRows: main.querySelectorAll('.heat details tbody tr').length,
-    curveBars: ['Charge curve (AC)', 'Charge curve (DC)'].map((n) => cardOf(new RegExp(n.replace(/[()]/g, '\\$&')))?.querySelectorAll('svg rect[rx]').length || 0),
+    curveBars: ['Charge curve (AC)', 'Charge curve (DC)'].map((n) => cardOf(n)?.querySelectorAll('svg rect[rx]').length || 0),
     placeLinks: main.querySelectorAll('a[href^="#/places/"]').length, tripLinks: main.querySelectorAll('a[href^="#/trips/"]').length,
     banner: main.querySelectorAll('.banner.bad').length,
     // a number or a unit broken across lines fits the screen but cannot be read
