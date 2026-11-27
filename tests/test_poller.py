@@ -149,8 +149,9 @@ def test_command_failure_reports_skodas_reason():
     run(p.poll(VIN))
     api.operate_error = err(422, "operation-disabled")
     res = run(p.run_command(VIN, "stop_charging"))
+    disabled = "That feature is currently disabled for the car (consent, licence or workshop mode)."
     assert res == {"ok": False, "kind": "operation-disabled", "status": 422,
-                   "error": "That feature is currently disabled for the car (consent, licence or workshop mode)."}
+                   "error": disabled, "error_i18n": {"message": disabled, "params": {}}}
     c = conn.execute("SELECT * FROM commands").fetchone()
     assert c["ok"] == 0 and c["kind"] == "operation-disabled" and c["http_status"] == 422
 

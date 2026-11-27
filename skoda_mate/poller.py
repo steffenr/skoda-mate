@@ -36,6 +36,7 @@ class Runtime:
     last_ok: str | None = None
     last_poll_at: float | None = None
     last_error: str | None = None
+    last_error_i18n: dict | None = None  # the template behind last_error, for the dashboard
     error_kind: str | None = None
     blocked: bool = False  # key rejected (401/403): polling stops until the key is replaced
     backoff: int = 60
@@ -84,7 +85,7 @@ class Poller:
     def reset_block(self) -> None:
         """A new API key was entered: try again."""
         for r in self.rt.values():
-            r.blocked, r.last_error, r.error_kind, r.next_poll = False, None, None, self.clock()
+            r.blocked, r.last_error, r.last_error_i18n, r.error_kind, r.next_poll = False, None, None, None, self.clock()
         self.wake.set()
 
     # ------------------------------------------------------------------ polling
@@ -95,7 +96,8 @@ class Poller:
         wait = r.budget.wait_s(command=manual)
         if wait > 0:
             r.next_poll = self.clock() + wait
-            return {"ok": False, "kind": "budget", "error": f"Request limit reached; next slot in {round(wait)} s",
+            refusal = messages.BUDGET_NEXT_SLOT(seconds=round(wait))
+            return {"ok": False, "kind": "budget", "error": str(refusal), "error_i18n": messages.i18n(refusal),
                     "retry_in": round(wait)}
         now = r.budget.spend()
         try:
@@ -122,7 +124,7 @@ class Poller:
         self.conn.commit()
         r.operations, r.part_state, r.api_errors = parsed.operations, parsed.part_state, parsed.errors
         r.captured_at, r.last_ok, r.last_poll_at = parsed.captured_at, parsed.snapshot["ts"], now
-        r.last_error = r.error_kind = None
+        r.last_error = r.last_error_i18n = r.error_kind = None
         r.backoff, r.polls, r.failures = 60, r.polls + 1, 0
         r.active = normalise.running_actively(parsed)
         idle, active = self.intervals()
@@ -152,7 +154,8 @@ class Poller:
         else:
             r.budget.refund()
         self._rate(r, e.rate)
-        r.last_error, r.error_kind = e.user_message(), e.kind
+        why = e.user_msg()
+        r.last_error, r.last_error_i18n, r.error_kind = str(why), messages.i18n(why), e.kind
         if e.status in (401, 403) and e.kind in ("api-key-expired", "api-key-not-authorized", "http-401", "http-403"):
             r.blocked = True  # retrying cannot help; the user must fix the key
             r.next_poll = float("inf")
@@ -163,7 +166,7 @@ class Poller:
             r.backoff = min(r.backoff * 2, MAX_BACKOFF_S)
             r.next_poll = self.clock() + r.backoff
         _LOG.warning("poll failed (%s): %s", e.kind, e)
-        return {"ok": False, "kind": e.kind, "error": r.last_error, "retryable": e.retryable}
+        return {"ok": False, "kind": e.kind, "error": r.last_error, "error_i18n": r.last_error_i18n, "retryable": e.retryable}
 
     async def tick(self) -> int:
         """Poll every vehicle that is due. Returns how many requests were attempted."""
@@ -213,7 +216,8 @@ class Poller:
         except ApiError as e:
             self._failed(r, e, now, op)
             self._log_command(r, name, params, False, e.user_message(), e.status, e.kind, source)
-            return {"ok": False, "kind": e.kind, "error": e.user_message(), "status": e.status}
+            return {"ok": False, "kind": e.kind, "error": e.user_message(), "error_i18n": messages.i18n(e.user_msg()),
+                    "status": e.status}
         store.log_call(self.conn, r.vid, now, op, True)
         self._rate(r, res.rate)
         self._log_command(r, name, params, True, None, res.status, None, source)
@@ -243,6 +247,7 @@ class Poller:
             return {"known": False}
         idle, active = self.intervals()
         return {"known": True, "last_ok": r.last_ok, "captured_at": r.captured_at, "error": r.last_error,
+                "error_i18n": r.last_error_i18n,
                 "error_kind": r.error_kind, "blocked": r.blocked, "active": r.active, "polls": r.polls,
                 "next_poll_in": None if r.next_poll == float("inf") else max(0, round(r.next_poll - self.clock())),
                 "interval": {"idle": idle, "active": active}, "budget": r.budget.status(),

@@ -4,7 +4,7 @@ import { h, mount, clear } from './lib/dom.js';
 import { icon } from './lib/icons.js';
 import { asyncButton, banner, button, chip, empty, loading, modal, toast } from './lib/ui.js';
 import * as f from './lib/format.js';
-import { setLang, t, tm } from './i18n.js';
+import { setLang, t, tm, tx } from './i18n.js';
 
 // ------------------------------------------------------------------ API
 async function request(method, path, body) {
@@ -170,7 +170,7 @@ function paintHeader() {
     const r = await api.post(`/api/vehicles/${S.vid}/refresh`);
     await loadOverview(); paintHeader(); paintBanners(); S.ticks.forEach((fn) => fn());
     if (r.ok) toast(t('Updated from Škoda'), 'good');
-    else toast(r.error || t('Could not refresh'), 'bad');
+    else toast(tx(r) || t('Could not refresh'), 'bad');
   }, { ic: 'refresh', size: 'sm', title: t('Reads the car once (uses 1 of your 20 requests per hour)') });
   const dark = (document.documentElement.dataset.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')) === 'dark';
   // A link, not a bare number: it says what it counts and leads to the details.
@@ -186,7 +186,7 @@ function paintHeader() {
 function linkHealth(o) {
   const p = o?.poller;
   if (!p || !p.known) return { kind: '', tip: t('Not connected') };
-  if (p.blocked || (p.error && p.error_kind !== 'budget')) return { kind: 'bad', tip: p.error || t('Škoda is not accepting the request') };
+  if (p.blocked || (p.error && p.error_kind !== 'budget')) return { kind: 'bad', tip: tx(p) || t('Škoda is not accepting the request') };
   if (p.error_kind === 'budget' || (p.budget && p.budget.remaining <= 0)) return { kind: 'warn', tip: t('Request limit reached; Mate waits for the next free slot.') };
   const ageS = p.last_ok ? (Date.now() - new Date(p.last_ok).getTime()) / 1000 : null;
   const limit = Math.max(2 * ((p.interval && p.interval.idle) || 1200), 2400);
@@ -208,8 +208,8 @@ function paintBanners() {
   const list = [];
   if (o) {
     const p = o.poller || {};
-    if (p.blocked || p.error_kind === 'api-key-expired') list.push(banner('bad', h('b', null, t('Škoda is not accepting the API key.')), ' ', p.error || '', ' ', h('a', { href: '#/settings' }, t('Update the key'))));
-    else if (p.error && p.error_kind !== 'budget') list.push(banner('warn', p.error, ' ', t('Mate will retry automatically.')));
+    if (p.blocked || p.error_kind === 'api-key-expired') list.push(banner('bad', h('b', null, t('Škoda is not accepting the API key.')), ' ', tx(p) || '', ' ', h('a', { href: '#/settings' }, t('Update the key'))));
+    else if (p.error && p.error_kind !== 'budget') list.push(banner('warn', tx(p), ' ', t('Mate will retry automatically.')));
     const d = daysUntil(p.key_expires_at);
     if (d != null && d <= 14 && !p.blocked) list.push(banner('warn', d < 0 ? t('The API key has expired.') : `${t('The API key expires in')} ${d} ${d === 1 ? t('day') : t('days')}.`, ' ', h('a', { href: '#/settings' }, t('Create a new one in the MyŠkoda app and enter it here.'))));
     if (o.needs_capacity) list.push(banner('info', t('Škoda does not report the battery size. Enter it to get energy, consumption and costs.'), ' ', h('a', { href: '#/settings' }, t('Set battery capacity'))));

@@ -45,6 +45,6 @@ async def mqtt_test(body: dict, ctx: ContextDep):
         try:
             password = mqtt_config.stored_password_for(stored, clean)
         except mqtt_config.MqttConfigError:  # the only reason: the broker changed; answer with the fixed text, not the exception
-            return {"ok": False, "message": mqtt_config.PASSWORD_AGAIN}
+            return {"ok": False, "message": mqtt_config.PASSWORD_AGAIN, "message_i18n": messages.i18n(mqtt_config.PASSWORD_AGAIN)}
     return await asyncio.to_thread(ha_mqtt.probe, clean["host"], clean["port"], clean["user"], password,
                                    clean["tls"], clean["tls_insecure"])

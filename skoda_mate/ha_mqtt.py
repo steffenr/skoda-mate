@@ -14,7 +14,7 @@ import threading
 import time
 from contextlib import suppress
 
-from . import activity
+from . import activity, messages
 
 _LOG = logging.getLogger(__name__)
 
@@ -191,7 +191,7 @@ def explain(rc) -> str:
     text = str(rc)
     low = text.lower()
     if "not authorized" in low or "bad user" in low or "not authorised" in low:
-        return "The broker refused the user name or password. Check both (in Home Assistant: the user must exist and be allowed to use MQTT)."
+        return messages.MQTT_REFUSED
     return text
 
 
@@ -214,31 +214,35 @@ def probe(host: str, port: int, user: str = "", password: str = "", tls: bool = 
           timeout: float = 6.0, client_factory=None) -> dict:
     """Try to connect once and report {ok, message}. Never leaves a connection or thread behind."""
     done = threading.Event()
-    res = {"ok": False, "message": ""}
+    res: dict = {"ok": False, "message": ""}
+
+    def say(found: object, ok: bool = False) -> None:
+        res.update(ok=ok, message=str(messages.of(found)), message_i18n=messages.i18n(found))
 
     def on_connect(_c, _u, _f, rc, *_a):
         if _failed(rc):
-            res["message"] = explain(rc)
+            say(explain(rc))
         else:
-            res.update(ok=True, message="Connected to the broker.")
+            say(messages.MQTT_CONNECTED, ok=True)
         done.set()
 
     def on_fail(*_a):
-        res["message"] = f"Cannot reach {host}:{port}. Is the broker running, is the address right, and can Mate's computer or container reach it?"
+        say(messages.MQTT_UNREACHABLE_HELP(host=host, port=port))
         done.set()
 
     try:
         c = _make_client(user, password, tls, tls_insecure, client_factory)
     except Exception as e:  # TLS setup problems
-        return {"ok": False, "message": f"Could not set up the connection: {e}"}
+        say(messages.MQTT_SETUP_FAILED(error=str(e)))
+        return res
     c.on_connect, c.on_connect_fail = on_connect, on_fail
     try:
         c.connect_async(host, port, keepalive=10)
         c.loop_start()
         if not done.wait(timeout):
-            res["message"] = f"No answer from {host}:{port} within {int(timeout)} s."
+            say(messages.MQTT_NO_ANSWER(host=host, port=port, seconds=int(timeout)))
     except Exception as e:
-        res["message"] = f"Could not connect: {e}"
+        say(messages.MQTT_CONNECT_FAILED(error=str(e)))
     finally:
         try:
             c.loop_stop()
@@ -270,6 +274,7 @@ class Publisher:
         self.last: dict[str, dict] = {}        # vin -> last snapshot, republished after a reconnect
         self.connected = False
         self.error: str | None = None
+        self.error_i18n: dict | None = None  # the template behind error, for the dashboard
         self.entities = 0
         self.last_publish: float | None = None
         self._lock = threading.Lock()
@@ -285,9 +290,11 @@ class Publisher:
     # ---- connection callbacks (run on paho's thread)
     def _on_connect(self, _c, _u, _f, rc, *_a):
         if _failed(rc):
-            self.connected, self.error = False, explain(rc)
+            self.connected = False
+            self._set_error(explain(rc))
             return
-        self.connected, self.error = True, None
+        self.connected = True
+        self._set_error(None)
         self.c.publish(f"{self.prefix}/status", "online", retain=True)
         with self._lock:
             self.fields_sent.clear()  # a restarted broker may have lost them: publish every field again
@@ -300,11 +307,15 @@ class Publisher:
         self.connected = False
         rc = args[-2] if len(args) >= 2 else (args[0] if args else None)
         if rc not in (None, 0) and _failed(rc):
-            self.error = f"Connection lost: {rc}"
+            self._set_error(messages.MQTT_CONNECTION_LOST(reason=str(rc)))
 
     def _on_fail(self, *_a):
         self.connected = False
-        self.error = f"Cannot reach {self.host}:{self.port}."
+        self._set_error(messages.MQTT_UNREACHABLE(host=self.host, port=self.port))
+
+    def _set_error(self, found: object) -> None:
+        self.error = str(messages.of(found)) if found else None
+        self.error_i18n = messages.i18n(found) if found else None
 
     def _msg(self, _c, _u, m):
         """Runs on paho's network thread: nothing may escape from here, or the connection dies."""
@@ -413,7 +424,7 @@ class Publisher:
 
     def status(self) -> dict:
         state = "connected" if self.connected else ("error" if self.error else "connecting")
-        return {"state": state, "error": self.error, "entities": self.entities, "vehicles": len(self.vehicles),
+        return {"state": state, "error": self.error, "error_i18n": self.error_i18n, "entities": self.entities, "vehicles": len(self.vehicles),
                 "host": self.host, "port": self.port, "last_publish": self.last_publish}
 
     def close(self):

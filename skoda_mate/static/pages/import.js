@@ -5,7 +5,7 @@ import { h, mount } from '../lib/dom.js';
 import { icon } from '../lib/icons.js';
 import { asyncButton, banner, button, card, chip, empty, field, stat, table, toast } from '../lib/ui.js';
 import * as f from '../lib/format.js';
-import { t } from '../i18n.js';
+import { t, tm } from '../i18n.js';
 
 const STATUS = { new: ['new', 'good'], updated: ['completed', 'info'], unchanged: ['known', ''] };
 
@@ -36,7 +36,7 @@ export default async function importPage(root, ctx) {
   }, { ic: 'search', disabled: true });  // enabled once a file is chosen
 
   function summary(r) {
-    const fileErrors = r.files.flatMap((x) => x.errors.map((e) => `${x.name}: ${e}`));
+    const fileErrors = r.files.flatMap((x) => x.errors.map((e, i) => `${x.name}: ${x.errors_i18n?.[i] ? tm(x.errors_i18n[i]) : e}`));
     return h('div', { class: 'stack' },
       fileErrors.length ? banner('warn', h('b', null, t('Some files or rows could not be used:')), h('ul', { class: 'b-notes small' }, ...fileErrors.slice(0, 8).map((e) => h('li', null, e)))) : null,
       h('div', { class: 'grid auto' },

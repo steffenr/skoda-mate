@@ -6,7 +6,7 @@ import { asyncButton, banner, button, card, chip, confirmDialog, empty, field, k
 import { mapView } from '../lib/mapview.js';
 import { automationCard } from '../lib/automation.js';
 import * as f from '../lib/format.js';
-import { t } from '../i18n.js';
+import { t, tx } from '../i18n.js';
 
 const num = (v) => (v === '' || v == null || Number.isNaN(Number(v)) ? null : Number(v));
 const fail = (msg) => { throw new Error(msg); };
@@ -130,7 +130,7 @@ export default async function settings(root, ctx) {
         h('div', { class: 'row between' }, h('strong', null, v.name || t('Vehicle')), stateChip),
         kv([['VIN', v.vin], [t('Key expires'), h('span', { class: 'row tight', style: { justifyContent: 'flex-end' } }, v.key_expires_at ? f.date(v.key_expires_at) : '–', expiry)],
           [t('Last successful reading'), v.last_ok ? f.dateTime(v.last_ok) : '–']]),
-        v.error ? h('div', { class: 'small b-errtext' }, v.error) : null,
+        v.error ? h('div', { class: 'small b-errtext' }, tx(v)) : null,
         vehicles.length > 1 ? asyncButton(t('Remove this car'), async () => {
           if (!await confirmDialog(t('Remove this car?'), t('Mate stops reading it. Its history stays and comes back if you add the car again.'), { confirmLabel: t('Remove'), danger: true })) return;
           await ctx.api.del(`/api/setup/vehicles/${v.vin}`);
@@ -244,7 +244,7 @@ export default async function settings(root, ctx) {
     const els = {};
     let testResult = null;
     const resultBox = h('div');
-    const showResult = () => mount(resultBox, testResult ? banner(testResult.ok ? 'info' : 'bad', testResult.message) : null);
+    const showResult = () => mount(resultBox, testResult ? banner(testResult.ok ? 'info' : 'bad', tx(testResult, 'message')) : null);
     const st = mq.status, [stLabel, stKind, stIc] = MQTT_STATUS[st.state] || MQTT_STATUS.disabled;
     const stChip = chip(t(stLabel), stKind, stIc);
     const saveBtn = asyncButton(t('Save'), async () => {
@@ -262,7 +262,6 @@ export default async function settings(root, ctx) {
       const body = { host: d.host, port: Number(d.port) || d.port, user: d.user, tls: d.tls, tls_insecure: d.tls_insecure, clear_password: d.clear };
       if (d.password) body.password = d.password;
       try { testResult = await ctx.api.post('/api/settings/mqtt/test', body); } catch (e) { testResult = { ok: false, message: e.message }; }
-      testResult.message = t(testResult.message);
       showResult();
     }, { ic: 'signal' });
     const sync = () => {
@@ -280,7 +279,7 @@ export default async function settings(root, ctx) {
     const body = h('div', { class: 'stack' },
       c.source === 'env' ? banner('info', t('This is currently set by environment variables (MQTT_HOST …). Saving here replaces them.')) : null,
       h('div', { class: 'small muted' }, t('Makes the car available in Home Assistant as native entities (sensors and commands) through MQTT discovery.')),
-      st.state === 'error' && st.error ? banner('bad', t(st.error)) : null,
+      st.state === 'error' && st.error ? banner('bad', tx(st)) : null,
       st.state === 'connected' ? h('div', { class: 'small muted' }, `${st.entities} ${t('entities for')} ${st.vehicles} ${st.vehicles === 1 ? t('car') : t('cars')}${st.last_publish ? ` · ${t('last update sent')} ${f.ago(new Date(st.last_publish * 1000).toISOString())}` : ''}`) : null,
       check('enabled', t('Enabled')),
       h('div', { class: 'form-grid mq-host' }, field(t('Broker'), text('host', { type: 'text', placeholder: '192.168.1.10', autocomplete: 'off', spellcheck: 'false', inputmode: 'url' })),

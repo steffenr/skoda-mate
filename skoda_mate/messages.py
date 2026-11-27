@@ -47,6 +47,11 @@ def i18n(value: object) -> dict:
             "params": {k: i18n(v) if isinstance(v, Msg) else v for k, v in message.params.items()}}
 
 
+def from_i18n(data: dict) -> Msg:
+    """The message behind a `<field>_i18n` value, to put it inside another one."""
+    return Msg(data["message"], {k: from_i18n(v) if isinstance(v, dict) else v for k, v in data["params"].items()})
+
+
 class UserError(HTTPException):
     """A refusal the dashboard shows, in the user's language."""
 
@@ -172,6 +177,37 @@ CMD_TIMER_TYPE = Template("timer type must be ONE_OFF or RECURRING")
 CMD_TIMER_DAYS = Template("timer days must be MONDAY..SUNDAY")
 CMD_ONE_OFF_DAY = Template("one_off_day must be MONDAY..SUNDAY")
 CMD_BUDGET = Template("Škoda's request limit is used up; try again in {minutes} min.")
+
+# ------------------------------------------------------------------ Škoda's answers and the poller
+API_KEY_EXPIRED = Template("The API key has expired. Create a new one in the MyŠkoda app and enter it under Settings.")
+API_KEY_NOT_AUTHORIZED = Template("This API key is not allowed to access that vehicle. Check the key's vehicles in the MyŠkoda app.")
+API_OPERATION_NOT_AUTHORIZED = Template("The car refused the operation for the user this key belongs to.")
+API_OPERATION_DISABLED = Template("That feature is currently disabled for the car (consent, licence or workshop mode).")
+API_RATE_LIMIT = Template("Škoda's request limit is used up. Mate waits for it to reset.")
+API_VEHICLE_BUSY = Template("The car declined the request (it limits how often it acts, or its battery is low). Try again later.")
+API_TIMEOUT = Template("The request timed out.")
+API_REJECTED_KEY = Template("Škoda rejected the API key (401). Check that it was copied completely.")
+API_NO_VEHICLE = Template("No vehicle with that VIN is reachable with this key.")
+API_ERROR = Template("Škoda API error {status}")
+API_ERROR_DETAIL = Template("Škoda API error {status}: {detail}")
+BUDGET_NEXT_SLOT = Template("Request limit reached; next slot in {seconds} s")
+
+# ------------------------------------------------------------------ MQTT connection
+MQTT_CONNECTED = Template("Connected to the broker.")
+MQTT_REFUSED = Template("The broker refused the user name or password. Check both (in Home Assistant: the user must exist and be allowed to use MQTT).")
+MQTT_CONNECTION_LOST = Template("Connection lost: {reason}")
+MQTT_UNREACHABLE = Template("Cannot reach {host}:{port}.")
+MQTT_UNREACHABLE_HELP = Template("Cannot reach {host}:{port}. Is the broker running, is the address right, and can Mate's computer or container reach it?")
+MQTT_NO_ANSWER = Template("No answer from {host}:{port} within {seconds} s.")
+MQTT_SETUP_FAILED = Template("Could not set up the connection: {error}")
+MQTT_CONNECT_FAILED = Template("Could not connect: {error}")
+
+# ------------------------------------------------------------------ import report
+IMPORT_EMPTY = Template("The file is empty.")
+IMPORT_NOT_AN_EXPORT = Template("This does not look like a MyŠkoda trip export: missing column(s) {columns}. Found: {found}…")
+IMPORT_BAD_DATE = Template("line {line}: unreadable date {start} / {end}")
+IMPORT_ENDS_EARLY = Template("line {line}: the trip ends before it starts")
+IMPORT_OTHER_CAR = Template("This export belongs to another car ({vin}), not this one. It was skipped.")
 
 # ------------------------------------------------------------------ data quality
 QUALITY_UNKNOWN_ACTION = Template("Unknown action.")

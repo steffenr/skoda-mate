@@ -268,7 +268,8 @@ def test_connection_test_uses_form_values_and_stored_password(monkeypatch):
     for moved in ({"host": "attacker.example"}, {"host": "ha", "port": 1884}, {"host": "ha", "tls": True}):
         seen.clear()
         r = c.post("/api/settings/mqtt/test", json={"user": "mate", **moved})                       # never sent to another broker
-        assert r.json() == {"ok": False, "message": "Enter the password again: the broker address changed."} and not seen
+        again = "Enter the password again: the broker address changed."
+        assert r.json() == {"ok": False, "message": again, "message_i18n": {"message": again, "params": {}}} and not seen
     c.post("/api/settings/mqtt/test", json={"host": "192.168.1.20", "user": "mate", "password": "typed"})
     assert seen["a"][:4] == ("192.168.1.20", 1883, "mate", "typed")
     c.post("/api/settings/mqtt/test", json={"host": "192.168.1.20", "user": "mate", "clear_password": True})

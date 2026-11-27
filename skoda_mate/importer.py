@@ -82,9 +82,14 @@ class FileReport:
     parsed: int = 0
     skipped_no_distance: int = 0
     errors: list = field(default_factory=list)
+    errors_i18n: list = field(default_factory=list)  # the template behind each of errors, for the dashboard
     vin: str | None = None
     first: str | None = None
     last: str | None = None
+
+    def add_error(self, found: object) -> None:
+        self.errors.append(str(messages.of(found)))
+        self.errors_i18n.append(messages.i18n(found))
 
 
 def get_tz(name: str) -> ZoneInfo:
@@ -145,15 +150,14 @@ def parse_file(name: str, text: str, tz: ZoneInfo) -> tuple[list[dict], FileRepo
     text = text.lstrip("﻿")
     lines = text.splitlines()
     if not lines or not lines[0].strip():
-        rep.errors.append("The file is empty.")
+        rep.add_error(messages.IMPORT_EMPTY)
         return [], rep
     reader = csv.reader(io.StringIO(text), delimiter=sniff_delimiter(lines[0]))
     header = [h.strip().lower() for h in next(reader)]
     idx = {key: next((header.index(a) for a in aliases if a in header), None) for key, aliases in COLUMNS.items()}
     missing = [k for k in REQUIRED if idx[k] is None]
     if missing:
-        rep.errors.append("This does not look like a MyŠkoda trip export: missing column(s) "
-                          + ", ".join(COLUMNS[k][0] for k in missing) + f". Found: {', '.join(header[:8])}…")
+        rep.add_error(messages.IMPORT_NOT_AN_EXPORT(columns=", ".join(COLUMNS[k][0] for k in missing), found=", ".join(header[:8])))
         return [], rep
     out: list[dict] = []
     for n, row in enumerate(reader, start=2):
@@ -163,10 +167,10 @@ def parse_file(name: str, text: str, tz: ZoneInfo) -> tuple[list[dict], FileRepo
         get = partial(_cell, row, idx)
         start, end = parse_local(get("start"), tz), parse_local(get("end"), tz)
         if start is None or end is None:
-            rep.errors.append(f"line {n}: unreadable date {get('start')!r} / {get('end')!r}")
+            rep.add_error(messages.IMPORT_BAD_DATE(line=n, start=repr(get("start")), end=repr(get("end"))))
             continue
         if end < start:
-            rep.errors.append(f"line {n}: the trip ends before it starts")
+            rep.add_error(messages.IMPORT_ENDS_EARLY(line=n))
             continue
         km = _num(get("km"))
         if not km or km <= 0:
@@ -342,7 +346,7 @@ def run(conn, vid: int, vin: str, files: list[dict], tz_name: str, dry_run: bool
     for f in files:
         rows, rep = parse_file(str(f.get("name") or "file.csv")[:200], str(f.get("text") or ""), tz)
         if rep.vin and rep.vin != vin:  # another car's export: refuse it rather than mixing two cars' histories
-            rep.errors.append(f"This export belongs to another car ({rep.vin[:3]}…{rep.vin[-4:]}), not this one. It was skipped.")
+            rep.add_error(messages.IMPORT_OTHER_CAR(vin=f"{rep.vin[:3]}…{rep.vin[-4:]}"))
             rows = []
         all_rows += rows
         reports.append(rep)

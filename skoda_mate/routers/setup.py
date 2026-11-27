@@ -64,7 +64,7 @@ def setup_status(request: Request, ctx: ContextDep):
     for vin in (creds[1] if creds else stored_vins(ctx.conn)) if (ctx.auth.enabled or ctx.demo) else []:  # nothing for strangers
         st = p.status(vin) if p else {"known": False}
         vehicles.append({"vin": vin, "name": (ctx.conn.execute("SELECT name FROM vehicles WHERE vin=?", (vin,)).fetchone() or [None])[0],
-                         "key_expires_at": st.get("key_expires_at"), "error": st.get("error"),
+                         "key_expires_at": st.get("key_expires_at"), "error": st.get("error"), "error_i18n": st.get("error_i18n"),
                          "error_kind": st.get("error_kind"), "blocked": st.get("blocked", False), "last_ok": st.get("last_ok")})
     return {"login_set": ctx.auth.enabled, "login_email": ctx.auth.email, "skoda_set": ctx.configured(),
             "key_readable": creds is not None or not stored_vins(ctx.conn), "vehicles": vehicles,
@@ -128,7 +128,7 @@ async def setup_skoda(body: ApiLoginBody, ctx: ContextDep):
             for v in created:  # leave nothing behind for a VIN that never answered
                 ctx.conn.execute("DELETE FROM vehicles WHERE vin=? AND id NOT IN (SELECT vehicle_id FROM snapshots)", (v,))
             ctx.conn.commit()
-            raise messages.UserError(400, messages.VIN_ERROR(vin=f"{vin[:3]}…{vin[-4:]}", error=res["error"]))
+            raise messages.UserError(400, messages.VIN_ERROR(vin=f"{vin[:3]}…{vin[-4:]}", error=messages.from_i18n(res["error_i18n"])))
     await ctx.cloud.stop()  # only now: a failed attempt above must not disturb a working connection
     save_api_login(ctx.conn, ctx.box, key, vins, pin)  # pin=None keeps a previously stored S-PIN
     ctx.cloud.start(new_api, vins, trial)  # the trial poller already holds fresh data and its next poll time
@@ -158,7 +158,7 @@ async def setup_add_vehicle(body: dict, ctx: ContextDep):
         if not ctx.conn.execute("SELECT 1 FROM snapshots WHERE vehicle_id=?", (vid,)).fetchone():
             ctx.conn.execute("DELETE FROM vehicles WHERE id=?", (vid,))
             ctx.conn.commit()
-        raise messages.UserError(400, messages.VIN_ERROR(vin=f"{vin[:3]}…{vin[-4:]}", error=res["error"]))
+        raise messages.UserError(400, messages.VIN_ERROR(vin=f"{vin[:3]}…{vin[-4:]}", error=messages.from_i18n(res["error_i18n"])))
     save_api_login(ctx.conn, ctx.box, creds[0], [*creds[1], vin], None)
     if p.publisher:
         p.publisher.announce(vin, ctx.cloud.vehicle_name(vin))

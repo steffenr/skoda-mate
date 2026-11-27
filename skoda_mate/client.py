@@ -12,6 +12,8 @@ from datetime import UTC, datetime, timedelta
 
 import httpx
 
+from . import messages
+
 BASE_URL = "https://public.api.connect.skoda-auto.cz"
 USER_AGENT = "skoda-mate"
 
@@ -79,25 +81,28 @@ class ApiError(Exception):
         return self.status in (429, 500, 502, 503, 504) or self.kind == "timeout"
 
     def user_message(self) -> str:
-        m = {
-            "api-key-expired": "The API key has expired. Create a new one in the MyŠkoda app and enter it under Settings.",
-            "api-key-not-authorized": "This API key is not allowed to access that vehicle. "
-                                      "Check the key's vehicles in the MyŠkoda app.",
-            "operation-not-authorized": "The car refused the operation for the user this key belongs to.",
-            "operation-not-supported": "This car does not support that operation.",
-            "operation-disabled": "That feature is currently disabled for the car (consent, licence or workshop mode).",
-            "rate-limit-exceeded": "Škoda's request limit is used up. Mate waits for it to reset.",
-            "vehicle-not-accepting-requests": "The car declined the request (it limits how often it acts, "
-                                              "or its battery is low). Try again later.",
-            "timeout": "The request timed out.",
+        return str(self.user_msg())
+
+    def user_msg(self) -> messages.Msg:
+        known = {
+            "api-key-expired": messages.API_KEY_EXPIRED,
+            "api-key-not-authorized": messages.API_KEY_NOT_AUTHORIZED,
+            "operation-not-authorized": messages.API_OPERATION_NOT_AUTHORIZED,
+            "operation-not-supported": messages.CMD_NOT_SUPPORTED,
+            "operation-disabled": messages.API_OPERATION_DISABLED,
+            "rate-limit-exceeded": messages.API_RATE_LIMIT,
+            "vehicle-not-accepting-requests": messages.API_VEHICLE_BUSY,
+            "timeout": messages.API_TIMEOUT,
         }
-        if self.kind in m:
-            return m[self.kind]
+        if self.kind in known:
+            return messages.of(known[self.kind])
         if self.status == 401:
-            return "Škoda rejected the API key (401). Check that it was copied completely."
+            return messages.of(messages.API_REJECTED_KEY)
         if self.status == 404:
-            return "No vehicle with that VIN is reachable with this key."
-        return f"Škoda API error {self.status}" + (f": {self.detail}" if self.detail else "")
+            return messages.of(messages.API_NO_VEHICLE)
+        if self.detail:
+            return messages.API_ERROR_DETAIL(status=self.status, detail=self.detail)
+        return messages.API_ERROR(status=self.status)
 
 
 def _int(headers, name: str) -> int | None:
