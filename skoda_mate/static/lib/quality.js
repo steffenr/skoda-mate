@@ -50,10 +50,10 @@ export function sampleNode(sm) {
       return h('span', null, link, `, ${day(sm.at)}`);
     }
     case 'gap': return `${t('Gap')}: ${f.num(sm.hours)} h, ${day(sm.from)} → ${day(sm.to)}`;
-    case 'silence': return `${t('Silent since')} ${day(sm.from)} (${f.num(sm.hours)} h)`;
+    case 'silence': return t('Silent since {date} ({hours} h)', { date: day(sm.from), hours: f.num(sm.hours) });
     case 'odometer': return `${t('Odometer')} ${f.num(sm.from_km)} → ${f.num(sm.to_km)} km, ${day(sm.at)}`;
-    case 'api_error': return `${sm.endpoint} ${t('failed')}, ${day(sm.at)} ${f.time(sm.at)}`;
-    case 'section': return `${t('Section')} ${t(SECTION[sm.name] || sm.name)} ${t('missing')}`;
+    case 'api_error': return t('{endpoint} failed, {date} {time}', { endpoint: sm.endpoint, date: day(sm.at), time: f.time(sm.at) });
+    case 'section': return t('Section {name} missing', { name: t(SECTION[sm.name] || sm.name) });
     default: return sm.label;
   }
 }

@@ -56,7 +56,7 @@ export default async function system(root, ctx) {
     const samples = c.samples || [];
     const more = c.count - samples.length;
     const sampleList = () => (samples.length ? h('ul', { class: 'quality-samples small' }, ...samples.map((sm) => h('li', null, sampleNode(sm)))) : null);
-    const moreLine = () => (samples.length && more > 0 ? h('div', { class: 'tiny muted' }, `${t('and')} ${f.num(more)} ${t('more')}`) : null);
+    const moreLine = () => (samples.length && more > 0 ? h('div', { class: 'tiny muted' }, t('and {n} more', { n: f.num(more) })) : null);
     const list = sampleList();
     // what the repair does, shown before anyone clicks Fix and repeated in the confirmation
     const explain = c.fix ? fixExplanation(c.fix, { reviewed: !!c.reviewed_at }) : null;
@@ -94,13 +94,13 @@ export default async function system(root, ctx) {
         return h('div', { class: 'quality-row', 'data-check': c.id },
           c.count ? chip(t(c.severity === 'important' ? 'Important' : 'Info'), c.severity === 'important' ? 'bad' : 'warn') : h('span', { class: 'tiny muted quality-none' }, t('No findings')),
           h('span', { class: 'quality-label' }, qualityLabel(c), ' ', h('strong', null, f.num(c.count)),
-            c.reviewed_at ? h('span', { class: 'tiny muted' }, ' ', done ? `${t('Reviewed')} ${f.dayLabel(c.reviewed_at)}` : `${t('new since')} ${f.dayLabel(c.reviewed_at)}`) : null),
+            c.reviewed_at ? h('span', { class: 'tiny muted' }, ' ', done ? `${t('Reviewed')} ${f.dayLabel(c.reviewed_at)}` : t('new since {date}', { date: f.dayLabel(c.reviewed_at) })) : null),
           done ? asyncButton(t('Undo'), () => review(c, false), { size: 'sm', ic: 'left' }) : button(t('Review'), { size: 'sm', onClick: () => reviewModal(c) }));
       };
       body = h('div', { class: 'stack' },
         h('div', { class: 'row tight' },
           nImp ? chip(`${f.num(nImp)} ${t('Important')}`, 'bad', 'alert') : null, nInfo ? chip(`${f.num(nInfo)} ${t('Info')}`, 'warn', 'info') : null,
-          nReviewed ? chip(`${f.num(nReviewed)} ${t('reviewed')}`) : null,
+          nReviewed ? chip(t('{n} reviewed', { n: f.num(nReviewed) })) : null,
           h('span', { class: 'tiny muted' }, `${t('Checked')}: ${f.dateTime(quality.checked_at)}`)),
         ...found.map(row),
         h('div', { class: 'small muted' }, nReviewed ? t('Everything else looks consistent or was reviewed.') : found.length ? t('Everything else looks consistent.') : t('Everything looks consistent.')),
@@ -132,7 +132,7 @@ export default async function system(root, ctx) {
         [t('Car reported'), p.captured_at ? f.ago(p.captured_at) : '–'],
         [t('Next reading in'), p.next_poll_in != null && !p.blocked ? f.inSeconds(p.next_poll_in) : '–'],
         [t('Mode'), p.active ? t('Active (car is busy)') : t('Idle')],
-        [t('Intervals'), p.interval ? `${f.inSeconds(p.interval.idle)} ${t('idle')} · ${f.inSeconds(p.interval.active)} ${t('active')}` : '–'],
+        [t('Intervals'), p.interval ? `${t('{time} idle', { time: f.inSeconds(p.interval.idle) })} · ${t('{time} active', { time: f.inSeconds(p.interval.active) })}` : '–'],
         [t('Readings so far'), p.polls ?? '–'],
         [t('API key expires'), p.key_expires_at ? f.date(p.key_expires_at) : '–'],
         [t('Last error'), p.error ? `${tx(p)}${p.error_kind ? ` (${p.error_kind})` : ''}` : t('none')],
@@ -149,7 +149,7 @@ export default async function system(root, ctx) {
       const from = calls.total ? offset + 1 : 0, to = Math.min(offset + PAGE, calls.total);
       const pager = calls.total > PAGE ? h('div', { class: 'pager', role: 'navigation', 'aria-label': t('Pages') },
         button(t('Newer'), { ic: 'left', size: 'sm', disabled: offset <= 0, onClick: () => go(Math.max(0, offset - PAGE)) }),
-        h('span', { class: 'small muted' }, `${from}–${to} ${t('of')} ${calls.total}`),
+        h('span', { class: 'small muted' }, t('{from}–{to} of {total}', { from, to, total: calls.total })),
         button(`${t('Older')} →`, { size: 'sm', disabled: to >= calls.total, onClick: () => go(offset + PAGE) })) : null;
       body = h('div', { class: 'stack' }, table([
         { label: t('When'), render: (c) => f.dateTime(isoOf(c.at)), cls: 'nowrap' },

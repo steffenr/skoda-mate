@@ -4,7 +4,7 @@ import { h, mount } from './dom.js';
 import { icon } from './icons.js';
 import { asyncButton, banner, button, card, chip, confirmDialog, field, loading, modal, toast } from './ui.js';
 import * as f from './format.js';
-import { t } from '../i18n.js';
+import { t, tn } from '../i18n.js';
 
 const EVENT_LABEL = {
   'trip.started': 'Trip started', 'trip.ended': 'Trip ended', 'charge.started': 'Charging started', 'charge.ended': 'Charging ended', 'charge.completed': 'Charge limit reached',
@@ -85,8 +85,8 @@ export function automationCard(ctx) {
       const { deliveries } = await ctx.api.get(`/api/webhooks/${hook.id}/deliveries`);
       mount(list, deliveries.length ? h('ul', { class: 'au-log' }, ...deliveries.map((d) => h('li', { class: 'au-delivery' },
         h('div', { class: 'row between' }, h('strong', null, eventLabel(d.event)), statusChip(d)),
-        h('div', { class: 'tiny muted' }, [f.dateTime(d.created_at), `${d.attempts} ${t(d.attempts === 1 ? 'attempt' : 'attempts')}`, answerOf(d),
-          d.next_at && d.attempts ? `${t('next try')} ${f.dateTime(d.next_at)}` : null].filter(Boolean).join(' · ')),
+        h('div', { class: 'tiny muted' }, [f.dateTime(d.created_at), tn('{n} attempt', '{n} attempts', d.attempts), answerOf(d),
+          d.next_at && d.attempts ? t('next try {time}', { time: f.dateTime(d.next_at) }) : null].filter(Boolean).join(' · ')),
         d.status === 'ok' || d.status === 'failed' ? asyncButton(t('Retry'), async () => {
           await ctx.api.post(`/api/webhooks/deliveries/${d.id}/retry`);
           toast(t('Queued again'), 'good'); await fill();
@@ -101,7 +101,7 @@ export function automationCard(ctx) {
     return h('li', { class: 'au-hook' },
       h('div', { class: 'row between' }, h('strong', { class: 'au-name' }, hook.name), hook.enabled ? chip(t('Enabled'), 'good', 'check') : chip(t('Disabled'), '', 'wifioff')),
       h('div', { class: 'small muted au-url' }, hook.url),
-      h('div', { class: 'tiny muted' }, `${hook.events.length} ${t('events')}${last ? ` · ${t('Last delivery')}: ${t((STATUS[last.status] || STATUS.failed)[0])}, ${f.ago(last.created_at)}` : ''}`),
+      h('div', { class: 'tiny muted' }, `${tn('{n} event', '{n} events', hook.events.length)}${last ? ` · ${t('Last delivery')}: ${t((STATUS[last.status] || STATUS.failed)[0])}, ${f.ago(last.created_at)}` : ''}`),
       hook.secret_unreadable ? banner('bad', t('The secret cannot be read. Create a new secret.')) : null,
       h('div', { class: 'row' },
         button(t('Edit'), { size: 'sm', onClick: () => editor(hook) }),

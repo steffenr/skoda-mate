@@ -5,7 +5,7 @@ import { icon } from '../lib/icons.js';
 import { asyncButton, banner, button, card, chip, confirmDialog, empty, field, loading, modal, toast } from '../lib/ui.js';
 import { mapView } from '../lib/mapview.js';
 import * as f from '../lib/format.js';
-import { t } from '../i18n.js';
+import { t, tn } from '../i18n.js';
 import { api } from '../app.js';
 
 const KINDS = [['home', 'Home'], ['work', 'Work'], ['place', 'Place']];
@@ -30,9 +30,9 @@ function placeRow(p, onEdit) {
   const name = displayName(p);
   const meta = [
     radiusText(p.radius_m),
-    `${p.visit_count ?? 0} ${t('Visits')}`,
-    `${p.day_count ?? 0} ${t('Days')}`,
-    p.last_seen ? `${t('last seen')} ${f.dateTime(p.last_seen)}` : null,
+    tn('{n} Visit', '{n} Visits', p.visit_count ?? 0),
+    tn('{n} Day', '{n} Days', p.day_count ?? 0),
+    p.last_seen ? t('last seen {date}', { date: f.dateTime(p.last_seen) }) : null,
   ].filter(Boolean).join(' · ');
   const edit = button(t('Edit'), { size: 'sm', ic: 'edit', title: `${t('Edit')}: ${name}`, onClick: () => onEdit(p) });
   edit.setAttribute('aria-label', `${t('Edit')}: ${name}`);
@@ -273,7 +273,7 @@ export default async function placesPage(root, ctx) {
         return h('div', { class: 'pl-det-row' },
           h('div', { class: 'pl-det-main' }, h('strong', null, where),
             h('div', { class: 'tiny muted' },
-              `${c.n ?? 1} ${t('readings while parked')} · ${t('last seen')} ${f.dateTime(c.last_seen)}`)),
+              `${tn('{n} reading while parked', '{n} readings while parked', c.n ?? 1)} · ${t('last seen {date}', { date: f.dateTime(c.last_seen) })}`)),
           nameIt);
       }))));
   }

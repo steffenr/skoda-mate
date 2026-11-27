@@ -6,7 +6,7 @@ import { asyncButton, banner, button, card, chip, confirmDialog, empty, field, k
 import { mapView } from '../lib/mapview.js';
 import { automationCard } from '../lib/automation.js';
 import * as f from '../lib/format.js';
-import { t, tx } from '../i18n.js';
+import { t, tx, tn } from '../i18n.js';
 
 const num = (v) => (v === '' || v == null || Number.isNaN(Number(v)) ? null : Number(v));
 const fail = (msg) => { throw new Error(msg); };
@@ -88,8 +88,8 @@ export default async function settings(root, ctx) {
       const ri = rate(idle), ra = rate(active), room = limit - reserve;
       const bad = (ri != null && ri > room) || (ra != null && ra > room);
       mount(out,
-        h('div', { class: 'row' }, chip(`${ri != null ? f.num(ri, 1) : '–'} ${t('requests per hour')} ${t('when idle')}`, ri != null && ri > room ? 'bad' : 'good', 'clock'),
-          chip(`${ra != null ? f.num(ra, 1) : '–'} ${t('requests per hour')} ${t('when active')}`, ra != null && ra > room ? 'bad' : 'good', 'bolt')),
+        h('div', { class: 'row' }, chip(t('{n} requests per hour when idle', { n: ri != null ? f.num(ri, 1) : '–' }), ri != null && ri > room ? 'bad' : 'good', 'clock'),
+          chip(t('{n} requests per hour when active', { n: ra != null ? f.num(ra, 1) : '–' }), ra != null && ra > room ? 'bad' : 'good', 'bolt')),
         kv([[t('Request limit'), `${limit} / h`], [t('Command reserve'), `${reserve} / h`], [t('Available for reading'), `${room} / h`]]),
         bad ? banner('warn', t('Too many requests: Škoda would block the key.')) : h('div', { class: 'small muted' }, t('Within the limit.')));
     };
@@ -98,8 +98,8 @@ export default async function settings(root, ctx) {
     return card(t('Polling'), h('div', { class: 'stack' },
       h('div', { class: 'small muted' }, t('Škoda allows about 20 requests per hour per car. Mate reads the car on this schedule and keeps the reserve free for commands.')),
       h('div', { class: 'grid g3' },
-        field(t('Idle interval (seconds)'), numIn('idle', min, 21600), `${t('The minimum is')} ${min} ${t('seconds')}`),
-        field(t('Active interval (seconds)'), numIn('active', min, 3600), `${t('The minimum is')} ${min} ${t('seconds')}`),
+        field(t('Idle interval (seconds)'), numIn('idle', min, 21600), tn('The minimum is {n} second', 'The minimum is {n} seconds', min)),
+        field(t('Active interval (seconds)'), numIn('active', min, 3600), tn('The minimum is {n} second', 'The minimum is {n} seconds', min)),
         field(t('Command reserve (requests per hour)'), numIn('reserve', 0, 10))),
       out,
       asyncButton(t('Save polling'), async () => {
@@ -125,7 +125,7 @@ export default async function settings(root, ctx) {
     const rows = vehicles.map((v) => {
       const days = daysUntil(v.key_expires_at);
       const stateChip = v.blocked ? chip(t('Blocked'), 'bad', 'alert') : v.error ? chip(t('Error'), 'warn', 'alert') : v.last_ok ? chip(t('OK'), 'good', 'check') : chip(t('Unknown'), '');
-      const expiry = days == null ? chip('–', '') : days < 0 ? chip(t('expired'), 'bad', 'alert') : chip(`${days} ${days === 1 ? t('day left') : t('days left')}`, days <= 14 ? 'warn' : 'good', 'calendar');
+      const expiry = days == null ? chip('–', '') : days < 0 ? chip(t('expired'), 'bad', 'alert') : chip(tn('{n} day left', '{n} days left', days), days <= 14 ? 'warn' : 'good', 'calendar');
       return h('div', { class: 'b-vehicle' },
         h('div', { class: 'row between' }, h('strong', null, v.name || t('Vehicle')), stateChip),
         kv([['VIN', v.vin], [t('Key expires'), h('span', { class: 'row tight', style: { justifyContent: 'flex-end' } }, v.key_expires_at ? f.date(v.key_expires_at) : '–', expiry)],
@@ -139,7 +139,7 @@ export default async function settings(root, ctx) {
     });
     const addVin = h('input', { type: 'text', placeholder: 'TMBJB9NY5RF999999', maxlength: 20, autocomplete: 'off', spellcheck: 'false' });
     const full = vehicles.length >= 5;
-    const addCar = vehicles.length && status.skoda_set && full ? h('div', { class: 'small muted' }, `${vehicles.length} / 5 ${t('cars')}: ${t('the maximum for one installation. Remove a car to add another.')}`)
+    const addCar = vehicles.length && status.skoda_set && full ? h('div', { class: 'small muted' }, t('{n} / 5 cars: the maximum for one installation. Remove a car to add another.', { n: vehicles.length }))
       : vehicles.length && status.skoda_set ? h('div', { class: 'stack b-section' }, h('h3', null, `${t('Add another car')} (${vehicles.length} / 5)`),
       h('div', { class: 'small muted' }, t('One installation tracks up to 5 cars.')),
       h('div', { class: 'small muted' }, t('Uses the API key that is already stored. The key must cover this car: create or edit it in the MyŠkoda app and choose all your cars.')),
@@ -280,7 +280,7 @@ export default async function settings(root, ctx) {
       c.source === 'env' ? banner('info', t('This is currently set by environment variables (MQTT_HOST …). Saving here replaces them.')) : null,
       h('div', { class: 'small muted' }, t('Makes the car available in Home Assistant as native entities (sensors and commands) through MQTT discovery.')),
       st.state === 'error' && st.error ? banner('bad', tx(st)) : null,
-      st.state === 'connected' ? h('div', { class: 'small muted' }, `${st.entities} ${t('entities for')} ${st.vehicles} ${st.vehicles === 1 ? t('car') : t('cars')}${st.last_publish ? ` · ${t('last update sent')} ${f.ago(new Date(st.last_publish * 1000).toISOString())}` : ''}`) : null,
+      st.state === 'connected' ? h('div', { class: 'small muted' }, `${tn('{entities} entities for {n} car', '{entities} entities for {n} cars', st.vehicles, { entities: st.entities })}${st.last_publish ? ` · ${t('last update sent {ago}', { ago: f.ago(new Date(st.last_publish * 1000).toISOString()) })}` : ''}`) : null,
       check('enabled', t('Enabled')),
       h('div', { class: 'form-grid mq-host' }, field(t('Broker'), text('host', { type: 'text', placeholder: '192.168.1.10', autocomplete: 'off', spellcheck: 'false', inputmode: 'url' })),
         field(t('Port'), text('port', { type: 'number', min: 1, max: 65535, inputmode: 'numeric' }))),

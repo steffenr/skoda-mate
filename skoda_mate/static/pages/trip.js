@@ -4,7 +4,7 @@ import { icon } from '../lib/icons.js';
 import { asyncButton, banner, button, card, chip, confirmDialog, empty, enableOnChange, field, kv, loading, stat, toast } from '../lib/ui.js';
 import { mapView } from '../lib/mapview.js';
 import * as f from '../lib/format.js';
-import { t } from '../i18n.js';
+import { t, tn } from '../i18n.js';
 import { approxChip, APPROX_TIP } from './trips.js';
 
 export default async function trip(root, ctx) {
@@ -98,7 +98,7 @@ export default async function trip(root, ctx) {
   const idleS = ctx.overview?.poller?.interval?.idle ?? ctx.settings?.poll_idle_s;
   const idleMin = idleS ? Math.max(1, Math.round(idleS / 60)) : null;
   if (roundTrip && (x.distance_km ?? 0) >= 2) why.push(banner('warn', h('b', null, t('May be two trips')), ': ',
-    idleMin ? t('Mate reads a parked car about every {n} minutes.').replace('{n}', idleMin) : t('Mate reads a parked car only every few minutes.'), ' ',
+    idleMin ? tn('Mate reads a parked car about every {n} minute.', 'Mate reads a parked car about every {n} minutes.', idleMin) : t('Mate reads a parked car only every few minutes.'), ' ',
     t('A drive to a place and back that fits between two readings is recorded as one trip, with its start estimated from the odometer. The real trip may be two shorter ones, each about half the distance.'), ' ',
     t('A shorter idle interval catches more of these drives, but every reading uses one of the about 20 requests per hour per car.'), ' ',
     h('a', { href: '#/settings' }, t('Change the polling interval'))));

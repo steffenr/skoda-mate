@@ -4,7 +4,7 @@ import { h, mount, clear } from './lib/dom.js';
 import { icon } from './lib/icons.js';
 import { asyncButton, banner, button, chip, empty, loading, modal, toast } from './lib/ui.js';
 import * as f from './lib/format.js';
-import { setLang, t, tm, tx } from './i18n.js';
+import { setLang, t, tm, tx, tn } from './i18n.js';
 
 // ------------------------------------------------------------------ API
 async function request(method, path, body) {
@@ -146,9 +146,9 @@ function statusLine(o) {
   const p = o?.poller;
   if (!p || !p.known) return t('Not connected');
   const parts = [];
-  if (p.captured_at) parts.push(`${t('Car reported')} ${f.ago(p.captured_at)}`);
-  else if (p.last_ok) parts.push(`${t('Updated')} ${f.ago(p.last_ok)}`);
-  if (p.next_poll_in != null && !p.blocked) parts.push(`${t('next check in')} ${f.inSeconds(p.next_poll_in)}`);
+  if (p.captured_at) parts.push(t('Car reported {ago}', { ago: f.ago(p.captured_at) }));
+  else if (p.last_ok) parts.push(t('Updated {ago}', { ago: f.ago(p.last_ok) }));
+  if (p.next_poll_in != null && !p.blocked) parts.push(t('next check in {time}', { time: f.inSeconds(p.next_poll_in) }));
   return parts.join(' · ');
 }
 
@@ -175,8 +175,8 @@ function paintHeader() {
   const dark = (document.documentElement.dataset.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')) === 'dark';
   // A link, not a bare number: it says what it counts and leads to the details.
   const meter = b ? h('a', { class: ['chip', b.remaining <= 0 ? 'warn' : ''], href: '#/system',
-    title: `${t('Requests to Škoda used this hour')}: ${b.used} ${t('of')} ${b.limit - b.reserve} ${t('for reading')} (${t('the rest is kept for commands')}). ${t('Details on the System page.')}`,
-    'aria-label': `${b.used}/${b.limit - b.reserve} ${t('requests used this hour')}` }, icon('signal', { size: 13 }), `${b.used}/${b.limit - b.reserve}`) : null;
+    title: t('Requests to Škoda used this hour: {used} of {max} for reading (the rest is kept for commands). Details on the System page.', { used: b.used, max: b.limit - b.reserve }),
+    'aria-label': t('{used}/{max} requests used this hour', { used: b.used, max: b.limit - b.reserve }) }, icon('signal', { size: 13 }), `${b.used}/${b.limit - b.reserve}`) : null;
   mount(els.topbar, title, pick, meter, refreshBtn,
     h('button', { class: 'btn ghost sm', type: 'button', title: dark ? t('Switch to light theme') : t('Switch to dark theme'),
       'aria-label': dark ? t('Switch to light theme') : t('Switch to dark theme'), onclick: toggleTheme }, icon(dark ? 'sun' : 'moon', { size: 18 })));
@@ -211,7 +211,7 @@ function paintBanners() {
     if (p.blocked || p.error_kind === 'api-key-expired') list.push(banner('bad', h('b', null, t('Škoda is not accepting the API key.')), ' ', tx(p) || '', ' ', h('a', { href: '#/settings' }, t('Update the key'))));
     else if (p.error && p.error_kind !== 'budget') list.push(banner('warn', tx(p), ' ', t('Mate will retry automatically.')));
     const d = daysUntil(p.key_expires_at);
-    if (d != null && d <= 14 && !p.blocked) list.push(banner('warn', d < 0 ? t('The API key has expired.') : `${t('The API key expires in')} ${d} ${d === 1 ? t('day') : t('days')}.`, ' ', h('a', { href: '#/settings' }, t('Create a new one in the MyŠkoda app and enter it here.'))));
+    if (d != null && d <= 14 && !p.blocked) list.push(banner('warn', d < 0 ? t('The API key has expired.') : tn('The API key expires in {n} day.', 'The API key expires in {n} days.', d), ' ', h('a', { href: '#/settings' }, t('Create a new one in the MyŠkoda app and enter it here.'))));
     if (o.needs_capacity) list.push(banner('info', t('Škoda does not report the battery size. Enter it to get energy, consumption and costs.'), ' ', h('a', { href: '#/settings' }, t('Set battery capacity'))));
     if (o.demo) list.push(banner('info', t('Demo mode: this is a fictional car. Nothing is sent to Škoda.')));
   }

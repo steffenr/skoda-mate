@@ -8,7 +8,7 @@ import { monthsAgo } from '../lib/dates.js';
 import { belowFloor, floorValue, kwhText, medianLossStat } from '../lib/floor.js';
 import { renderCharging } from '../lib/insight-charging.js';
 import { renderDriving } from '../lib/insight-driving.js';
-import { t } from '../i18n.js';
+import { t, tn } from '../i18n.js';
 
 const TABS = ['overview', 'charging', 'driving', 'parked'];
 const PARKED_PAGE = 50;  // stands per page of the Parked table
@@ -61,11 +61,22 @@ export default async function stats(root, ctx) {
       h('a', { href: '#/settings' }, t('Change the polling interval')));
   }
 
+  /** What the distance adds up, as one whole sentence per case: with or without a start date and an odometer total. */
+  function distanceNote(tt) {
+    const v = { distance: f.km(tt.km || 0), date: tt.since ? f.date(tt.since) : null, odometer: tt.odometer_km ? f.km(tt.odometer_km) : null };
+    if (v.odometer) {
+      return v.date ? t('The distance is the sum of the trips Mate has recorded since {date}: {distance} of the {odometer} the car has driven in total (odometer).', v)
+        : t('The distance is the sum of the trips Mate has recorded: {distance} of the {odometer} the car has driven in total (odometer).', v);
+    }
+    return v.date ? t('The distance is the sum of the trips Mate has recorded since {date}: {distance}.', v)
+      : t('The distance is the sum of the trips Mate has recorded: {distance}.', v);
+  }
+
   function distanceInfo() {
     const tt = data?.totals || {};
     const para = (head, ...body) => h('div', null, h('strong', null, head), ...body.map((b) => h('p', { class: 'small', style: { margin: '4px 0 0' } }, b)));
     modal(t('How is the distance calculated?'), h('div', { class: 'stack' },
-      para(t('A sum of tracked trips'), `${t('The distance is the sum of the trips Mate has recorded')}${tt.since ? ` ${t('since')} ${f.date(tt.since)}` : ''}: ${f.km(tt.km || 0)}${tt.odometer_km ? ` ${t('of the')} ${f.km(tt.odometer_km)} ${t('the car has driven in total (odometer).')}` : '.'}`),
+      para(t('A sum of tracked trips'), distanceNote(tt)),
       para(t('Why it can be incomplete'),
         t('Škoda provides no trip history, so nothing from before Mate started is known unless you import it.'),
         pollingLine(),
@@ -148,7 +159,7 @@ export default async function stats(root, ctx) {
     const to = Math.min(offset + PARKED_PAGE, total);
     return h('div', { class: 'pager', role: 'navigation', 'aria-label': t('Pages') },
       button(t('Newer'), { ic: 'left', size: 'sm', disabled: offset <= 0, onClick: () => goParked(Math.max(0, offset - PARKED_PAGE), 'newer') }),
-      h('span', { class: 'small muted' }, `${f.num(offset + 1)}–${f.num(to)} ${t('of')} ${f.num(total)}`),
+      h('span', { class: 'small muted' }, t('{from}–{to} of {total}', { from: f.num(offset + 1), to: f.num(to), total: f.num(total) })),
       button(`${t('Older')} →`, { size: 'sm', disabled: to >= total, onClick: () => goParked(offset + PARKED_PAGE, 'older') }));
   }
 
@@ -184,7 +195,7 @@ export default async function stats(root, ctx) {
         sub: a.kwh_7d != null || a.kwh_30d != null ? `${t('Last 7 days')} ${kwhText(a.kwh_7d)} · ${t('Last 30 days')} ${kwhText(a.kwh_30d)}` : null })),
       card(null, stat(t('Cost'), a.cost != null ? f.money(a.cost, cur) : dash, { ic: 'coin' })));
     const note = h('p', { class: 'small muted' }, t('The charge level is a whole percent, so a loss below one percent is not measurable (below the detection floor).'),
-      parked.detection_floor_kwh != null ? ` ${t('One percent is roughly')} ${f.kwh(parked.detection_floor_kwh, 2)}.` : null, ' ',
+      parked.detection_floor_kwh != null ? ` ${t('One percent is roughly {energy}.', { energy: f.kwh(parked.detection_floor_kwh, 2) })}` : null, ' ',
       t('Costs are estimates. Sessions marked as a likely unrecorded charge are left out of the figures above.'));
     const tbl = table([
       { label: t('Start'), render: (r) => h('div', null, f.dateTime(r.start), r.warning ? h('div', null, chip(t('Likely an unrecorded charge'), 'warn', 'info')) : null), cls: 'nowrap' },
@@ -224,18 +235,18 @@ export default async function stats(root, ctx) {
       // The one distance figure Škoda reports directly: the car's lifetime odometer.
       data.totals?.odometer_km ? card(null, stat(t('Odometer (lifetime)'), f.num(toD(data.totals.odometer_km)), { unit, ic: 'gauge',
         sub: data.totals?.odometer_tracked_km != null && data.totals.odometer_tracked_km > 0
-          ? `${f.km(data.totals.odometer_tracked_km, 0)} ${t('measured by Mate since')} ${f.date(data.totals.odometer_tracked_since)}`
+          ? t('{distance} measured by Mate since {date}', { distance: f.km(data.totals.odometer_tracked_km, 0), date: f.date(data.totals.odometer_tracked_since) })
           : t('reported by the car') })) : null,
       card(null, h('div', { class: 'b-has-info' }, infoBtn(), stat(t('Distance'), f.num(toD(tot.km || 0)), { unit, ic: 'route',
-        sub: `${tot.trips || 0} ${t('Trips').toLowerCase()}${months === 0 && data.totals?.since ? ` · ${t('since')} ${f.date(data.totals.since)}` : ''}` }))),
+        sub: `${tn('{n} trip', '{n} trips', tot.trips || 0)}${months === 0 && data.totals?.since ? ` · ${t('since {date}', { date: f.date(data.totals.since) })}` : ''}` }))),
       card(null, stat(t('Energy charged'), f.num(tot.charged_kwh || 0, 0), { unit: 'kWh', ic: 'bolt',
-        sub: `${tot.charges || 0} ${t('Charges').toLowerCase()}${tot.inferred_charges ? ` · ${tot.inferred_charges} ${t('inferred')}` : ''}` })),
+        sub: `${tn('{n} charge', '{n} charges', tot.charges || 0)}${tot.inferred_charges ? ` · ${tot.inferred_charges} ${t('inferred')}` : ''}` })),
       card(null, stat(t('Charging cost'), f.money(tot.cost || 0, cur), { ic: 'coin' })),
       card(null, stat(t('Consumption'), tot.kwh_100km != null ? f.num(conv(tot.kwh_100km), 1) : '–', { unit: f.consUnit(), ic: 'gauge' })),
       card(null, stat(`${t('Cost per 100')} ${unit}`, tot.cost_per_100km != null ? f.money(conv(tot.cost_per_100km), cur) : '–', { ic: 'coin' })),
       card(null, stat(t('Home vs public'), share != null ? `${f.num(share, 0)} / ${f.num(100 - share, 0)}` : '–', { unit: share != null ? '%' : null, ic: 'home',
         sub: [share != null ? `${t('Home')} ${f.kwh(tot.home_kwh, 0)} · ${t('Public')} ${f.kwh(tot.public_kwh, 0)}` : null,
-          tot.unknown_place_kwh > 0 ? `${f.kwh(tot.unknown_place_kwh, 0)} ${t('at an unknown place')}` : null].filter(Boolean).join(' · ') || null })));
+          tot.unknown_place_kwh > 0 ? t('{energy} at an unknown place', { energy: f.kwh(tot.unknown_place_kwh, 0) }) : null].filter(Boolean).join(' · ') || null })));
     // Charges can only be called "home" once the home position is known (Charge prices, with a map).
     const needsHome = tot.unknown_place_kwh > 0 && !ctx.overview?.tariff?.home_lat;
 
@@ -261,7 +272,7 @@ export default async function stats(root, ctx) {
     // The odometer counts the car's whole life; Mate only knows the drives since it started tracking.
     const odo = data.totals?.odometer_km, all_km = data.totals?.km || 0;
     const coverage = odo && data.totals?.since && all_km < odo * 0.9
-      ? banner('info', `${t('These statistics cover only what Mate has recorded since')} ${f.date(data.totals.since)}: ${f.km(all_km)} ${t('of the')} ${f.km(odo)} ${t('the car has driven in total (odometer). Škoda provides no trip history from before that.')}`) : null;
+      ? banner('info', t('These statistics cover only what Mate has recorded since {date}: {recorded} of the {odometer} the car has driven in total (odometer). Škoda provides no trip history from before that.', { date: f.date(data.totals.since), recorded: f.km(all_km), odometer: f.km(odo) })) : null;
 
     const homeHint = needsHome ? banner('info', t('Set your home position to split charges into Home and Public.'), ' ', h('a', { href: '#/prices' }, t('Open charge prices'))) : null;
     return [coverage, homeHint, ctx.overview.needs_capacity ? banner('info', t('Škoda does not report the battery size. Enter it to get energy, consumption and costs.'), ' ', h('a', { href: '#/settings' }, t('Set battery capacity'))) : null,

@@ -3,7 +3,12 @@
 import { h, svg } from './dom.js';
 import { icon } from './icons.js';
 import { chip } from './ui.js';
-import { t } from '../i18n.js';
+import { N_, t, tEnum } from '../i18n.js';
+
+const CLIMATE_CHIP = {
+  COOLING: N_('Climate cooling'), HEATING: N_('Climate heating'), HEATING_AUXILIARY: N_('Climate heating (auxiliary heater)'),
+  VENTILATION: N_('Climate ventilation'), ON: N_('Climate on'),
+};
 
 function silhouette() {
   return svg('svg', { class: 'silhouette', viewBox: '0 0 420 170', role: 'img', 'aria-label': t('Car') },
@@ -68,7 +73,7 @@ export function carView(o) {
   const live = [];
   // charging details live next to the battery on the overview; the car only shows its own state
   if (snap.in_motion) live.push(chip(t('Driving##state'), 'info', 'route'));
-  if (snap.climate_state && !['OFF', 'UNKNOWN', 'UNSUPPORTED', 'COMPLETED'].includes(snap.climate_state)) live.push(chip(`${t('Climate')} ${snap.climate_state.toLowerCase()}`, 'info', 'thermo'));
+  if (snap.climate_state && !['OFF', 'UNKNOWN', 'UNSUPPORTED', 'COMPLETED'].includes(snap.climate_state)) live.push(chip(CLIMATE_CHIP[snap.climate_state] ? t(CLIMATE_CHIP[snap.climate_state]) : `${t('Climate')}: ${tEnum(snap.climate_state)}`, 'info', 'thermo'));
 
   return h('div', { class: 'carcard' }, summary, box, h('div', { class: 'cs-grid' }, ...cells), live.length ? h('div', { class: 'badges' }, ...live) : null);
 }

@@ -34,5 +34,5 @@ export function estimateNote(live, s) {
   const tip = ESTIMATE_TIP();
   return h('div', { class: 'tiny muted', style: { display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px', marginBottom: '10px' } },
     h('span', { tabindex: 0, role: 'img', title: tip, 'aria-label': tip, style: { display: 'inline-flex', cursor: 'help' } }, icon('info', { size: 14 })),
-    `${t('estimated')} · ${t('last reading')} ${s.soc != null ? Math.round(s.soc) : '–'} % ${f.ago(live.readAt)}`);
+    `${t('estimated')} · ${t('last reading {soc} % {ago}', { soc: s.soc != null ? Math.round(s.soc) : '–', ago: f.ago(live.readAt) })}`);
 }

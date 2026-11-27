@@ -5,7 +5,7 @@ import { icon } from '../lib/icons.js';
 import { banner, button, card, empty, loading } from '../lib/ui.js';
 import { mapView } from '../lib/mapview.js';
 import * as f from '../lib/format.js';
-import { t } from '../i18n.js';
+import { t, tn } from '../i18n.js';
 
 const LAYERS = [['parked', 'Parked places', 'a-k1'], ['charges', 'Charge locations', 'a-k3'], ['trips', 'Trip start and end', 'a-k2']];
 const key = (lat, lon) => `${lat.toFixed(3)},${lon.toFixed(3)}`;
@@ -44,8 +44,8 @@ export default async function mapPage(root, ctx) {
       const where = place ? displayName(place) : p.address ? f.shortPlace(p.address) : t('Unknown place');
       return { lat: p.lat, lon: p.lon, placeId: place ? place.id : null, n: p.n,
         title: where, home: (place && place.kind === 'home') || isHome(p.lat, p.lon),
-        sub: `${p.n} ${t('readings while parked')} · ${t('last seen')} ${f.date(p.last_seen)}`,
-        label: `${where} · ${p.n} ${t('readings while parked')}` };
+        sub: `${tn('{n} reading while parked', '{n} readings while parked', p.n)} · ${t('last seen {date}', { date: f.date(p.last_seen) })}`,
+        label: `${where} · ${tn('{n} reading while parked', '{n} readings while parked', p.n)}` };
     });
     parkedMarkers = clusters.map((c) => ({ lat: c.lat, lon: c.lon, kind: '', label: c.label }));
 
@@ -55,7 +55,7 @@ export default async function mapPage(root, ctx) {
     const places = (data.places || []).filter((p) => ok(p.lat, p.lon)).map((p) => ({
       lat: p.lat, lon: p.lon, place: p, placeId: p.id, n: readings.get(p.id) || 0, href: `#/places/${p.id}`,
       title: displayName(p), home: p.kind === 'home',
-      sub: `${p.visit_count ?? 0} ${t('Visits')} · ${p.day_count ?? 0} ${t('Days')} · ${t('last seen')} ${p.last_seen ? f.dateTime(p.last_seen) : '–'}`,
+      sub: `${tn('{n} Visit', '{n} Visits', p.visit_count ?? 0)} · ${tn('{n} Day', '{n} Days', p.day_count ?? 0)} · ${t('last seen {date}', { date: p.last_seen ? f.dateTime(p.last_seen) : '–' })}`,
     }));
     const unmatched = clusters.filter((c) => c.placeId == null).map((c) => ({ ...c, href: null }));
 
@@ -85,7 +85,7 @@ export default async function mapPage(root, ctx) {
       return { lat: e.end_lat, lon: e.end_lon, kind: 'b', line: [[e.start_lat, e.start_lon], [e.end_lat, e.end_lon]], start: [e.start_lat, e.start_lon], n: e.n,
         placeId: endPlace ? endPlace.id : null,
         title: `${from} → ${to}`,
-        sub: `${e.n} ${e.n === 1 ? t('trip') : t('trips')} · ${f.km(e.km / e.n, 1)} · ${t('last seen')} ${f.date(e.last)}`,
+        sub: `${tn('{n} trip', '{n} trips', e.n)} · ${f.km(e.km / e.n, 1)} · ${t('last seen {date}', { date: f.date(e.last) })}`,
         label: `${t('End')}: ${to}`, startLabel: `${t('Start')}: ${from}`, href: `#/trips/${e.id}` };
     });
   }
@@ -216,7 +216,7 @@ export default async function mapPage(root, ctx) {
   const none = !items.parked.length && !items.charges.length && !items.trips.length && !cur;
   if (none) { mount(root, h('h1', null, t('Map')), empty(t('Nothing to show on the map yet'), t('Mate collects places while the car is parked, charging or driving.'), 'map')); return; }
   const motion = ctx.overview?.sections?.position?.state === 'IN_MOTION' && !cur;
-  const posLine = cur ? h('div', { class: 'small muted' }, icon('pin', { size: 14 }), ' ', `${t('Car now')}: ${cur.address ? f.shortPlace(cur.address) : `${cur.lat.toFixed(4)}, ${cur.lon.toFixed(4)}`}`, cur.captured_at ? ` · ${t('Position reported')} ${f.ago(cur.captured_at)}` : '') : null;
+  const posLine = cur ? h('div', { class: 'small muted' }, icon('pin', { size: 14 }), ' ', `${t('Car now')}: ${cur.address ? f.shortPlace(cur.address) : `${cur.lat.toFixed(4)}, ${cur.lon.toFixed(4)}`}`, cur.captured_at ? ` · ${t('Position reported {ago}', { ago: f.ago(cur.captured_at) })}` : '') : null;
 
   layerBox = h('div', { class: 'row tight', role: 'group', 'aria-label': t('Map layers') });
   listBox = h('div', { class: 'stack' });

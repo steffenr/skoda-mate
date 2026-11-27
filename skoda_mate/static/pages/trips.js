@@ -3,7 +3,7 @@ import { h, mount, debounce } from '../lib/dom.js';
 import { icon } from '../lib/icons.js';
 import { banner, button, card, chip, empty, field, loading, seg, stat } from '../lib/ui.js';
 import * as f from '../lib/format.js';
-import { t } from '../i18n.js';
+import { t, tn } from '../i18n.js';
 
 const PAGE = 40;
 export const APPROX_TIP = 'Found through an odometer jump; times are estimated.';
@@ -97,10 +97,10 @@ export default async function trips(root, ctx) {
     const eKm = sum(withE, 'distance_km');
     const cons = eKm > 0 ? (sum(withE, 'energy_kwh') / eKm) * 100 : null;
     return h('div', { class: 'grid auto a-totals' },
-      card(null, stat(t('Trips found'), f.num(S.total), { ic: 'route', sub: S.total > items.length ? `${t('of')} ${f.num(S.total)}` : null })),
+      card(null, stat(t('Trips found'), f.num(S.total), { ic: 'route', sub: S.total > items.length ? t('of {total}', { total: f.num(S.total) }) : null })),
       card(null, stat(t('Total distance'), f.num(f.toDist(sum(items, 'distance_km')), 0), { unit: f.distUnit(), ic: 'gauge' })),
       card(null, stat(t('Total duration'), f.duration(sum(items, 'duration_min')), { ic: 'clock' })),
-      card(null, stat(t('Total energy'), withE.length ? f.num(kwh, 1) : '–', { unit: withE.length ? 'kWh' : null, ic: 'bolt', sub: withE.length && withE.length < items.length ? `${withE.length} ${t('of')} ${items.length} ${t('with energy')}` : null })),
+      card(null, stat(t('Total energy'), withE.length ? f.num(kwh, 1) : '–', { unit: withE.length ? 'kWh' : null, ic: 'bolt', sub: withE.length && withE.length < items.length ? t('{n} of {total} with energy', { n: withE.length, total: items.length }) : null })),
       card(null, stat(t('Average consumption'), cons != null ? f.num(f.getUnits() === 'mi' ? cons / 0.621371 : cons, 1) : '–', { unit: cons != null ? f.consUnit() : null, ic: 'gauge' })),
       card(null, stat(t('Total cost'), withE.length ? f.money(sum(items, 'cost'), ctx.currency) : '–', { ic: 'coin', sub: withE.length ? t('Costs are estimated at your home tariff.') : null })));
   }
@@ -125,7 +125,7 @@ export default async function trips(root, ctx) {
         const kwh = sum(whole, 'energy_kwh');
         return h('section', { class: 'a-day', 'aria-label': f.date(g.iso, { dateStyle: 'full' }) },
           h('header', { class: 'a-dayhead' }, h('h2', null, f.dayLabel(g.iso), h('span', { class: 'muted' }, /\d/.test(f.dayLabel(g.iso)) ? ` · ${f.date(g.iso, { year: 'numeric' })}` : ` · ${f.date(g.iso)}`)),
-            h('span', { class: 'small muted' }, [f.km(sum(whole, 'distance_km'), 1), whole.some((x) => x.energy_kwh != null) ? f.kwh(kwh) : null, `${whole.length} ${whole.length === 1 ? t('trip') : t('trips')}`].filter(Boolean).join(' · '))),
+            h('span', { class: 'small muted' }, [f.km(sum(whole, 'distance_km'), 1), whole.some((x) => x.energy_kwh != null) ? f.kwh(kwh) : null, tn('{n} trip', '{n} trips', whole.length)].filter(Boolean).join(' · '))),
           h('div', { class: 'card a-rows' }, ...g.items.map(row)));
       }),
       S.shown < S.items.length ? h('div', { class: 'center' }, button(`${t('Load more')} (${S.items.length - S.shown})`, { onClick: () => { S.shown += PAGE; paintBody(); } })) : null);
@@ -147,7 +147,7 @@ export default async function trips(root, ctx) {
       const label = new Date(y, m - 1, d).toLocaleDateString(lang, { dateStyle: 'medium' });
       if (!e) { cells.push(h('div', { class: 'a-cell' }, h('span', { class: 'a-dnum' }, d))); continue; }
       cells.push(h('button', { type: 'button', class: 'a-cell has', style: { '--a-level': String(Math.max(0.18, e.km / maxKm)) }, title: t('Show this day'),
-        'aria-label': `${label}: ${e.n} ${e.n === 1 ? t('trip') : t('trips')}, ${f.km(e.km, 0)}`,
+        'aria-label': `${label}: ${tn('{n} trip', '{n} trips', e.n)}, ${f.km(e.km, 0)}`,
         onclick: () => { S.view = 'list'; S.from = key; S.to = key; from.value = key; to.value = key; drawSeg(); sync(); load(); } },
       h('span', { class: 'a-dnum' }, d), h('span', { class: 'a-km' }, f.num(f.toDist(e.km), 0)), h('span', { class: 'a-unit' }, f.distUnit())));
     }
@@ -163,7 +163,7 @@ export default async function trips(root, ctx) {
   function paintBody() {
     if (S.error) { mount(body, banner('bad', `${t('Could not load trips')}: ${S.error}`), h('div', null, button(t('Try again'), { onClick: load, ic: 'refresh' }))); return; }
     if (!S.loaded) { mount(body, loading()); return; }
-    const cap = S.total > S.items.length ? banner('info', t('Showing the newest {n} of {total} trips. Narrow the filters to see the rest.').replace('{n}', S.items.length).replace('{total}', S.total), ' ', t('Totals cover only the loaded trips.')) : null;
+    const cap = S.total > S.items.length ? banner('info', tn('Showing the newest {shown} of {n} trip. Narrow the filters to see the rest.', 'Showing the newest {shown} of {n} trips. Narrow the filters to see the rest.', S.total, { shown: S.items.length }), ' ', t('Totals cover only the loaded trips.')) : null;
     if (!S.items.length) {
       mount(body, S.view === 'month' ? monthView() : null, empty(t('No trips found'), S.q || S.from || S.to || S.min ? t('Try other filters, or wait for the next drive.') : t('Mate derives trips from the odometer and the car’s parked/driving state.'), 'route'));
       return;
