@@ -6,18 +6,18 @@ import { carView } from '../lib/car.js';
 import { lineChart } from '../lib/charts.js';
 import { mapView } from '../lib/mapview.js';
 import * as f from '../lib/format.js';
-import { t, tx, tn } from '../i18n.js';
+import { t, tx, tn, N_ } from '../i18n.js';
 import { estimateNote, liveSoc } from '../lib/livesoc.js';
 import { kwhOrFloor, medianLossStat } from '../lib/floor.js';
 
 const isoDay = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
 const CHARGE_STATE = {
-  CHARGING: ['Charging##state', 'good'], READY_FOR_CHARGING: ['Plugged in, not charging', 'info'], CONNECT_CABLE: ['Cable not connected', ''],
-  CONSERVING: ['Conserving (battery care)', 'info'], DISCHARGING: ['Discharging', 'warn'], CHARGING_INTERRUPTED: ['Charging interrupted', 'warn'],
+  CHARGING: [N_('Charging##state'), 'good'], READY_FOR_CHARGING: [N_('Plugged in, not charging'), 'info'], CONNECT_CABLE: [N_('Cable not connected'), ''],
+  CONSERVING: [N_('Conserving (battery care)'), 'info'], DISCHARGING: ['Discharging', 'warn'], CHARGING_INTERRUPTED: ['Charging interrupted', 'warn'],
 };
 
-const CLIMATE_STATE = { COOLING: 'Cooling', HEATING: 'Heating', HEATING_AUXILIARY: 'Heating (auxiliary heater)', VENTILATION: 'Ventilation' };
+const CLIMATE_STATE = { COOLING: 'Cooling', HEATING: 'Heating', HEATING_AUXILIARY: N_('Heating (auxiliary heater)'), VENTILATION: 'Ventilation' };
 
 export default async function overview(root, ctx) {
   ctx.setTitle(t('Overview'));

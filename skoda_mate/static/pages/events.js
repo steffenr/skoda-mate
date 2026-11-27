@@ -6,18 +6,18 @@ import { banner, button, card, chip, empty, field, loading, seg } from '../lib/u
 import * as f from '../lib/format.js';
 import { barBox, clockAt, dayStartMs } from '../lib/dates.js';
 import { actionLabel, checkLabel } from '../lib/quality.js';
-import { t, tn } from '../i18n.js';
+import { t, tn, N_ } from '../i18n.js';
 
 const KINDS = {
   locked: ['Locked', 'lock', 'good'], unlocked: ['Unlocked', 'unlock', 'warn'],
-  door_opened: ['Door opened', 'door', 'warn'], door_closed: ['Door closed', 'door', ''], window_opened: ['Window opened', 'window', 'warn'], window_closed: ['Window closed', 'window', ''],
-  trunk_opened: ['Trunk opened', 'door', 'warn'], trunk_closed: ['Trunk closed', 'door', ''], bonnet_opened: ['Bonnet opened', 'door', 'warn'], bonnet_closed: ['Bonnet closed', 'door', ''],
-  sunroof_opened: ['Sunroof opened', 'window', 'warn'], sunroof_closed: ['Sunroof closed', 'window', ''], lights_on: ['Lights on', 'sun', ''], lights_off: ['Lights off', 'moon', ''],
-  plugged_in: ['Plugged in', 'plug', 'info'], unplugged: ['Unplugged', 'plug', ''], plug_locked: ['Plug locked', 'lock', ''], plug_unlocked: ['Plug unlocked', 'unlock', ''],
-  climate: ['Climate', 'thermo', 'info'], aux_heating: ['Auxiliary heating', 'flame', 'info'], ventilation: ['Ventilation', 'fan', 'info'],
-  charge_start: ['Charging started', 'bolt', 'good'], charge_end: ['Charging finished', 'bolt', 'good'], charge_state: ['Charging status', 'battery', ''],
-  trip_start: ['Trip started', 'route', 'info'], trip_end: ['Trip finished', 'route', 'info'], command: ['Command', 'sliders', ''],
-  quality_fix: ['Data fixed', 'shield', 'good'], quality_review: ['Data reviewed', 'shield', ''],
+  door_opened: [N_('Door opened'), 'door', 'warn'], door_closed: [N_('Door closed'), 'door', ''], window_opened: [N_('Window opened'), 'window', 'warn'], window_closed: [N_('Window closed'), 'window', ''],
+  trunk_opened: [N_('Trunk opened'), 'door', 'warn'], trunk_closed: [N_('Trunk closed'), 'door', ''], bonnet_opened: [N_('Bonnet opened'), 'door', 'warn'], bonnet_closed: [N_('Bonnet closed'), 'door', ''],
+  sunroof_opened: [N_('Sunroof opened'), 'window', 'warn'], sunroof_closed: [N_('Sunroof closed'), 'window', ''], lights_on: [N_('Lights on'), 'sun', ''], lights_off: [N_('Lights off'), 'moon', ''],
+  plugged_in: [N_('Plugged in'), 'plug', 'info'], unplugged: [N_('Unplugged'), 'plug', ''], plug_locked: [N_('Plug locked'), 'lock', ''], plug_unlocked: [N_('Plug unlocked'), 'unlock', ''],
+  climate: ['Climate', 'thermo', 'info'], aux_heating: [N_('Auxiliary heating'), 'flame', 'info'], ventilation: ['Ventilation', 'fan', 'info'],
+  charge_start: [N_('Charging started'), 'bolt', 'good'], charge_end: [N_('Charging finished'), 'bolt', 'good'], charge_state: [N_('Charging status'), 'battery', ''],
+  trip_start: [N_('Trip started'), 'route', 'info'], trip_end: [N_('Trip finished'), 'route', 'info'], command: ['Command', 'sliders', ''],
+  quality_fix: [N_('Data fixed'), 'shield', 'good'], quality_review: [N_('Data reviewed'), 'shield', ''],
 };
 const COMMAND_LABEL = {
   start_charging: 'Start charging', stop_charging: 'Stop charging', set_charge_limit: 'Set charge limit', set_charge_mode: 'Set charge mode', update_charging_profile: 'Update charging profile',
@@ -131,7 +131,7 @@ async function listTab(root, ctx) {
 // ---------------------------------------------------------------- timeline
 
 const MAX_BACK_DAYS = 30;  // the oldest reachable day is today minus 30; the endpoint answers any range of up to 31 days
-const SEGMENT_LABEL = { drive: 'Driving', charge: 'Charging', climate: 'Climate', aux: 'Auxiliary heating', vent: 'Ventilation', parked: 'Parked', unknown: 'Not heard from' };
+const SEGMENT_LABEL = { drive: 'Driving', charge: 'Charging', climate: 'Climate', aux: N_('Auxiliary heating'), vent: 'Ventilation', parked: 'Parked', unknown: 'Not heard from' };
 const SEGMENT_COLOUR = { aux: 'climate', vent: 'climate' };  // aux and vent share the climate colour and legend entry
 const LEGEND = ['drive', 'charge', 'climate', 'parked', 'unknown'];
 const segLabel = (k) => t(SEGMENT_LABEL[k] || k);
@@ -198,7 +198,7 @@ async function timelineTab(root, ctx) {
   const range = h('strong', { 'aria-live': 'polite' });
   const body = h('div', { class: 'stack' });
   const legend = h('div', { class: 'legend', role: 'group', 'aria-label': t('Colour key') },
-    h('span', null, '24 h'), ...LEGEND.map((k) => h('span', null, h('i', { class: `tl-${k}` }), segLabel(k))));
+    h('span', null, N_('24 h')), ...LEGEND.map((k) => h('span', null, h('i', { class: `tl-${k}` }), segLabel(k))));
 
   async function load(silent = false) {
     const mine = ++seq;

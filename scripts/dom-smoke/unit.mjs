@@ -140,5 +140,28 @@ assert.equal(i18n.tx({ error: 'Place not found.', error_i18n: { message: 'Place 
 assert.equal(i18n.tx({ error: 'Plain from an older server' }), 'Plain from an older server', 'without a template the text stays');
 assert.equal(i18n.tx({ message: 'Hi', message_i18n: { message: 'Place not found.', params: {} } }, 'message'), 'Ort nicht gefunden.');
 assert.deepEqual([i18n.tx({ error: null }), i18n.tx(null), i18n.tx(undefined)], [null, null, null]);
+
+// ------------------------------------------------------------------ keys and catalogs
+const { compare, scan } = await import('./i18n_lib.mjs');
+const found = scan({ 'pages/a.js': "// t('In a comment')\n /** tn('{n} x', '{n} xs', 1) */\nt('Hello {name}', { name }); N_('Marked'); tn('{n} day', '{n} days', n); t(variable); const x = tn(\n 'one {n}', 'many {n}', 2);\nt('It\\'s')",
+  'app.js': "{ path: 'x', name: 'x', label: 'Nav label' }; t('Hello {name}')" });
+assert.deepEqual(Object.keys(found).sort(), ['Hello {name}', "It's", 'Marked', 'Nav label', 'many {n}', '{n} days']);
+assert.deepEqual(found['Hello {name}'], { files: ['app.js', 'pages/a.js'] });
+assert.deepEqual(found['{n} days'], { files: ['pages/a.js'], one: '{n} day' });
+const keys = { 'A {lo}': { files: [] }, B: { files: [] }, '{n} days': { files: [], one: '{n} day' }, '{x} of {n} files': { files: [], one: '{x} of {n} file' } };
+const good = { 'A {lo}': 'a {lo}', B: 'b', '{n} days': { one: 'ein Tag', other: '{n} Tage' }, '{x} of {n} files': { one: '{x} von {n}', other: '{x} von {n}' } };
+assert.deepEqual(compare(keys, good, 'de'), []);
+const problems = (catalog, locale = 'de') => compare(keys, { ...good, ...catalog }, locale).join('\n');
+assert.match(compare(keys, { B: 'b' }, 'de').join('\n'), /missing: A \{lo\}/);
+assert.match(problems({ Old: 'alt' }), /extra: Old/);
+assert.match(problems({ 'A {lo}': 'a {low}' }), /placeholders: A \{lo\}/);
+assert.match(problems({ 'A {lo}': 'a' }), /placeholders: A \{lo\}/);
+assert.match(problems({ B: '' }), /missing: B/);
+assert.match(problems({ B: { one: 'b', other: 'b' } }), /not a text: B/);
+assert.match(problems({ '{n} days': 'Tage' }), /not plural forms: \{n\} days/);
+assert.match(problems({}, 'uk'), /plural form few missing: \{n\} days/);
+assert.match(problems({ '{n} days': { one: '{n} Tag', other: 'Tage {x}' } }), /placeholders: \{n\} days \(other\)/);
+assert.match(problems({ '{x} of {n} files': { one: 'eine', other: '{x} von {n}' } }), /placeholders: \{x\} of \{n\} files \(one\)/, 'only the count may be left out of a form');
+
 await i18n.setLang('en');
 console.log('frontend unit checks OK');

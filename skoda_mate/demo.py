@@ -78,10 +78,14 @@ def vehicle_response(now: datetime, soc: float, charging: bool, parked_at=HOME, 
         "operations": [{"name": n} for n in ("startCharging", "stopCharging", "setChargingLimit", "setChargeMode", "updateChargingProfile",
                                               "startAirConditioning", "stopAirConditioning")],
     }
-    return {"vehicle": veh, "errors": [
-        {"type": "FUEL_STATUS_UNSUPPORTED", "description": "Battery-electric vehicle"},
-        {"type": "AUXILIARY_HEATING_UNSUPPORTED", "description": "The vehicle has no auxiliary heater"},
-        {"type": "ACTIVE_VENTILATION_UNSUPPORTED", "description": "The vehicle has no active ventilation"}]}
+    return {"vehicle": veh, "errors": [dict(error) for error in API_ERRORS]}
+
+
+API_ERRORS = (
+    {"type": "FUEL_STATUS_UNSUPPORTED", "description": "Battery-electric vehicle"},
+    {"type": "AUXILIARY_HEATING_UNSUPPORTED", "description": "The vehicle has no auxiliary heater"},
+    {"type": "ACTIVE_VENTILATION_UNSUPPORTED", "description": "The vehicle has no active ventilation"},
+)
 
 
 class DemoApi:

@@ -18,7 +18,10 @@ PART_LABELS = {"status": "Doors, windows & lights", "fuelStatus": "Fuel & range"
                "parkingPosition": "Position", "airConditioning": "Climate", "auxiliaryHeating": "Auxiliary heater",
                "activeVentilation": "Ventilation", "charging": "Charging & battery", "chargingProfiles": "Charging profiles"}
 
-PART_REASONS = {"unsupported": "Not supported by this car", "disabled": "Disabled for this car (consent, licence or workshop mode)",
+NOT_SUPPORTED = "Not supported by this car"
+NOT_KNOWN_YET = "Supported operations not known yet"
+
+PART_REASONS = {"unsupported": NOT_SUPPORTED, "disabled": "Disabled for this car (consent, licence or workshop mode)",
                 "unavailable": "Temporarily unavailable", "missing": "Not reported"}
 
 # What leapmotor-mate offers but the official Škoda API does not. Shown honestly in the dashboard.
@@ -205,11 +208,11 @@ def features(operations: list[str] | None, part_state: dict | None) -> dict:
     out: dict[str, dict] = {}
     for name, needed in OPERATION_FEATURES.items():
         if ops is None:
-            out[name] = {"available": None, "reason": "Supported operations not known yet"}
+            out[name] = {"available": None, "reason": NOT_KNOWN_YET}
         elif ops & set(needed):
             out[name] = {"available": True, "reason": None}
         else:
-            out[name] = {"available": False, "reason": "Not supported by this car"}
+            out[name] = {"available": False, "reason": NOT_SUPPORTED}
     return out
 
 

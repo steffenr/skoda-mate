@@ -5,15 +5,15 @@ import { icon } from '../lib/icons.js';
 import { asyncButton, banner, button, card, chip, confirmDialog, empty, field, loading, modal, toast } from '../lib/ui.js';
 import { mapView } from '../lib/mapview.js';
 import * as f from '../lib/format.js';
-import { t, tn } from '../i18n.js';
+import { t, tn, N_ } from '../i18n.js';
 import { api } from '../app.js';
 
-const KINDS = [['home', 'Home'], ['work', 'Work'], ['place', 'Place']];
+const KINDS = [['home', 'Home'], ['work', N_('Work')], ['place', 'Place']];
 const KIND_TONE = { home: 'good', work: 'info', place: '' };
 // The same palette as places.COLORS in skoda_mate/places.py.
 const COLOURS = [
-  ['#0b7a52', 'Green'], ['#1d5fa8', 'Blue'], ['#b86e00', 'Amber'],
-  ['#7a3fa8', 'Purple'], ['#b3261e', 'Red'], ['#0e7a7a', 'Teal'],
+  ['#0b7a52', N_('Green')], ['#1d5fa8', N_('Blue')], ['#b86e00', N_('Amber')],
+  ['#7a3fa8', N_('Purple')], ['#b3261e', N_('Red')], ['#0e7a7a', N_('Teal')],
 ];
 const PRICE_FIELDS = [
   ['price_kwh', 10, 'Price per kWh must be between 0 and 10.'],
@@ -146,7 +146,7 @@ export function placeForm({ place = null, point = null, draft: carried = null, h
     return payload;
   }
 
-  closeForm = modal(t(editing ? 'Edit place' : 'New place'), body, (close) => {
+  closeForm = modal(t(editing ? 'Edit place' : N_('New place')), body, (close) => {
     const save = async () => {
       const payload = placeBody();
       const saved = editing ? await api.put(`/api/places/${place.id}`, payload) : await api.post('/api/places', payload);

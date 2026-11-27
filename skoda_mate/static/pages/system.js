@@ -5,7 +5,7 @@ import { asyncButton, banner, button, card, chip, confirmDialog, empty, kv, load
 import capabilitiesPage from './capabilities.js';
 import * as f from '../lib/format.js';
 import { checkLabel, fixExplanation, sampleNode } from '../lib/quality.js';
-import { t, tx } from '../i18n.js';
+import { t, tx, N_ } from '../i18n.js';
 
 const PART_STATE = { present: 'good', unsupported: '', disabled: 'warn', unavailable: 'warn', missing: 'bad', unknown: '' };
 const OP_LABEL = {
@@ -20,7 +20,7 @@ const isoOf = (at) => (typeof at === 'number' ? new Date(at * 1000).toISOString(
 export default async function system(root, ctx) {
   ctx.setTitle(t('System'));
   const base = `/api/vehicles/${ctx.vid}`;
-  const TABS = [['status', 'Status'], ['capabilities', 'Capabilities'], ['calls', 'API calls'], ['diagnostics', 'Diagnostics']];
+  const TABS = [['status', 'Status'], ['capabilities', 'Capabilities'], ['calls', N_('API calls')], ['diagnostics', 'Diagnostics']];
   const tab = TABS.some(([k]) => k === ctx.params[0]) ? ctx.params[0] : 'status';
   const PAGE = 25;
   let quality = null, qualityError = null;
@@ -49,7 +49,7 @@ export default async function system(root, ctx) {
     await recheck();
     if (!qualityError) toast(message(r), 'good');
   }
-  const review = (c, reviewed, opts) => act(() => ctx.api.post(`${base}/quality/review`, { check: c.id, reviewed }), () => t(reviewed ? 'Reviewed' : 'Review undone'), opts);
+  const review = (c, reviewed, opts) => act(() => ctx.api.post(`${base}/quality/review`, { check: c.id, reviewed }), () => t(reviewed ? 'Reviewed' : N_('Review undone')), opts);
 
   function reviewModal(c) {
     const err = h('div');

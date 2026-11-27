@@ -4,19 +4,19 @@ import { h, mount } from '../lib/dom.js';
 import { icon } from '../lib/icons.js';
 import { asyncButton, banner, button, card, chip, empty, field, loading, table, toast } from '../lib/ui.js';
 import * as f from '../lib/format.js';
-import { t, tx } from '../i18n.js';
+import { t, tx, N_ } from '../i18n.js';
 import { estimateNote, liveSoc } from '../lib/livesoc.js';
 
 const CHARGE_STATE = {
-  CHARGING: ['Charging##state', 'good'], READY_FOR_CHARGING: ['Plugged in, not charging', 'info'], CONNECT_CABLE: ['Cable not connected', ''],
-  CONSERVING: ['Conserving (battery care)', 'info'], DISCHARGING: ['Discharging', 'warn'], CHARGING_INTERRUPTED: ['Charging interrupted', 'warn'],
+  CHARGING: [N_('Charging##state'), 'good'], READY_FOR_CHARGING: [N_('Plugged in, not charging'), 'info'], CONNECT_CABLE: [N_('Cable not connected'), ''],
+  CONSERVING: [N_('Conserving (battery care)'), 'info'], DISCHARGING: ['Discharging', 'warn'], CHARGING_INTERRUPTED: ['Charging interrupted', 'warn'],
 };
 const MODE_LABEL = {
-  MANUAL: 'Manual', TIMER: 'Timer', TIMER_CHARGING_WITH_CLIMATISATION: 'Timer with climate', PREFERRED_CHARGING_TIMES: 'Preferred charging times',
+  MANUAL: 'Manual', TIMER: 'Timer', TIMER_CHARGING_WITH_CLIMATISATION: N_('Timer with climate'), PREFERRED_CHARGING_TIMES: 'Preferred charging times',
   ONLY_OWN_CURRENT: 'Only own current', IMMEDIATE_DISCHARGING: 'Immediate discharging', HOME_STORAGE_CHARGING: 'Home storage charging',
 };
 const DAYS = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
-const DAY_SHORT = { MONDAY: 'MON', TUESDAY: 'TUE', WEDNESDAY: 'WED', THURSDAY: 'THU', FRIDAY: 'FRI', SATURDAY: 'SAT', SUNDAY: 'SUN' };
+const DAY_SHORT = { MONDAY: N_('MON'), TUESDAY: N_('TUE'), WEDNESDAY: N_('WED'), THURSDAY: N_('THU'), FRIDAY: N_('FRI'), SATURDAY: N_('SAT'), SUNDAY: N_('SUN') };
 const DAY_LONG = { MONDAY: 'Monday', TUESDAY: 'Tuesday', WEDNESDAY: 'Wednesday', THURSDAY: 'Thursday', FRIDAY: 'Friday', SATURDAY: 'Saturday', SUNDAY: 'Sunday' };
 const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
 const toNum = (v) => (v === '' || v == null || Number.isNaN(Number(v)) ? null : Number(v));

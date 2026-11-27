@@ -6,11 +6,11 @@ import { banner, button, card, chip, empty, kv, loading, seg, stat } from '../li
 import { lineChart } from '../lib/charts.js';
 import * as f from '../lib/format.js';
 import { rangeCard } from '../lib/rangecard.js';
-import { t, tn } from '../i18n.js';
+import { t, tn, N_ } from '../i18n.js';
 
-const RANGES = [[24, '24 h'], [168, '7 d'], [720, '30 d'], [8760, '1 y']];
+const RANGES = [[24, N_('24 h')], [168, N_('7 d')], [720, N_('30 d')], [8760, N_('1 y')]];
 const MODE_LABEL = {
-  MANUAL: 'Manual', TIMER: 'Timer', TIMER_CHARGING_WITH_CLIMATISATION: 'Timer with climate', PREFERRED_CHARGING_TIMES: 'Preferred charging times',
+  MANUAL: 'Manual', TIMER: 'Timer', TIMER_CHARGING_WITH_CLIMATISATION: N_('Timer with climate'), PREFERRED_CHARGING_TIMES: 'Preferred charging times',
   ONLY_OWN_CURRENT: 'Only own current', IMMEDIATE_DISCHARGING: 'Immediate discharging', HOME_STORAGE_CHARGING: 'Home storage charging',
 };
 const word = (map, v) => (v == null || v === '' ? '–' : t(map[v] || v));

@@ -5,9 +5,9 @@ import { icon } from '../lib/icons.js';
 import { banner, button, card, empty, loading } from '../lib/ui.js';
 import { mapView } from '../lib/mapview.js';
 import * as f from '../lib/format.js';
-import { t, tn } from '../i18n.js';
+import { t, tn, N_ } from '../i18n.js';
 
-const LAYERS = [['parked', 'Parked places', 'a-k1'], ['charges', 'Charge locations', 'a-k3'], ['trips', 'Trip start and end', 'a-k2']];
+const LAYERS = [['parked', N_('Parked places'), 'a-k1'], ['charges', N_('Charge locations'), 'a-k3'], ['trips', N_('Trip start and end'), 'a-k2']];
 const key = (lat, lon) => `${lat.toFixed(3)},${lon.toFixed(3)}`;
 const ok = (lat, lon) => lat != null && lon != null;
 // The demo's home place is stored as the English name; show it in the reader's language like the places page does.

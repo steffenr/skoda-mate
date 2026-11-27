@@ -5,13 +5,13 @@ import { h, mount } from '../lib/dom.js';
 import { icon } from '../lib/icons.js';
 import { asyncButton, banner, button, card, field, toast } from '../lib/ui.js';
 import * as f from '../lib/format.js';
-import { t, tn } from '../i18n.js';
+import { t, tn, N_ } from '../i18n.js';
 
 const DEFAULTS = { home: 0.30, ac: 0.55, dc: 0.79 };
 const ROWS = [
-  { key: 'home', ic: 'home', tone: 'good', title: 'Home', sub: 'Wallbox or home socket' },
-  { key: 'ac', ic: 'plug', tone: 'info', title: 'Public AC', sub: 'Public AC charging stations (up to 22 kW)' },
-  { key: 'dc', ic: 'bolt', tone: 'warn', title: 'Public DC', sub: 'DC fast chargers' },
+  { key: 'home', ic: 'home', tone: 'good', title: 'Home', sub: N_('Wallbox or home socket') },
+  { key: 'ac', ic: 'plug', tone: 'info', title: N_('Public AC'), sub: N_('Public AC charging stations (up to 22 kW)') },
+  { key: 'dc', ic: 'bolt', tone: 'warn', title: N_('Public DC'), sub: N_('DC fast chargers') },
 ];
 const EXAMPLE_KWH = 30;
 const num = (v) => (v === '' || v == null || Number.isNaN(Number(v)) ? null : Number(v));
@@ -44,7 +44,7 @@ export default async function prices(root, ctx) {
   const syncBar = () => {
     const isDirty = dirty();
     status.className = `pr-status ${isDirty ? 'dirty' : ''}`;
-    mount(status, h('i', { class: ['dot', isDirty ? 'warn' : 'good'] }), t(isDirty ? 'Unsaved changes' : 'All changes saved'));
+    mount(status, h('i', { class: ['dot', isDirty ? 'warn' : 'good'] }), t(isDirty ? N_('Unsaved changes') : N_('All changes saved')));
     if (saveBtn) saveBtn.disabled = !isDirty;
     if (discardBtn) discardBtn.disabled = !isDirty;
   };

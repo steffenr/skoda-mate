@@ -66,7 +66,11 @@ jobs:
         working-directory: scripts/dom-smoke
         run: node unit.mjs
 
-      - name: German translation coverage
+      - name: Translation keys are current
+        working-directory: scripts/dom-smoke
+        run: node i18n_extract.mjs --check
+
+      - name: Translation coverage
         working-directory: scripts/dom-smoke
         run: node i18n_coverage.mjs
 

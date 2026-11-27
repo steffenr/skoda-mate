@@ -112,8 +112,11 @@ def battery(conn, vid: int) -> dict:
     eff = _efficiency(conn, vid)
     return {"nominal_kwh": nominal, "estimate_kwh_at_wall": est, "samples": len(points), "points": points,
             "charging_efficiency": eff,
-            "note": "Wall energy per 100 % SoC from AC charges of 30 %+ (includes charging losses). "
-                    "MySkoda does not report battery health."}
+            "note": CAPACITY_NOTE}
+
+
+CAPACITY_NOTE = ("Wall energy per 100 % SoC from AC charges of 30 %+ (includes charging losses). "
+                 "MyŠkoda does not report battery health.")
 
 
 def _efficiency(conn, vid) -> float | None:

@@ -6,7 +6,7 @@ import { asyncButton, banner, button, card, chip, confirmDialog, empty, field, k
 import { mapView } from '../lib/mapview.js';
 import { automationCard } from '../lib/automation.js';
 import * as f from '../lib/format.js';
-import { t, tx, tn } from '../i18n.js';
+import { t, tx, tn, N_ } from '../i18n.js';
 
 const num = (v) => (v === '' || v == null || Number.isNaN(Number(v)) ? null : Number(v));
 const fail = (msg) => { throw new Error(msg); };
@@ -197,8 +197,8 @@ export default async function settings(root, ctx) {
     try { mq = await ctx.api.get('/api/settings/mqtt'); mqError = null; } catch (e) { mq = null; mqError = e.message; }
   }
   const MQTT_STATUS = {
-    connected: ['Connected', 'good', 'check'], connecting: ['Connecting …', 'info', 'clock'], error: ['Not connected', 'bad', 'alert'],
-    disabled: ['Disabled', '', 'wifioff'], waiting: ['Waiting for the Škoda connection', 'warn', 'clock'],
+    connected: ['Connected', 'good', 'check'], connecting: [N_('Connecting …'), 'info', 'clock'], error: ['Not connected', 'bad', 'alert'],
+    disabled: ['Disabled', '', 'wifioff'], waiting: [N_('Waiting for the Škoda connection'), 'warn', 'clock'],
   };
 
   function mqttGuide(m) {
@@ -253,7 +253,7 @@ export default async function settings(root, ctx) {
       if (!body.clear) delete body.clear; else body.clear_password = true;
       delete body.clear;
       mq = await ctx.api.put('/api/settings/mqtt', body);
-      toast(t(d.enabled ? 'Saved. Mate is connecting to Home Assistant.' : 'Saved.'), 'good');
+      toast(t(d.enabled ? N_('Saved. Mate is connecting to Home Assistant.') : N_('Saved.')), 'good');
       redraws[6]();
       pollStatus();
     }, { ic: 'check', kind: 'primary', disabled: true });
