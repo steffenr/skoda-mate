@@ -51,16 +51,22 @@ def _num(text) -> float | None:
     except ValueError:
         return None
 
-# canonical key -> accepted header spellings (lower-cased). Only English is known; unknown headers give a clear error.
+# canonical key -> accepted header spellings (lower-cased). Two export layouts are known: the English one (start time,
+# distance, addresses, SoC) and the PHEV one (end time + travel time, mileage, consumption, fuel, cost). Unknown headers
+# give a clear error.
 COLUMNS = {
     "start": ("start of trip",), "end": ("end of trip",), "klass": ("classification",),
     "start_addr": ("start address",), "end_addr": ("end address",),
     "start_xy": ("start coordinates",), "end_xy": ("end coordinates",),
-    "km": ("distance in km",), "odo_start": ("start odometer in km",), "odo_end": ("end odometer in km",),
+    "km": ("distance in km", "mileage in km"),
+    "odo_start": ("start odometer in km", "start mileage in km"), "odo_end": ("end odometer in km", "end mileage in km"),
     "driving": ("driving time in minutes",), "travel": ("travel time in minutes",), "speed": ("average speed in km/h",),
-    "kwh": ("electricity consumption in kwh",), "kwh100": ("average electricity consumption in kwh/100km",),
+    "kwh": ("electricity consumption in kwh",),
+    "kwh100": ("average electricity consumption in kwh/100km", "average electric consumption in kwh/100km"),
     "soc_start": ("start soc in %",), "soc_end": ("end soc in %",),
     "stops": ("public charging stops",), "gained": ("public charge soc gained in %",), "short": ("short trip",),
+    "cost": ("total cost",), "fuel100": ("average fuel consumption in l/100km",),
+    "aux100": ("average auxiliary consumption in kwh/100km",), "recup100": ("average recuperation in kwh/100km",),
 }
 REQUIRED = ("start", "end", "km")
 DATE_FORMATS = ("%d.%m.%Y %H:%M", "%d.%m.%Y %H:%M:%S", "%d/%m/%Y %H:%M", "%Y-%m-%d %H:%M", "%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M")
@@ -156,6 +162,8 @@ def parse_file(name: str, text: str, tz: ZoneInfo) -> tuple[list[dict], FileRepo
     header = [h.strip().lower() for h in next(reader)]
     idx = {key: next((header.index(a) for a in aliases if a in header), None) for key, aliases in COLUMNS.items()}
     missing = [k for k in REQUIRED if idx[k] is None]
+    if "start" in missing and idx["travel"] is not None:
+        missing.remove("start")  # the PHEV export has no start time: it is the end of trip minus the travel time
     if missing:
         rep.add_error(messages.IMPORT_NOT_AN_EXPORT(columns=", ".join(COLUMNS[k][0] for k in missing), found=", ".join(header[:8])))
         return [], rep
@@ -165,7 +173,11 @@ def parse_file(name: str, text: str, tz: ZoneInfo) -> tuple[list[dict], FileRepo
             continue
         rep.rows += 1
         get = partial(_cell, row, idx)
-        start, end = parse_local(get("start"), tz), parse_local(get("end"), tz)
+        end = parse_local(get("end"), tz)
+        start = parse_local(get("start"), tz)
+        travel_min = _int(get("travel"))
+        if start is None and end is not None and idx["start"] is None and travel_min is not None:
+            start = end - timedelta(minutes=travel_min)  # the PHEV layout: start = end of trip minus travel time
         if start is None or end is None:
             rep.add_error(messages.IMPORT_BAD_DATE(line=n, start=get("start"), end=get("end")))
             continue
@@ -179,11 +191,15 @@ def parse_file(name: str, text: str, tz: ZoneInfo) -> tuple[list[dict], FileRepo
         slat, slon = _xy(get("start_xy"))
         elat, elon = _xy(get("end_xy"))
         kwh, kwh100 = _num(get("kwh")), _num(get("kwh100"))
+        if kwh is None and kwh100 is not None and km > 0:
+            kwh = round(kwh100 * km / 100, 2)  # the PHEV export knows consumption, not the trip's kWh
         if kwh100 is None and kwh is not None and km >= 2:
             kwh100 = round(kwh / km * 100, 1)
         out.append({
-            "line": n, "start": start, "end": end, "distance_km": km, "duration_min": _int(get("travel")),
+            "line": n, "start": start, "end": end, "distance_km": km, "duration_min": travel_min,
             "driving_min": _int(get("driving")), "avg_speed_kmh": _num(get("speed")), "energy_kwh": kwh, "avg_kwh_100km": kwh100,
+            "cost": _num(get("cost")), "fuel_l_100km": _num(get("fuel100")),
+            "aux_kwh_100km": _num(get("aux100")), "recup_kwh_100km": _num(get("recup100")),
             "start_soc": _num(get("soc_start")), "end_soc": _num(get("soc_end")),
             "start_place": get("start_addr") or None, "end_place": get("end_addr") or None,
             "start_lat": slat, "start_lon": slon, "end_lat": elat, "end_lon": elon,
@@ -240,7 +256,8 @@ def _changes(t: dict, r: dict) -> dict:
             "duration_min": r["duration_min"], "avg_speed_kmh": r["avg_speed_kmh"], "avg_kwh_100km": r["avg_kwh_100km"],
             "driving_min": r["driving_min"], "public_stops": r["public_stops"], "public_soc_gained": r["public_soc_gained"],
             "short_trip": r["short_trip"], "start_lat": r["start_lat"], "start_lon": r["start_lon"],
-            "end_lat": r["end_lat"], "end_lon": r["end_lon"]}
+            "end_lat": r["end_lat"], "end_lon": r["end_lon"], "cost": r["cost"], "fuel_l_100km": r["fuel_l_100km"],
+            "aux_kwh_100km": r["aux_kwh_100km"], "recup_kwh_100km": r["recup_kwh_100km"]}
     out = {}
     for k, v in want.items():
         if v is None:
@@ -298,12 +315,13 @@ def apply(conn, vid: int, actions: list[dict]) -> dict:
                 conn.execute(
                     "INSERT INTO trips(vehicle_id,cloud_id,started_at,ended_at,distance_km,duration_min,avg_speed_kmh,avg_kwh_100km,energy_kwh,"
                     "start_soc,end_soc,start_place,end_place,start_lat,start_lon,end_lat,end_lon,odo_start,odo_end,route_json,approx,"
-                    "energy_basis,source,driving_min,public_stops,public_soc_gained,short_trip) "
-                    "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,?,?,?,?,?,?)",
+                    "energy_basis,source,cost,fuel_l_100km,aux_kwh_100km,recup_kwh_100km,driving_min,public_stops,public_soc_gained,short_trip) "
+                    "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,?,?,?,?,?,?,?,?,?,?)",
                     (vid, f"csv-{_iso(r['start'])}", _iso(r["start"]), _iso(r["end"]), r["distance_km"], r["duration_min"], r["avg_speed_kmh"],
                      r["avg_kwh_100km"], r["energy_kwh"], r["start_soc"], r["end_soc"], r["start_place"], r["end_place"], r["start_lat"],
                      r["start_lon"], r["end_lat"], r["end_lon"], r["odo_start"], r["odo_end"], _route(r),
-                     "car" if r["energy_kwh"] is not None else None, "import", r["driving_min"], r["public_stops"], r["public_soc_gained"], r["short_trip"]))
+                     "car" if r["energy_kwh"] is not None else None, "import", r["cost"], r["fuel_l_100km"], r["aux_kwh_100km"],
+                     r["recup_kwh_100km"], r["driving_min"], r["public_stops"], r["public_soc_gained"], r["short_trip"]))
             elif a["changes"]:  # "updated", or "unchanged" apart from the provenance tags
                 ch = a["changes"]
                 cols = ", ".join(f"{k}=?" for k in ch)
