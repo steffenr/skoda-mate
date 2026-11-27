@@ -5,8 +5,8 @@ Unraid runs the same container as Docker; only the paths and the way the contain
 Docker host, and neither replaces the other. Two files in `unraid/` do the Unraid part:
 
 - `unraid/docker-compose.yml` — for Unraid's **Docker Compose Manager** plugin (or `docker compose` over SSH).
-- `unraid/skoda-mate.xml` — an **Unraid template**: the app entry for Community Applications, installed as a private
-template until the listing is live.
+- `unraid/skoda-mate.xml` — an **Unraid template**: the app's entry for Community Applications, installed straight
+from the Apps tab ([skoda-mate](https://ca.unraid.net/apps/skoda-mate-182eamj1i7s3dj)).
 
 The repository root carries `ca_profile.xml` (the repository profile CA shows next to the app) and the AGPL-3.0
 `LICENSE`; together with the template they are what the Community Applications submission scans ([section 8](#8-community-applications-submission)).
@@ -19,8 +19,9 @@ The image is published on Docker Hub as [`steffenr/skoda-mate`](https://hub.dock
 happens in the browser, exactly like the Docker setup in the [README](../README.md): the setup form asks for the
 dashboard login and the Škoda API key, and no secret goes into a template field.
 
-Škoda Mate is submitted to Community Applications but not listed yet. Until it is, the template goes into CA's
-*private* folder, which makes it show up in the Apps tab like a listed app (step 2).
+Škoda Mate is **listed in Community Applications**
+([skoda-mate](https://ca.unraid.net/apps/skoda-mate-182eamj1i7s3dj)): search the Apps tab and install (step 2). The
+*private*-folder route below is only for testing a template change before the next submission update.
 
 ## 1. The image
 
@@ -32,20 +33,22 @@ To fetch a new release by hand (Compose Manager, or over SSH): `docker pull stef
 
 ## 2. Start it
 
-### Private Community Applications template (native Unraid way)
+### Community Applications (the native Unraid way)
 
-1. In a terminal on the server (web terminal or SSH), create the folder for private templates and download the template
-   into it ([Unraid FAQ: private repositories](https://forums.unraid.net/topic/57181-docker-faq/)):
-   ```bash
-   mkdir -p /boot/config/plugins/community.applications/private/skoda-mate
-   curl -fL https://raw.githubusercontent.com/steffenr/skoda-mate/main/unraid/skoda-mate.xml \
-     -o /boot/config/plugins/community.applications/private/skoda-mate/skoda-mate.xml
-   ```
-2. *Apps → search `skoda-mate`*, category **Private**, and press *Install*. Adjust port and data path in the template if
-   you like; Unraid creates the data path on first start.
-3. Switch **Autostart** on for the container in the Docker tab so it comes back with the array, and check that the health
+1. *Apps → search `skoda-mate`* and press *Install*. Adjust port and data path in the template if
+   you like; Unraid creates the data path on first start. The template uses `/mnt/user/appdata/skoda-mate` and port `8080`.
+2. Switch **Autostart** on for the container in the Docker tab so it comes back with the array, and check that the health
    indicator turns green (the image ships a health check against `/health`). The *WebUI* entry in the container's context
    menu opens the dashboard.
+
+Testing a template change before the next submission update? Load it as a private template first — CA shows private
+entries like listed apps, under category **Private**
+([Unraid FAQ: private repositories](https://forums.unraid.net/topic/57181-docker-faq/)):
+```bash
+mkdir -p /boot/config/plugins/community.applications/private/skoda-mate
+curl -fL https://raw.githubusercontent.com/steffenr/skoda-mate/main/unraid/skoda-mate.xml \
+  -o /boot/config/plugins/community.applications/private/skoda-mate/skoda-mate.xml
+```
 
 ### Docker Compose Manager (for the compose file)
 
@@ -123,9 +126,11 @@ appears, no account, no network. `DEMO_CARS=2` adds a second car. Clear it again
 
 ## 8. Community Applications submission
 
-CA reads the repository itself, not an upload: it must stay public and active, carry an OSI-approved `LICENSE` at the
+The listing is live: [skoda-mate on ca.unraid.net](https://ca.unraid.net/apps/skoda-mate-182eamj1i7s3dj). CA still reads
+the repository itself, not an upload: it must stay public and active, carry an OSI-approved `LICENSE` at the
 root, a `ca_profile.xml` with a non-empty `<Profile>`, and at least one template XML with `<Repository>` (Docker) or
-`<PluginURL>` (plugin). All three are in place; the template is `unraid/skoda-mate.xml`.
+`<PluginURL>` (plugin). All three are in place; the template is `unraid/skoda-mate.xml` — changes to it go through the
+submission flow again, so this section is also the maintenance recipe.
 
 - **Validate and scan** in the submission flow at [ca.unraid.net/submit/new](https://ca.unraid.net/submit/new) after
 every meaningful XML change, before pushing a release. The scan is what flags a broken `<TemplateURL>`, a dead icon or
