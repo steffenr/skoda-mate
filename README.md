@@ -50,8 +50,10 @@ From the built-in demo (`DEMO=1`): a fictional Enyaq with 60 days of history, no
 | ![Charges](docs/screenshots/charges.jpg) | ![Battery](docs/screenshots/battery.jpg) |
 | **Control** | **Statistics** |
 | ![Control](docs/screenshots/control.jpg) | ![Statistics](docs/screenshots/statistics.jpg) |
-| **Map** | **System** |
-| ![Map](docs/screenshots/map.jpg) | ![System](docs/screenshots/system.jpg) |
+| **Map** | **Places** |
+| ![Map](docs/screenshots/map.jpg) | ![Places](docs/screenshots/places.jpg) |
+| **Activity** | **System** |
+| ![Activity](docs/screenshots/activity.jpg) | ![System](docs/screenshots/system.jpg) |
 
 ## Install
 
