@@ -54,8 +54,11 @@ def create_app(cfg: Config | None = None, conn=None, poller: Poller | None = Non
         if cfg.demo and ctx.poller is None:
             _start_demo(ctx)
         await ctx.cloud.start_saved(api_factory)
+        ours = ctx.cloud.webhooks.start()  # also resumes what was still waiting at the last stop
         yield
         await ctx.cloud.stop()
+        if ours:
+            await ctx.cloud.webhooks.stop()
 
     app = FastAPI(title="Škoda Mate", lifespan=lifespan, dependencies=[Depends(ctx.guard)])
     # Added last = runs first: headers wrap everything, and the size check runs before any body is parsed.
