@@ -17,7 +17,9 @@ Status per leapmotor-mate feature (from its README), checked against the officia
 | Trip merging | Merge with the next trip, undo, safe against re-imports | Done |
 | Notes on trips and charges | Notes on both | Done |
 | Drive mode / One-Pedal tags | – | Not possible |
-| Events timeline | Events page with filters, every command logged | Done |
+| Events timeline | Activity page: event list with filters and every command logged, plus a day timeline of drive, charge, climate and parked time ([details](ACTIVITY.md)) | Done (times are accurate to the poll interval; unknown when readings are missing) |
+| Vampire drain (parked loss) | Statistics, Parked tab and an Overview card: stands of 6 h or more, kWh per day, cost | Adapted (whole-percent readings: short stands fall below the detection floor; unrecorded charges are excluded) |
+| Data-quality check | System card with severity, Fix for open trips, open charges and near-duplicate trips (the card's fixes lose nothing, "Undo merge" restores; the card explains each fix before it runs; exact start-and-end copies are removed by the startup clean-up), Mark as reviewed / Undo | Done (new) |
 | Charges: AC/DC, energy, curve, cost | Charges list/detail, curve, cost (tariff or manual), Home vs Public | Adapted (measured when seen live, otherwise inferred from battery levels and clearly marked) |
 | Recover missed charges | Automatic inference from trips and readings, runs at start and after imports | Done |
 | Prices: flat / time-of-use / dynamic / custom | Flat home / public AC / public DC prices, manual cost per charge | Partly (no time-of-use or dynamic prices) |
