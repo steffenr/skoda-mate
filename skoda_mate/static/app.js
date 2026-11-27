@@ -243,10 +243,12 @@ async function route() {
     mount(els.view, root);
     const ctx = makeCtx(m.slice(1), query);
     const result = await mod.default(root, ctx);
-    // Every page needs one level-1 heading for screen-reader navigation; pages that draw none get a hidden one.
+    // Every page needs one level-1 heading for screen-reader navigation; pages that draw none get a hidden one. It lives
+    // beside .page, not inside it: pages that redraw themselves later (Overview refreshes after the parked-loss answer)
+    // would wipe it out of their re-rendered root.
     if (seq === S.seq && !root.querySelector('h1')) {
       const navPage = page.label ? page : PAGES.find((p) => p.path === sectionOf(page));
-      root.prepend(h('h1', { class: 'sr-h1' }, t(navPage?.label || 'Škoda Mate')));
+      els.view.prepend(h('h1', { class: 'sr-h1' }, t(navPage?.label || 'Škoda Mate')));
     }
     if (seq !== S.seq) { if (typeof result === 'function') result(); return; }
     S.cleanup = result;
