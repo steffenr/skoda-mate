@@ -286,7 +286,7 @@ export default async function settings(root, ctx) {
     if (mqError) return card(title, banner('bad', `${t('Could not load the Home Assistant settings')}: ${mqError}`), { ic: 'plug' });
     if (!mq) return card(title, loading(), { ic: 'plug' });
     const c = mq.config;
-    const d = { enabled: c.enabled, host: c.host, port: c.port, user: c.user, password: '', clear: false, prefix: c.prefix, discovery: c.discovery, commands: !!c.commands, tls: c.tls, tls_insecure: c.tls_insecure };
+    const d = { enabled: c.enabled, host: c.host, port: c.port, user: c.user, password: '', clear: false, prefix: c.prefix, discovery: c.discovery, commands: !!c.commands, publish_fields: !!c.publish_fields, tls: c.tls, tls_insecure: c.tls_insecure };
     // The stored password is only reused for the broker it was saved for (the server enforces this too).
     const brokerChanged = () => d.host.trim() !== c.host || Number(d.port) !== Number(c.port) || !!d.tls !== !!c.tls;
     const pwPlaceholder = c.password_unreadable ? t('Stored, but cannot be read: enter it again') : c.password_set ? t('•••••••• (stored; leave empty to keep)') : '';
@@ -341,6 +341,8 @@ export default async function settings(root, ctx) {
       (els.clear = h('button', { type: 'button', class: 'linklike', hidden: !(c.password_set && !d.password), onclick: () => { d.clear = true; els.password.value = ''; els.password.placeholder = t('The stored password will be removed when you save.'); sync(); } }, t('Remove the stored password'))),
       field(t('Topic prefix'), text('prefix', { type: 'text', autocomplete: 'off', spellcheck: 'false' }), t('Change it only if several Mate installations talk to the same broker: it keeps their entities and commands apart. Otherwise leave it.')),
       h('div', { class: 'row' }, check('discovery', t('Discovery')), check('tls', 'TLS'), check('tls_insecure', t('TLS insecure'), 'insecure')),
+      check('publish_fields', t('Also publish one topic per value')),
+      h('div', { class: 'small muted' }, t('For tools other than Home Assistant: each value on its own retained topic, {prefix}/VIN/fields/…. Events are always published to {prefix}/VIN/events.').replaceAll('{prefix}', c.prefix)),
       check('commands', t('Allow commands from Home Assistant')),
       h('div', { class: 'small muted' }, t('Buttons for charging, climate and ventilation and a charge-limit slider; at most one command every 30 s. The auxiliary heater can only be started on the Control page.'), ' ',
         h('b', null, t('Anyone who can publish to your broker can then control these functions. Use broker ACLs and TLS.'))),
