@@ -86,7 +86,7 @@ const preloadPages = () => Promise.all([...new Set(PAGES.map((p) => p.name))].ma
 async function loadSettings() {
   S.settings = await api.get("/api/settings");
   f.setLocale({ units: S.settings.units, language: S.settings.language });
-  setLang(S.settings.language);
+  await setLang(S.settings.language);
   document.documentElement.lang = S.settings.language;
   applyTheme(S.settings.theme);
   await preloadPages();
