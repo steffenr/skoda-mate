@@ -111,7 +111,9 @@ export function mapView(opts) {
   // The badge is a DOM node with textContent, never an HTML string: Leaflet would parse a string as markup.
   const clusterIcon = (cluster) => {
     const n = cluster.getChildCount();
-    const size = n < 10 ? 34 : n < 100 ? 38 : 44;
+    // 48 px at the small end: a 26 px pin sitting on a cluster (e.g. the car parked where it also has trip endpoints)
+    // still leaves the lower half fully exposed, so the cluster stays a 24 px+ target (WCAG 2.5.8).
+    const size = n < 10 ? 48 : n < 100 ? 52 : 56;
     return L.divIcon({ className: '', html: h('div', { class: 'marker-cluster pin-cluster' }, String(n)), iconSize: [size, size], iconAnchor: [size / 2, size / 2] });
   };
   const paint = (o) => {

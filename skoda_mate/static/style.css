@@ -459,13 +459,16 @@ div > .chip, summary .chip { max-width: 100%; white-space: normal; }
 .tl-toolbar { gap: 8px; flex-wrap: wrap; }
 .tl-day { display: flex; flex-direction: column; gap: 6px; }
 .tl-scroll { overflow-x: auto; }
-.tl-track { position: relative; height: 34px; min-width: 640px; background-color: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+/* container-type: bars size themselves in cqw against the track, so a button stretched to the 24 px minimum target
+   (WCAG 2.5.8) can still draw its bar at the true interval width */
+.tl-track { position: relative; height: 34px; min-width: 640px; background-color: var(--surface); border: 1px solid var(--line); border-radius: 8px; container-type: inline-size;
   background-image: repeating-linear-gradient(90deg, transparent 0, transparent calc(25% - 1px), var(--chart-grid) calc(25% - 1px), var(--chart-grid) 25%); }
 .tl-bar { position: absolute; top: 3px; bottom: 3px; min-width: 2px; padding: 0; border: 0; border-radius: 4px; }
-button.tl-bar { cursor: pointer; }
+button.tl-bar { cursor: pointer; background: none; min-width: 24px; }  /* the target is at least 24 px wide; the true bar draws in ::before */
+button.tl-bar::before { content: ''; position: absolute; top: 0; bottom: 0; left: 0; width: var(--w, 100%); border-radius: 4px; background: var(--bar-c, transparent); }
 .tl-estimated { opacity: 0.55; }
 .tl-precision { margin: 0; }
-.tl-drive { background: var(--chart-1); } .tl-charge { background: var(--chart-2); } .tl-climate { background: var(--chart-4); }
+.tl-drive { background: var(--chart-1); --bar-c: var(--chart-1); } .tl-charge { background: var(--chart-2); --bar-c: var(--chart-2); } .tl-climate { background: var(--chart-4); --bar-c: var(--chart-4); }
 .tl-parked { background: var(--surface-3); box-shadow: inset 0 0 0 1px var(--line); } .tl-unknown { background: var(--muted); }
 .legend i.tl-parked { box-shadow: inset 0 0 0 1px var(--control-line); }
 .tl-text summary { cursor: pointer; font-size: 13px; color: var(--muted); } .tl-text ul { margin: 6px 0 0; padding-left: 18px; font-size: 13px; }

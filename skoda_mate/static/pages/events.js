@@ -148,8 +148,15 @@ function bar(iv, dayStart, dayEnd, tzOffset) {
   const text = `${segLabel(iv.kind)} ${clockAt(iv.start, tzOffset, f.getLocale())} – ${clockAt(iv.end, tzOffset, f.getLocale())}${iv.estimated ? ` (${t('estimated')})` : ''}`;
   const href = iv.kind === 'drive' && iv.trip_id != null ? `#/trips/${iv.trip_id}` : iv.kind === 'charge' && iv.charge_id != null ? `#/charges/${iv.charge_id}` : null;
   const attrs = { class: ['tl-bar', `tl-${SEGMENT_COLOUR[iv.kind] || iv.kind}`, iv.estimated ? 'tl-estimated' : ''], style: { left: `${left}%`, width: `${width}%` }, title: text };
-  return href ? h('button', { ...attrs, type: 'button', 'aria-label': text, onclick: () => { location.hash = href; } })
-    : h('div', { ...attrs, role: 'img', 'aria-label': text });
+  if (href) {
+    // A short interval is narrower than the 24 px WCAG 2.5.8 minimum target, so the button stretches to it while an inner
+    // bar keeps the true extent: `--w` is the interval width in cqw (container-query units against .tl-track), the button
+    // itself may grow to 24 px left-anchored without moving the drawn bar.
+    attrs.style.width = `max(${width}%, 24px)`;
+    attrs.style['--w'] = `${width}cqw`;
+    return h('button', { ...attrs, type: 'button', 'aria-label': text, onclick: () => { location.hash = href; } });
+  }
+  return h('div', { ...attrs, role: 'img', 'aria-label': text });
 }
 
 // `f.money` prints 2 decimals, so anything under half a cent would read "0.00": it counts as zero.
