@@ -57,9 +57,26 @@ export function tn(one, other, n, vars) {
 export const N_ = (key) => key;
 export const hasKey = (key) => Object.hasOwn(current, key);
 
+/** The English wording of the raw Škoda API values that translations know. */
+export const ENUM_LABELS = {
+  AC: N_('Ac'), ACTIVATED: N_('Activated'), CELSIUS: N_('Celsius'), CHARGING: N_('Charging##value'), CHARGING_INTERRUPTED: N_('Charging interrupted'),
+  CLOSED: N_('Closed'), CNG: N_('Cng'), COMPLETED: N_('Completed'), CONNECTED: N_('Connected'), CONNECT_CABLE: N_('Connect cable'),
+  CONSERVING: N_('Conserving'), COOLING: N_('Cooling'), DC: N_('Dc'), DEACTIVATED: N_('Deactivated'), DIESEL: N_('Diesel'),
+  DISCHARGING: N_('Discharging'), DISCONNECTED: N_('Disconnected'), ELECTRIC: N_('Electric'), FAHRENHEIT: N_('Fahrenheit'), FRIDAY: N_('Friday'),
+  GASOLINE: N_('Gasoline'), HEATING: N_('Heating'), HEATING_AUXILIARY: N_('Heating auxiliary'),
+  HOME_STORAGE_CHARGING: N_('Home storage charging'), HYBRID: N_('Hybrid'), IMMEDIATE_DISCHARGING: N_('Immediate discharging'), INVALID: N_('Invalid'),
+  IN_MOTION: N_('In motion'), LOCKED: N_('Locked'), LPG: N_('Lpg'), MANUAL: N_('Manual'), MAXIMUM: N_('Maximum'), MONDAY: N_('Monday'), NO: N_('No'),
+  OFF: N_('Off'), ON: N_('On'), ONE_OFF: N_('One off'), ONLY_OWN_CURRENT: N_('Only own current'), OPEN: N_('Open'), OPENED: N_('Opened'),
+  PARKED: N_('Parked'), PERMANENT: N_('Permanent'), PREFERRED_CHARGING_TIMES: N_('Preferred charging times'), PREHEATING: N_('Preheating'),
+  READY_FOR_CHARGING: N_('Ready for charging'), RECURRING: N_('Recurring'), REDUCED: N_('Reduced'), SATURDAY: N_('Saturday'), SUNDAY: N_('Sunday'),
+  THURSDAY: N_('Thursday'), TIMER: N_('Timer'), TIMER_CHARGING_WITH_CLIMATISATION: N_('Timer charging with climatisation'),
+  TRUNK_OPENED: N_('Trunk opened##value'), TUESDAY: N_('Tuesday'), UNKNOWN: N_('Unknown'), UNLOCKED: N_('Unlocked'), UNSUPPORTED: N_('Unsupported'),
+  VENTILATION: N_('Ventilation##value'), WEDNESDAY: N_('Wednesday'), YES: N_('Yes'),
+};
+
 /** A raw Škoda API value (READY_FOR_CHARGING, CLOSED, …) as readable text in the current language. */
 export function tEnum(v) {
   if (typeof v !== 'string' || !/^[A-Z][A-Z0-9_]+$/.test(v)) return v;
-  const human = v.charAt(0) + v.slice(1).toLowerCase().replaceAll('_', ' ');
-  return lookup(`enum:${v}`) || human;
+  if (Object.hasOwn(ENUM_LABELS, v)) return t(ENUM_LABELS[v]);
+  return v.charAt(0) + v.slice(1).toLowerCase().replaceAll('_', ' ');
 }

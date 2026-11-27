@@ -5,7 +5,7 @@ import * as f from './format.js';
 import { t } from '../i18n.js';
 
 // 2024-01-01 was a Monday, the first row the server sends.
-const weekday = (i, style) => new Date(Date.UTC(2024, 0, 1 + i)).toLocaleDateString(f.getLang(), { weekday: style, timeZone: 'UTC' });
+const weekday = (i, style) => new Date(Date.UTC(2024, 0, 1 + i)).toLocaleDateString(f.getLocale(), { weekday: style, timeZone: 'UTC' });
 const hour = (n) => String(n).padStart(2, '0');
 
 /** heatmap(rows, {label}) — rows: 7 (Monday first) × 24 counts. */

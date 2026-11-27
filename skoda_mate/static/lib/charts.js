@@ -24,10 +24,10 @@ const toMs = (x) => (x instanceof Date ? x.getTime() : typeof x === 'string' ? n
 
 function timeLabel(ms, spanMs) {
   const d = new Date(ms);
-  if (spanMs < 1.2 * 864e5) return d.toLocaleTimeString(f.getLang(), { hour: '2-digit', minute: '2-digit' });
-  if (spanMs < 5 * 864e5) return `${d.toLocaleDateString(f.getLang(), { weekday: 'short' })} ${d.toLocaleTimeString(f.getLang(), { hour: 'numeric' })}`;
-  if (spanMs < 120 * 864e5) return d.toLocaleDateString(f.getLang(), { day: 'numeric', month: 'short' });
-  return d.toLocaleDateString(f.getLang(), { month: 'short', year: '2-digit' });
+  if (spanMs < 1.2 * 864e5) return d.toLocaleTimeString(f.getLocale(), { hour: '2-digit', minute: '2-digit' });
+  if (spanMs < 5 * 864e5) return `${d.toLocaleDateString(f.getLocale(), { weekday: 'short' })} ${d.toLocaleTimeString(f.getLocale(), { hour: 'numeric' })}`;
+  if (spanMs < 120 * 864e5) return d.toLocaleDateString(f.getLocale(), { day: 'numeric', month: 'short' });
+  return d.toLocaleDateString(f.getLocale(), { month: 'short', year: '2-digit' });
 }
 
 function responsive(root, draw) {
@@ -136,7 +136,7 @@ export function lineChart({ series, height = 220, yLeft = {}, yRight = {}, xFmt,
       });
       cursor.setAttribute('x1', X(near.x)); cursor.setAttribute('x2', X(near.x)); cursor.setAttribute('visibility', 'visible');
       tip.hidden = false;
-      tip.replaceChildren(h('div', null, new Date(near.x).toLocaleString(f.getLang(), { dateStyle: 'medium', timeStyle: 'short' })), ...lines.map((l) => h('div', null, l)));
+      tip.replaceChildren(h('div', null, new Date(near.x).toLocaleString(f.getLocale(), { dateStyle: 'medium', timeStyle: 'short' })), ...lines.map((l) => h('div', null, l)));
       tip.style.left = `${Math.min(Math.max(X(near.x) / W * root.clientWidth, 60), root.clientWidth - 60)}px`;
       tip.style.top = `${M.top + 24}px`;
     };

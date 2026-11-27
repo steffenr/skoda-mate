@@ -16,7 +16,7 @@ const fmtVal = (r) => {
   if (Array.isArray(v)) return v.join(', ');
   if (typeof v === 'boolean') return v ? t('yes') : t('no');
   if (typeof v === 'number') return `${f.num(v, Number.isInteger(v) ? 0 : 1)}${r.unit && r.unit !== 'count' ? ` ${r.unit}` : ''}`;
-  return typeof v === 'string' ? t(tEnum(v)) : String(v);
+  return typeof v === 'string' ? tEnum(v) : String(v);
 };
 const stateChip = (s) => chip(t(s), s === 'present' ? 'good' : s === 'unknown' ? '' : 'warn');
 
