@@ -261,5 +261,41 @@ try {
   console.warn = warnAsIs;
 }
 assert.ok(scan((await import('./i18n_lib.mjs')).sources())['{n} without distance (skipped)']?.one, 'the count of skipped rows has plural forms');
+
+// ------------------------------------------------------------------ the translator's brief, assembly and lint
+const { assemble, brief, lint, NOTES } = await import('./i18n_lib.mjs');
+const smallKeys = { 'Open##action': { files: ['pages/a.js'] }, '{n} days': { files: ['pages/a.js'], one: '{n} day' }, 'Only in Python': { files: ['messages.py'] } };
+const smallSources = { 'pages/a.js': "x\n  button(t('Open##action'));\n  tn('{n} day', '{n} days', n);", 'messages.py': 'A = 1\nONLY = Template("Only in Python")\n' };
+const entries = brief(smallKeys, smallSources, 'uk', { 'Open##action': 'a button that opens a page' });
+assert.deepEqual(entries.map((e) => e.key), ['Only in Python', 'Open##action', '{n} days']);
+assert.deepEqual(entries[1], { key: 'Open##action', english: 'Open', files: ['pages/a.js'], line: "button(t('Open##action'));", note: 'a button that opens a page' });
+assert.equal(entries[0].line, 'ONLY = Template("Only in Python")', 'a backend text shows its Python line');
+assert.equal(entries[2].one, '{n} day');
+assert.deepEqual(Object.keys(entries[2].categories), ['few', 'many', 'one', 'other'], 'the forms the locale needs');
+assert.ok(entries[2].categories.few.includes(2) && entries[2].categories.one.includes(21), 'with numbers that use them');
+
+const trKeys = { Open: { files: [] }, Save: { files: [] } };
+assert.deepEqual(assemble({ 'xx.part1.json': '{"Open": "a"}', 'xx.part2.json': '{"Save": "b"}' }, trKeys, 'da'), { catalog: { Open: 'a', Save: 'b' }, problems: [] });
+const cut = assemble({ 'xx.part1.json': '{"Open": "a", "Sa' }, trKeys, 'da').problems.join('\n');
+assert.match(cut, /xx\.part1\.json: not valid JSON/);
+assert.match(cut, /missing: Save/);
+assert.match(assemble({ 'xx.part1.json': '{"Open": "a", "Open": "c", "Save": "b"}' }, trKeys, 'da').problems.join(), /xx\.part1\.json: twice: Open/);
+assert.match(assemble({ 'p1.json': '{"Open": "a", "Save": "b"}', 'p2.json': '{"Save": "{x}"}' }, trKeys, 'da').problems.join(), /p2\.json: twice: Save/);
+assert.deepEqual(assemble({ 'p1.json': '{"Open": {"one": "x", "other": "y"}, "Save": "has \\"quotes\\": {not: a key}"}' }, { Save: { files: [] }, Open: { files: [], one: 'o' } }, 'da').problems, []);
+
+const lintKeys = Object.fromEntries(['Save changes', 'AC', 'kWh/100 km', 'Read Škoda data with Mate', 'Publish to {prefix}/VIN/events', 'Start without DEMO=1.',
+  "'auto_unlock' must be PERMANENT or OFF", 'Fine {n}'].map((k) => [k, { files: [] }]));
+const found4 = lint(lintKeys, { 'Save changes': 'Save changes', AC: 'AC', 'kWh/100 km': 'kWh/100 km', 'Read Škoda data with Mate': 'Læs bildata med Kammerat',
+  'Publish to {prefix}/VIN/events': 'Udgiv til {prefix}/FIN/events', 'Start without DEMO=1.': 'Start uden demo.', "'auto_unlock' must be PERMANENT or OFF": '„auto_unlock” skal være permanent', 'Fine {n}': 'Fint {n}' }).join('\n');
+assert.match(found4, /same as English: Save changes/);
+assert.doesNotMatch(found4, /same as English: (AC|kWh\/100 km)/, 'units and abbreviations stay');
+for (const token of ['Škoda', 'Mate', '{prefix}/VIN/events', 'DEMO=1', 'PERMANENT', 'OFF']) assert.ok(found4.includes(`lost "${token}"`), `${token} is listed`);
+assert.doesNotMatch(found4, /Fine \{n\}/);
+
+const all4 = (await import('./i18n_lib.mjs')).readKeys();
+const everyKey = { ...all4.backend, ...all4.frontend };
+const notes = JSON.parse((await import('node:fs')).readFileSync(NOTES, 'utf8'));
+assert.deepEqual(Object.keys(everyKey).filter((k) => k.includes('##') && !notes[k]), [], 'every key with a context has a note');
+assert.deepEqual(Object.keys(notes).filter((k) => !everyKey[k]), [], 'no note for a key that is gone');
 await i18n.setLang('en');
 console.log('frontend unit checks OK');

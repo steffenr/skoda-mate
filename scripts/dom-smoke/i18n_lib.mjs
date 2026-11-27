@@ -86,6 +86,107 @@ export function compare(keys, catalog, locale) {
   return problems;
 }
 
+// ------------------------------------------------------------------ translating: the brief, assembly and lint
+export const NOTES = path.resolve(STATIC, '../../scripts/i18n_notes.json');
+
+/** {path: source} of everything a key can come from: the dashboard modules and the Python package. */
+export function allSources() {
+  const root = path.resolve(STATIC, '..');
+  const python = ['', 'routers/'].flatMap((dir) => fs.readdirSync(`${root}/${dir}`).filter((f) => f.endsWith('.py')).map((f) => `${dir}${f}`));
+  return { ...sources(), ...Object.fromEntries(python.map((f) => [f, fs.readFileSync(`${root}/${f}`, 'utf8')])) };
+}
+
+/** The forms a locale needs, each with a few numbers that use it, so a translator knows what a form is for. */
+function categoryExamples(locale) {
+  const rules = new Intl.PluralRules(locale);
+  const examples = {};
+  for (const category of rules.resolvedOptions().pluralCategories) examples[category] = [];
+  for (const n of [...Array(201).keys(), 1.5, 1000000]) {
+    const list = examples[rules.select(n)];
+    if (list.length < 6) list.push(n);
+  }
+  return Object.fromEntries(Object.entries(examples).sort(([a], [b]) => a.localeCompare(b)));
+}
+
+function sourceLine(key, files, from) {
+  const forms = [`'${key.replaceAll('\\', '\\\\').replaceAll("'", "\\'")}'`, `"${key.replaceAll('"', '\\"')}"`];
+  for (const file of files) {
+    const line = (from[file] || '').split('\n').find((l) => forms.some((q) => l.includes(q)));
+    if (!line) continue;
+    const text = line.trim();
+    const at = Math.max(...forms.map((q) => text.indexOf(q)));
+    return text.length <= 220 ? text : text.slice(Math.max(0, at - 100), at + 120);
+  }
+  return undefined;
+}
+
+/** What a translator gets for each key: the English, where and how it is shown, the forms the locale needs and a note.
+ *  It reads no catalog, so no other translation can leak into the new one. */
+export function brief(keys, from, locale, notes) {
+  const categories = categoryExamples(locale);
+  return Object.keys(keys).sort().map((key) => {
+    const { files, one } = keys[key];
+    const entry = { key, english: key.replace(/##.*$/s, '') };
+    if (one !== undefined) Object.assign(entry, { one: one.replace(/##.*$/s, ''), categories });
+    entry.files = files;
+    const line = sourceLine(key, files, from);
+    if (line) entry.line = line;
+    if (notes[key]) entry.note = notes[key];
+    return entry;
+  });
+}
+
+/** The keys of a JSON object's top level as they are written, repeats included (JSON.parse keeps only the last). */
+function writtenKeys(text) {
+  const found = [];
+  let depth = 0;
+  for (const m of text.matchAll(/"(?:[^"\\]|\\.)*"(\s*:)?|[{}[\]]/g)) {
+    if (m[0] === '{' || m[0] === '[') depth++;
+    else if (m[0] === '}' || m[0] === ']') depth--;
+    else if (m[1] && depth === 1) found.push(JSON.parse(m[0].slice(0, -m[1].length)));
+  }
+  return found;
+}
+
+/** Joins the parts a translator wrote and checks the result against the key list. */
+export function assemble(parts, keys, locale) {
+  const catalog = {};
+  const problems = [];
+  for (const [name, text] of Object.entries(parts)) {
+    let part;
+    try { part = JSON.parse(text); } catch (e) { problems.push(`${name}: not valid JSON (${e.message.slice(0, 80)})`); continue; }
+    const here = new Set();
+    for (const key of writtenKeys(text)) {
+      if (here.has(key) || Object.hasOwn(catalog, key)) problems.push(`${name}: twice: ${key}`);
+      here.add(key);
+    }
+    Object.assign(catalog, part);
+  }
+  return { catalog, problems: [...problems, ...compare(keys, catalog, locale)] };
+}
+
+// Words and shapes a translation keeps as they are.
+const PRODUCTS = ['Škoda', 'MyŠkoda', 'Home Assistant', 'Mosquitto', 'MQTT', 'Node-RED', 'n8n', 'Mate'];
+const PROTECTED = [/\{\w+\}\/[\w/…{}-]+/g, /\b[A-Z_]{3,}=\w+/g, /\b[a-z]+_[a-z_]+\b/g, /\b(?:[A-Z]{2,}_[A-Z0-9_]+|PERMANENT|OFF|REDUCED|MAXIMUM|HEATING|VENTILATION|MONDAY|SUNDAY|RECURRING)\b/g];
+const SAME_IS_FINE = /^(?:[^\p{L}]|\{\w+\}|\b(?:AC|DC|kWh|kW|km|mi|h|min|s|VIN|URL|TLS|API|S-PIN|OK|CSV|SoC|Ac|Dc|Cng|Lpg|MQTT)\b)*$/u;
+
+/** Texts to read again: copied English, and product names, paths, settings and API values that went missing.
+ *  A list for a person, not a gate: some words are the same in two languages. */
+export function lint(keys, catalog) {
+  const found = [];
+  for (const key of Object.keys(keys)) {
+    const value = catalog[key];
+    if (value === undefined) continue;
+    const english = key.replace(/##.*$/s, '');
+    const texts = typeof value === 'string' ? [value] : Object.values(value);
+    if (texts.includes(english) && !SAME_IS_FINE.test(english) && !PRODUCTS.includes(english)) found.push(`same as English: ${key}`);
+    const tokens = new Set([...PRODUCTS.filter((p) => new RegExp(`(?<![\\p{L}])${p}`, 'u').test(english)), ...PROTECTED.flatMap((re) => english.match(re) || [])]);
+    const general = typeof value === 'string' ? value : value.other;
+    for (const token of tokens) if (!String(general).includes(token)) found.push(`lost "${token}": ${key.slice(0, 120)}`);
+  }
+  return found;
+}
+
 /** keys.json as it is on disk; each extractor rewrites its own section. */
 export function readKeys() {
   return fs.existsSync(KEYS_FILE) ? JSON.parse(fs.readFileSync(KEYS_FILE, 'utf8')) : { backend: {}, frontend: {} };
