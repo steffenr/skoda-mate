@@ -17,9 +17,25 @@ ZERO = f'"02.07.2026 07:59","02.07.2026 10:54","","",{HOME},"","50.1,8.6","0",""
 D = f'"05.07.2026 09:00","05.07.2026 12:00","",{HOME},{WORK},"50.1,8.6","50.2,8.7","200","1060","1260","150","180","80","40.0","20.0","90","30","2","80","false"'
 E = '"06.07.2026 08:00","06.07.2026 08:12","","","","","","6","1260","1266","10","12","30","1.5","","90","88","0","0","true"'
 
+# The PHEV export of the MyŠkoda app (issue #11): no start time, no addresses, no SoC; mileage and fuel instead.
+PHEV_HEADER = ('"End of trip","Start mileage in km","End mileage in km","Mileage in km","Travel time in minutes",'
+               '"Average speed in km/h","Total cost","Total cost currency","Average electric consumption in kWh/100km",'
+               '"Electricity cost","Electricity cost currency","Electricity price per kWh",'
+               '"Average auxiliary consumption in kWh/100km","Average recuperation in kWh/100km",'
+               '"Average fuel consumption in l/100km","Fuel cost","Fuel cost currency","Fuel price per litre"')
+PHEV_E = ('"25.11.2026 15:00","3984","3990","6","16","24","0.69","EUR","42.9","0.69","EUR","0.27","","","0.0","0.0",'
+          '"EUR","1.919"')
+PHEV_H = ('"15.11.2026 21:19","3851","3911","60","46","79","5.53","EUR","11.4","1.85","EUR","0.27","","","3.2","3.68",'
+          '"EUR","1.919"')
+PHEV_FREE = ('"01.11.2026 10:00","3000","3030","30","20","90","","","15.0","","","","","","","","",""')
+
 
 def csv(*rows):
     return HEADER + "\n" + "\n".join(rows) + "\n"
+
+
+def phev(*rows):
+    return PHEV_HEADER + "\n" + "\n".join(rows) + "\n"
 
 
 def f(name, text):
@@ -73,6 +89,82 @@ def test_unusable_files_are_reported_not_crashed_on():
     assert rows == [] and len(rep.errors) == 2 and "unreadable date" in rep.errors[0] and "ends before it starts" in rep.errors[1]
     with pytest.raises(importer.ImportError_, match="time zone"):
         importer.get_tz("Mars/Olympus")
+
+
+# ------------------------------------------------------------------ the PHEV export layout (#11)
+def test_the_phev_layout_is_detected_from_its_header_and_mapped():
+    rows, rep = importer.parse_file("tripStatistics_x.csv", phev(PHEV_E, PHEV_H), importer.get_tz("Europe/Berlin"))
+    assert not rep.errors and rep.rows == 2 and rep.parsed == 2
+    e, h = rows
+    # CET: 15:00 local ends the trip, 16 minutes of travel time give the start (there is no start column)
+    assert (e["end"].isoformat(), e["start"].isoformat()) == ("2026-11-25T14:00:00+00:00", "2026-11-25T13:44:00+00:00")
+    assert (e["distance_km"], e["odo_start"], e["odo_end"], e["duration_min"], e["avg_speed_kmh"]) == (6, 3984, 3990, 16, 24)
+    assert (e["avg_kwh_100km"], e["energy_kwh"]) == (42.9, 2.57)  # kWh = 42.9 * 6 / 100
+    assert (e["cost"], e["fuel_l_100km"], e["aux_kwh_100km"], e["recup_kwh_100km"]) == (0.69, 0.0, None, None)
+    assert e["start_place"] is None and e["start_soc"] is None and e["short_trip"] == 0  # not in this layout
+    assert (h["start"].isoformat(), h["end"].isoformat()) == ("2026-11-15T19:33:00+00:00", "2026-11-15T20:19:00+00:00")
+    assert (h["distance_km"], h["duration_min"], h["avg_speed_kmh"]) == (60, 46, 79)
+    assert (h["fuel_l_100km"], h["cost"], h["energy_kwh"]) == (3.2, 5.53, 6.84)  # the hybrid trip also stored petrol
+    rounded = PHEV_E.replace('"3984","3990","6"', '"3984","3990","5.6"')
+    rows, _ = importer.parse_file("x.csv", phev(rounded), importer.get_tz("Europe/Berlin"))
+    assert rows[0]["distance_km"] == 5.6  # "Mileage in km" wins over the rounded end-minus-start difference
+
+
+def test_a_derived_phev_start_crosses_midnight_and_the_dst_switch():
+    midnight = ('"01.08.2026 00:10","100","130","30","30","60","1.00","EUR","10.0","1.00","EUR","0.27","","","0.0","0.0",'
+                '"EUR","1.919"')
+    rows, rep = importer.parse_file("x.csv", phev(midnight), importer.get_tz("Europe/Berlin"))
+    assert not rep.errors and rows[0]["start"].isoformat() == "2026-07-31T21:40:00+00:00"  # 23:40 CEST the day before
+    dst = midnight.replace("01.08.2026 00:10", "25.10.2026 03:10")
+    rows, rep = importer.parse_file("x.csv", phev(dst), importer.get_tz("Europe/Berlin"))
+    # 03:10 CET is 02:10 UTC; 30 minutes earlier (02:40 CET) is across the switch at 01:00 UTC
+    assert not rep.errors and rows[0]["start"].isoformat() == "2026-10-25T01:40:00+00:00"
+    assert rows[0]["end"].isoformat() == "2026-10-25T02:10:00+00:00"
+
+
+def test_the_phev_export_imports_fuel_and_cost_and_keeps_empty_cost_fields():
+    conn, vid = setup()
+    text = phev(PHEV_E, PHEV_H, PHEV_FREE) + "\n\n"  # the real file ends with two empty lines
+    preview = run(conn, vid, [f("tripStatistics_x.csv", text)], dry=True)
+    assert preview["new"] == 3 and trips(conn) == []  # the preview writes nothing
+    done = run(conn, vid, [f("tripStatistics_x.csv", text)])
+    assert (done["new"], done["skipped_no_distance"], done["files"][0]["parsed"]) == (3, 0, 3)
+    assert done["km"] == 96.0
+    by_km = {t["distance_km"]: t for t in trips(conn)}
+    assert set(by_km) == {6, 30, 60}
+    h = by_km[60]
+    assert (h["fuel_l_100km"], h["cost"], h["avg_kwh_100km"], h["energy_kwh"]) == (3.2, 5.53, 11.4, 6.84)
+    assert h["aux_kwh_100km"] is None and h["recup_kwh_100km"] is None  # empty in every row
+    free = by_km[30]  # all cost/price/currency fields empty, still a trip
+    assert free["cost"] is None and free["fuel_l_100km"] is None and free["energy_kwh"] == 4.5
+    snapshot = trips(conn)
+    again = run(conn, vid, [f("tripStatistics_x.csv", text)])
+    assert (again["new"], again["unchanged"]) == (0, 3)
+    assert trips(conn) == snapshot
+
+
+def test_a_phev_row_enriches_an_english_trip_without_clearing_what_only_that_export_has():
+    conn, vid = setup()
+    run(conn, vid, [f("english.csv", csv(A))])
+    phev_a = ('"01.07.2026 08:30","1000","1030","30","30","60","1.50","EUR","20.0","1.50","EUR","0.27","","","0.0","0.0",'
+              '"EUR","1.919"')
+    r = run(conn, vid, [f("phev.csv", phev(phev_a))])
+    assert (r["new"], r["updated"]) == (0, 1) and len(trips(conn)) == 1
+    t = trips(conn)[0]
+    assert (t["started_at"], t["ended_at"]) == ("2026-07-01T06:00:00+00:00", "2026-07-01T06:30:00+00:00")  # derived start matches
+    assert (t["cost"], t["start_soc"], t["end_soc"]) == (1.5, 80, 70)  # new column added, absent values kept
+    assert t["start_place"].startswith("Home St 1") and t["driving_min"] == 28
+
+
+def test_a_166_row_phev_export_parses_every_row():
+    rows = []
+    for i in range(166):
+        day, month = 1 + i % 28, 1 + i // 28
+        rows.append(f'"{day:02d}.{month:02d}.2026 15:00","1000","1006","6","16","24","0.69","EUR","42.9","0.69","EUR",'
+                    f'"0.27","","","0.0","0.0","EUR","1.919"')
+    parsed, rep = importer.parse_file("tripStatistics_x.csv", phev(*rows) + "\n\n", importer.get_tz("Europe/Berlin"))
+    assert not rep.errors and rep.rows == 166 and rep.parsed == 166
+    assert len({r["start"] for r in parsed}) == 166  # newest-first order needs no sorting to parse
 
 
 # ------------------------------------------------------------------ duplicates (the point of the exercise)
