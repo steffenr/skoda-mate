@@ -240,7 +240,7 @@ export default async function stats(root, ctx) {
       card(null, h('div', { class: 'b-has-info' }, infoBtn(), stat(t('Distance'), f.num(toD(tot.km || 0)), { unit, ic: 'route',
         sub: `${tn('{n} trip', '{n} trips', tot.trips || 0)}${months === 0 && data.totals?.since ? ` · ${t('since {date}', { date: f.date(data.totals.since) })}` : ''}` }))),
       card(null, stat(t('Energy charged'), f.num(tot.charged_kwh || 0, 0), { unit: 'kWh', ic: 'bolt',
-        sub: `${tn('{n} charge', '{n} charges', tot.charges || 0)}${tot.inferred_charges ? ` · ${tot.inferred_charges} ${t('inferred')}` : ''}` })),
+        sub: `${tn('{n} charge', '{n} charges', tot.charges || 0)}${tot.inferred_charges ? ` · ${tn('{n} inferred', '{n} inferred', tot.inferred_charges)}` : ''}` })),
       card(null, stat(t('Charging cost'), f.money(tot.cost || 0, cur), { ic: 'coin' })),
       card(null, stat(t('Consumption'), tot.kwh_100km != null ? f.num(conv(tot.kwh_100km), 1) : '–', { unit: f.consUnit(), ic: 'gauge' })),
       card(null, stat(`${t('Cost per 100')} ${unit}`, tot.cost_per_100km != null ? f.money(conv(tot.cost_per_100km), cur) : '–', { ic: 'coin' })),

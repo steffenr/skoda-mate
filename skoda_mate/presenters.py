@@ -50,7 +50,7 @@ def local_day(day: str) -> date:
     try:
         return date.fromisoformat(day)
     except ValueError:
-        raise ValueError(messages.BAD_DATE(day=repr(day))) from None
+        raise ValueError(messages.BAD_DATE(day=day)) from None
 
 
 def local_bound(day: str | None, tz_offset: int = 0, end: bool = False) -> str | None:

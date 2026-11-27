@@ -39,7 +39,7 @@ export default async function trip(root, ctx) {
   const canMerge = newer && x.ended_at && gapH != null && gapH >= -0.05 && gapH <= 6;
   const mergeBox = (canMerge || x.merged_parts > 0) ? h('div', { class: 'row tight' },
     canMerge ? asyncButton(t('Merge with the next trip'), async () => {
-      if (!await confirmDialog(t('Merge these trips?'), `${f.shortPlace(x.start_place)} → ${f.shortPlace(x.end_place)} + ${f.shortPlace(newer.start_place)} → ${f.shortPlace(newer.end_place)}. ${t('Distance and energy are added up. You can undo this.')}`, { confirmLabel: t('Merge') })) return;
+      if (!await confirmDialog(t('Merge these trips?'), h('div', null, h('p', null, `${f.shortPlace(x.start_place)} → ${f.shortPlace(x.end_place)} + ${f.shortPlace(newer.start_place)} → ${f.shortPlace(newer.end_place)}`), h('p', null, t('Distance and energy are added up. You can undo this.'))), { confirmLabel: t('Merge') })) return;
       await ctx.api.post(`/api/vehicles/${ctx.vid}/trips/merge`, { ids: [x.id, newer.id] });
       toast(t('Trips merged'), 'good'); trip(root, ctx);
     }, { ic: 'route', size: 'sm' }) : null,

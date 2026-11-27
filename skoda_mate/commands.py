@@ -55,7 +55,7 @@ def _num(params: dict, key: str, lo: float, hi: float) -> float:
     except (TypeError, ValueError):
         raise CommandError(messages.CMD_NUMBER(key=key)) from None
     if not lo <= f <= hi:
-        raise CommandError(messages.CMD_RANGE(key=key, lo=f"{lo:g}", hi=f"{hi:g}"))
+        raise CommandError(messages.CMD_RANGE(key=key, lo=lo, hi=hi))
     return f
 
 
@@ -67,7 +67,7 @@ def _opt_num(params: dict, key: str, lo: float, hi: float) -> float | None:
 def check_supported(name: str, operations: list[str] | None) -> None:
     spec = COMMANDS.get(name)
     if spec is None:
-        raise CommandError(messages.CMD_UNKNOWN(name=repr(name)))
+        raise CommandError(messages.CMD_UNKNOWN(name=name))
     if operations is not None and spec["op"] not in operations:
         raise CommandError(messages.CMD_NOT_SUPPORTED)
 
@@ -78,7 +78,7 @@ def build(name: str, params: dict | None, *, spin: str = "", raw_profiles: dict 
     params = params or {}
     spec = COMMANDS.get(name)
     if spec is None:
-        raise CommandError(messages.CMD_UNKNOWN(name=repr(name)))
+        raise CommandError(messages.CMD_UNKNOWN(name=name))
     op = spec["op"]
 
     if name == "set_charge_limit":

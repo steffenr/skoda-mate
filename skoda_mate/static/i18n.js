@@ -63,7 +63,12 @@ export function tn(one, other, n, vars) {
 
 /** A backend message, {message, params}; a parameter that is a message itself is translated too. */
 export function tm({ message, params = {} }) {
-  const vars = Object.fromEntries(Object.entries(params).map(([k, v]) => [k, v && typeof v === 'object' && v.message ? tm(v) : v]));
+  const written = (v) => {
+    if (v && typeof v === 'object' && v.message) return tm(v);
+    // 15.5 is "15,5" in German. Whole numbers stay as they are: a port or a year takes no separators.
+    return typeof v === 'number' && !Number.isInteger(v) ? new Intl.NumberFormat(locale, { maximumFractionDigits: 6 }).format(v) : v;
+  };
+  const vars = Object.fromEntries(Object.entries(params).map(([k, v]) => [k, written(v)]));
   return t(message, vars);
 }
 

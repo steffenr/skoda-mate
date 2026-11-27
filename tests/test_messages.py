@@ -3,7 +3,9 @@ import asyncio
 import re
 from pathlib import Path
 
-from skoda_mate import ha_mqtt, messages
+import pytest
+
+from skoda_mate import commands, ha_mqtt, messages
 from skoda_mate.client import ApiError
 
 from .fixtures import VIN, bev
@@ -135,6 +137,26 @@ def test_an_import_report_carries_templates():
     file = report["files"][0]
     assert file["errors_i18n"][0]["message"].startswith("This does not look like a MyŠkoda trip export")
     assert len(file["errors"]) == len(file["errors_i18n"]) and "{columns}" not in file["errors"][0]
+
+
+def test_quotes_belong_to_the_template_so_each_language_can_use_its_own():
+    cases = ((messages.BAD_DATE(day="x1"), "bad date 'x1', expected YYYY-MM-DD"),
+             (messages.CMD_UNKNOWN(name="x1"), "unknown command 'x1'"),
+             (messages.IMPORT_TIME_ZONE(name="x1"), "Unknown time zone 'x1'. Use a name like Europe/Berlin."),
+             (messages.IMPORT_BAD_DATE(line=3, start="a", end="b"), "line 3: unreadable date 'a' / 'b'"))
+    for message, english in cases:
+        assert str(message) == english
+    p, api, conn, clock, vid = poller_setup()
+    with pytest.raises(commands.CommandError) as refused:
+        commands.build("nonsense", {})
+    assert messages.i18n(refused.value)["params"] == {"name": "nonsense"}
+
+
+def test_a_number_range_is_sent_as_numbers():
+    with pytest.raises(commands.CommandError) as refused:
+        commands.build("start_climate", {"temperature": 99})
+    assert str(refused.value) == "'temperature' must be between 15.5 and 30"
+    assert messages.i18n(refused.value)["params"] == {"key": "temperature", "lo": 15.5, "hi": 30}
 
 
 def test_templates_are_all_listed():
