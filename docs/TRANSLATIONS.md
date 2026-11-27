@@ -16,7 +16,9 @@ Setup and login are English only: they are shown before the language setting exi
 
 - **The key is the English text.** Changing the English changes the key, so every catalog needs it again; coverage says so.
 - **`##context`** tells apart one English text that needs two translations. English shows only the part before `##`.
-- **Placeholders** (`{ago}`) keep their names. Move them wherever the sentence needs them.
+- **Placeholders** (`{ago}`) keep their names. Move them wherever the sentence needs them. Quotation marks around a
+  placeholder are part of the text: use your language's own (`„{name}“`, `« {name} »`). A fraction sent by the
+  backend is already written the way the locale writes it.
 - **Plural forms** follow the [CLDR plural rules](https://www.unicode.org/cldr/charts/latest/supplemental/language_plural_rules.html):
   give every category the language has (German: `one`, `other`; Ukrainian: `one`, `few`, `many`, `other`; Japanese:
   `other`). `{n}` may be left out only of a form that stands for a single number (German `one` is just 1; Ukrainian
@@ -53,7 +55,8 @@ looks like a piece of a sentence.
 2. Register it: `CATALOGS` in `static/i18n.js` and `LANGUAGES` in `skoda_mate/languages.py` (code, name in the language
    itself, BCP 47 locale such as `zh-Hans`). A language is listed only when coverage passes for it.
 3. Look at it: with a demo server, switch the language in Settings and go through the pages at phone width.
-   `pseudo_pass.mjs` (part of `browser_e2e.mjs`) already checks that longer text fits.
+   `browser_e2e.mjs` also opens every page at 360 px in each offered language and fails on overflow, after a pseudo-language
+   pass (`pseudo_pass.mjs`) with longer text.
 4. Record its review state below.
 
 Automated checks find missing text and broken placeholders. They cannot tell whether a text reads well, so a person who

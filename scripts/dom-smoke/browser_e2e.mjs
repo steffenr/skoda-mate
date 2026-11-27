@@ -615,7 +615,7 @@ check('Review explains what Fix does before anyone clicks it', m1 && /What Fix d
 await modalBtn('Fix');
 await sleep(300);
 const m2 = await modalProbe();
-check('Fix asks for confirmation with the count', m2 && m2.n === 2 && m2.title === 'Apply this fix?' && /Findings this fix changes: 3\./.test(m2.text) && /Nothing is lost\./.test(m2.text), JSON.stringify(m2));
+check('Fix asks for confirmation with the count', m2 && m2.n === 2 && m2.title === 'Apply this fix?' && /Findings this fix changes: 3(?!\d)/.test(m2.text) && /Nothing is lost\./.test(m2.text), JSON.stringify(m2));
 check('The confirmation says what the fix does and names the trips it changes', m2 && /first reading after its start that shows the car parked/.test(m2.text)
   && /Trip #7/.test(m2.text) && /Gap: 8 h/.test(m2.text) && !/RAW/.test(m2.text), JSON.stringify(m2));
 // every way out of the confirmation resolves it: Escape and a scrim click close only the confirmation (the review stays),
