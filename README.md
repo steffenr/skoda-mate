@@ -31,10 +31,11 @@ no shared code.
 | **Prices** | Your kWh prices (home, public AC, public DC) and home position; costs recalculate everywhere |
 | **Battery** | SoC history, charging settings and profiles, capacity estimate from charges |
 | **Control** | Charging on/off, charge limit and mode, charging profiles, climate, auxiliary heater, ventilation |
-| **Statistics** | Monthly distance, energy, cost and consumption |
-| **Map · Events** | Places the car stood and charged; everything that happened, including every command |
+| **Statistics** | Monthly distance, energy, cost and consumption; a **Parked** tab with the battery lost while parked ([how it is computed](docs/ACTIVITY.md#parked-loss)) |
+| **Map** | Places the car stood and charged |
+| **Activity** | Day timeline (drive, charge, climate, parked) and the event list with every command ([how it reads](docs/ACTIVITY.md#the-timeline)) |
 | **Places** | Named places with radius, colour and per-place prices; visits, days, parked time and cost per place ([how places work](docs/PLACES.md)) |
-| **Settings · System** | Units, language, capacity, polling, API-key status, request budget, data parts, raw data, redacted diagnostics |
+| **Settings · System** | Units, language, capacity, polling, API-key status, request budget, data parts, raw data, redacted diagnostics, a data-quality card with safe fixes and "mark as reviewed" ([details](docs/ACTIVITY.md#data-quality)) |
 
 Also: Home Assistant via MQTT Discovery, a JSON API, CSV export, database backup, demo mode, English and German.
 

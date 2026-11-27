@@ -38,7 +38,8 @@ one entry plus its `pages/<name>.js`. Detail routes reuse a page module with a d
 confirmDialog, toast. `charts.js` lineChart (`gaps: [{from, to}]` shades stretches without data and draws no line across
 them), barChart, sparkline. `mapview.js` mapView (Leaflet from cdnjs, OpenStreetMap tiles, optional marker
 clustering, offline fallback).
-`car.js` carView. `icons.js` icon(name) (see ICON_NAMES). `format.js` km/mi aware formatters (`f.km`, `f.cons`, `f.kwh`,
+`car.js` carView. `quality.js` checkLabel/actionLabel, the data-quality names shared by System and the Activity List
+tab. `icons.js` icon(name) (see ICON_NAMES). `format.js` km/mi aware formatters (`f.km`, `f.cons`, `f.kwh`,
 `f.money`, `f.duration`, `f.dateTime`, `f.dayLabel`, `f.shortPlace`, …). `i18n.js` `t('English')`; add German with
 `extendDE({...})` at the top of your page file. `style.css` holds tokens and components; page styles live in
 `pages-a.css` / `pages-b.css` (loaded by `index.html`), keep a new rule next to the page it belongs to.
@@ -68,6 +69,29 @@ default through leaflet.markercluster 1.5.3 (cdnjs, SRI): markers are drawn imme
 them only once the plugin loads, and a failed load leaves the plain pins in place. Markers with `noCluster` (trip
 endpoints) or `draggable` stay in a separate plain layer above the clusters. Circles and lines sit in their own layer
 under the clusters.
+
+## Activity, parked loss and data quality
+The route `#/events` is the **Activity** page (`pages/events.js`) with two tabs: **Timeline** (`GET /timeline`, local
+days, `tz_offset`) and **List** (the event log, which also records quality fixes and reviews). Parked loss (`GET
+/parked-loss`) feeds the **Parked** tab of Statistics and the parked card on Overview, which fails soft. The **Data
+quality** card lives on `#/system` (`pages/system.js`, `GET /quality`, `POST /quality/fix` and `/quality/review`).
+`lib/quality.js` also holds `sampleNode`, the translated line for one finding. `lib/ui.js` `modal(title, body,
+actions, { onClose })` calls `onClose` once however the dialog closes, and `confirmDialog` resolves `false` on Escape,
+a scrim click and Cancel (only the topmost dialog reacts to Escape). All logic is backend work in `activity.py` and
+`quality.py`; a page only renders what it gets. What the numbers mean, the fixes and the review rules are in
+[ACTIVITY.md](ACTIVITY.md).
+
+Timeline details (`pages/events.js`): a precision note under the legend, a week line from `summary` above the days, and a
+day line that adds climate, "not heard from", km and cost (prefixed "at least" when `cost_partial`) only when non-zero.
+`lib/dates.js` holds the pure helpers: `dayStartMs` and `barBox` position bars in the server's day (`tz_offset`, never
+the browser's midnight, so a DST week is stable) and `monthsAgo` clamps a month step to the month's last day. Only drive
+and charge bars with a record are buttons; `tl-estimated` dims estimated intervals. The previous-week button stops at
+today minus 30. Statistics keeps its tab bar in loading and error states, shares one period control between its tabs,
+remembers the tab and the period in `sessionStorage` (wrapped in try/catch) and asks for `/stats` only on Overview.
+`lib/floor.js` is the one place for the "below the detection floor" display (zero median or zero energy), used by the
+Overview parked card and the Parked tab. The Overview card draws after the first page paint and again when the
+parked-loss answer arrives; if every stand is flagged as an unrecorded charge it shows the quiet line with the count.
+Its subtitle stays two translated fragments around the number, because `t()` takes a single argument.
 
 ## Quality bar
 Mobile first (360 px), keyboard operable, visible focus, labels on inputs, colour never the only signal, respects
