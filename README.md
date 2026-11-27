@@ -272,7 +272,9 @@ two or more a car switcher appears in the header. Try it: `DEMO=1 DEMO_CARS=2`.
   [DESIGN.md](DESIGN.md).
 - Checks: `uv run --extra dev pytest -q`, `uv run --extra dev ruff check`, `uv run --extra dev mypy`. The frontend checks
   need **Node 26** (`.nvmrc`, so `nvm use` does it) and one `npm ci` in `scripts/dom-smoke`; `run.mjs` renders every page
-  in jsdom against a demo server, `a11y_axe.mjs` and `a11y_contrast.mjs` are the accessibility checks. CI runs all of it.
+  in jsdom against a demo server, `a11y_axe.mjs` and `a11y_contrast.mjs` are the accessibility
+  checks. CI runs the fast checks on every push; the accessibility audit runs on demand
+  (**Actions → Accessibility → Run workflow**) and files its findings as GitHub issues.
 - Agent instructions: [AGENTS.md](AGENTS.md). Feature comparison: [docs/FEATURE-PARITY.md](docs/FEATURE-PARITY.md).
 
 ### Releasing

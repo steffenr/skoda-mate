@@ -24,7 +24,9 @@
 - Contract check against Škoda's OpenAPI: `.venv/bin/python scripts/check_contract.py`.
 - CI (`.github/workflows/ci.yml`) runs the same four things: `test` (ruff, mypy, pytest with coverage), `frontend`
   (unit checks, `i18n_extract.mjs --check` and `i18n_coverage.mjs`), `browser` (demo server plus `run.mjs`, `browser_e2e.mjs`, axe and
-  contrast). The a11y scripts report rather than gate; keep their output in the artifacts worth reading.
+  contrast). The a11y scripts report rather than gate: they run in the on-demand
+  `.github/workflows/a11y.yml` (Actions → Accessibility), which files their findings as
+  GitHub issues instead of gating.
 
 ## Rules
 

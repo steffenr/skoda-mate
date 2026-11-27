@@ -1,0 +1,93 @@
+name: Accessibility
+
+# On-demand accessibility audit. The axe-core and contrast checks used to run inside CI's
+# `browser` job on every push, which made that job by far the slowest; they now run here,
+# triggered by hand: **Actions → Accessibility → Run workflow**.
+#
+# The scripts report rather than gate (they always exit 0); this workflow turns their JSON
+# output into GitHub issues instead. One issue per axe rule and per contrast combination,
+# with the label `accessibility`; findings that already have an open issue are skipped.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  audit:
+    name: axe + contrast audit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      BASE: http://localhost:8766
+      # GitHub's ubuntu image ships Google Chrome stable.
+      CHROME: /usr/bin/google-chrome
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.15"
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: scripts/dom-smoke/package-lock.json
+
+      - name: Install
+        working-directory: scripts/dom-smoke
+        run: npm ci
+
+      # Same setup as CI's browser job: a fictional car, no account, no network.
+      - name: Start the demo server
+        run: |
+          DEMO=1 DB_PATH="$RUNNER_TEMP/demo.db" uv run --frozen uvicorn --factory skoda_mate.web:app \
+            --host 127.0.0.1 --port 8766 > "$RUNNER_TEMP/server.log" 2>&1 &
+          for _ in $(seq 1 30); do curl -sf "$BASE/health" > /dev/null && exit 0; sleep 1; done
+          cat "$RUNNER_TEMP/server.log"
+          exit 1
+
+      - name: Accessibility (axe-core)
+        working-directory: scripts/dom-smoke
+        run: |
+          A11Y_JSON="$RUNNER_TEMP/axe.json" node a11y_axe.mjs "$BASE" | tee "$RUNNER_TEMP/axe.log"
+          cat "$RUNNER_TEMP/axe.log" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Text contrast
+        working-directory: scripts/dom-smoke
+        run: |
+          A11Y_JSON="$RUNNER_TEMP/contrast.json" node a11y_contrast.mjs "$BASE" | tee "$RUNNER_TEMP/contrast.log"
+          cat "$RUNNER_TEMP/contrast.log" >> "$GITHUB_STEP_SUMMARY"
+
+      # Creates issues only for findings without an open issue; safe to re-run any time.
+      - name: Report findings as issues
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        working-directory: scripts/dom-smoke
+        run: node a11y_issues.mjs "$RUNNER_TEMP/axe.json" "$RUNNER_TEMP/contrast.json"
+
+      - name: Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: a11y-reports
+          path: |
+            ${{ runner.temp }}/axe.json
+            ${{ runner.temp }}/axe.log
+            ${{ runner.temp }}/contrast.json
+            ${{ runner.temp }}/contrast.log
+          if-no-files-found: ignore
+
+      - name: Server log
+        if: always()
+        run: cat "$RUNNER_TEMP/server.log" || true

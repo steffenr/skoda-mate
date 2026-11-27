@@ -26,6 +26,7 @@ for (const theme of ['light', 'dark']) {
   }
 }
 await b.close();
+if (process.env.A11Y_JSON) fs.writeFileSync(process.env.A11Y_JSON, JSON.stringify([...found.values()].map((e) => ({ ...e, where: [...e.where] })), null, 2));
 const byRule = {};
 for (const e of found.values()) (byRule[e.rule] ||= []).push(e);
 for (const [rule, list] of Object.entries(byRule)) {
