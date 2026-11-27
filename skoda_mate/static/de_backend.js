@@ -176,4 +176,11 @@ extendDE({
   'Enter the broker address (the IP address or name of the computer running Home Assistant\'s MQTT broker).': 'Gib die Broker-Adresse ein (IP-Adresse oder Name des Rechners, auf dem der MQTT-Broker von Home Assistant läuft).',
   'Enter the broker address first.': 'Gib zuerst die Broker-Adresse ein.',
   'Enter the password again: the broker address changed.': 'Gib das Passwort erneut ein: Die Broker-Adresse hat sich geändert.',
+  'Unknown action.': 'Unbekannte Aktion.',
+  'Unknown check.': 'Unbekannte Prüfung.',
+  // activity timeline and parked loss: refused ranges and parameters
+  'The start must be before the end.': 'Der Beginn muss vor dem Ende liegen.',
+  'The range is limited to 31 days.': 'Der Zeitraum ist auf 31 Tage begrenzt.',
+  'min_hours must be between 1 and 168.': 'Die Mindestdauer muss zwischen 1 und 168 Stunden liegen.',
+  'min_hours must be greater than 0.': 'Die Mindestdauer muss größer als 0 sein.',
 });

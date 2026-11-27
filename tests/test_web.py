@@ -3,6 +3,8 @@ import io
 import json
 import sqlite3
 
+import pytest
+
 from skoda_mate import recorder, store
 from skoda_mate.routers.settings import SettingsBody, put_settings
 
@@ -550,3 +552,78 @@ def test_api_calls_are_paged_newest_first_and_can_be_filtered_to_failures():
     assert [x["endpoint"] for x in rest["items"]] == ["/e4", "/e3", "/e2", "/e1", "/e0"]
     bad = c.get(f"/api/vehicles/{vid}/calls?failed=true").json()
     assert bad["total"] == 3 and [x["endpoint"] for x in bad["items"]] == ["/e20", "/e10", "/e0"]
+
+
+TIMELINE_NOW = "2027-03-10T23:30:00+00:00"
+
+
+def freeze_now(c, iso=TIMELINE_NOW):
+    """Pin the route clock: the timeline defaults and error paths must not read the wall clock."""
+    c.app.state.ctx.now_iso = lambda: iso
+
+
+def test_timeline_defaults_to_seven_days():
+    c, conn, api, vid = connected()
+    freeze_now(c)
+    body = c.get(f"/api/vehicles/{vid}/timeline?tz_offset=-60").json()
+    # UTC 23:30 is already the 11th at UTC+1; the default window is that day and the six before it.
+    assert (body["from"], body["to"]) == ("2027-03-05", "2027-03-11")
+    assert [d["date"] for d in body["days"]] == [f"2027-03-{d:02d}" for d in range(5, 12)]
+    assert body["summary"]["parked_min"] == 0 and body["summary"]["cost"] is None
+
+
+def test_timeline_route_rejects_a_range_over_31_days_or_reversed():
+    c, conn, api, vid = connected()
+    freeze_now(c)
+    r = c.get(f"/api/vehicles/{vid}/timeline?from=2027-03-01&to=2027-04-01")
+    assert r.status_code == 400 and r.json()["detail"] == "The range is limited to 31 days."
+    r = c.get(f"/api/vehicles/{vid}/timeline?from=2027-03-02&to=2027-03-01")
+    assert r.status_code == 400 and r.json()["detail"] == "The start must be before the end."
+    r = c.get(f"/api/vehicles/{vid}/timeline?from=nonsense")
+    assert r.status_code == 400 and r.json()["detail"] == "bad date 'nonsense', expected YYYY-MM-DD"
+
+
+def test_timeline_route_rejects_a_malformed_to_date_with_the_app_message():
+    c, conn, api, vid = connected()
+    freeze_now(c)
+    # `to` alone must fail the same way `from` does, not with FastAPI's raw isoformat message.
+    r = c.get(f"/api/vehicles/{vid}/timeline?to=nonsense")
+    assert r.status_code == 400 and r.json()["detail"] == "bad date 'nonsense', expected YYYY-MM-DD"
+
+
+def test_timeline_route_returns_404_for_another_vehicle():
+    c, conn, api, vid = connected()
+    freeze_now(c)
+    r = c.get("/api/vehicles/999/timeline?from=2027-03-01&to=2027-03-07")
+    assert r.status_code == 404 and r.json()["detail"] == "no such vehicle"
+
+
+def test_range_errors_have_german_entries():
+    import re
+    from pathlib import Path
+    de = (Path(__file__).parent.parent / "skoda_mate" / "static" / "de_backend.js").read_text(encoding="utf-8")
+    for message in ("The start must be before the end.", "The range is limited to 31 days.",
+                    "min_hours must be between 1 and 168."):
+        assert re.search(r"^\s*'" + re.escape(message) + "': '", de, re.M), message
+
+
+def test_parked_loss_route_turns_only_range_errors_into_a_400(monkeypatch):
+    c, conn, api, vid = connected()
+    freeze_now(c)
+    assert c.get(f"/api/vehicles/{vid}/parked-loss?from=2027-03-05&to=2027-03-01").status_code == 400
+
+    def boom(*a, **kw):
+        raise ValueError("a bug, not a bad request")
+    monkeypatch.setattr("skoda_mate.activity.parked_loss", boom)
+    with pytest.raises(ValueError, match="a bug"):  # not swallowed into a 400: the test client re-raises server errors
+        c.get(f"/api/vehicles/{vid}/parked-loss")
+
+
+def test_local_bound_accepts_the_space_separated_datetime():
+    from skoda_mate.presenters import local_bound
+    assert local_bound("2027-03-01T10:00:00+00:00") == "2027-03-01T10:00:00+00:00"
+    # the form before the timeline work: parsed as a local datetime, shifted by the offset into UTC
+    assert local_bound("2027-03-01 10:00", 60) == "2027-03-01T11:00:00+00:00"
+    assert local_bound("2027-03-01", 0, end=True) == "2027-03-02T00:00:00+00:00"
+    with pytest.raises(Exception, match="bad date"):
+        local_bound("nonsense")
