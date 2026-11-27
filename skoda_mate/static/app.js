@@ -99,7 +99,8 @@ function makeCtx(params, query) {
     get overview() { return S.overview; }, get settings() { return S.settings; },
     get currency() { return S.overview?.tariff?.currency || 'EUR'; },
     refresh: async () => { await loadOverview(); paintHeader(); paintBanners(); return S.overview; },
-    reloadSettings: async () => { await loadSettings(); paintShell(); },
+    // the sidebar, the header and the banners all show translated text: repaint them, not only at the next tick
+    reloadSettings: async () => { await loadSettings(); paintShell(); paintHeader(); paintBanners(); },
     onTick: (fn) => { S.ticks.add(fn); },
     setTitle: (s) => { document.title = `${s} · Škoda Mate`; },
   };

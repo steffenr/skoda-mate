@@ -30,11 +30,15 @@ export default async function settings(root, ctx) {
       s.setAttribute('aria-labelledby', id);
       return h('div', null, h('div', { class: 'b-label', id }, label), s);
     };
+    // A dropdown, not a row of buttons: the list grows with every language. Each name is written in its own language
+    // and marked as such, so a screen reader pronounces it.
+    const language = () => h('div', null, h('div', { class: 'b-label', id: 'b-lang' }, t('Language')),
+      h('select', { id: 'set-lang', 'aria-labelledby': 'b-lang', onchange: (e) => { d.language = e.target.value; } },
+        ...S.languages.map((l) => h('option', { value: l.code, lang: l.locale, selected: l.code === d.language }, l.name))));
     return card(t('Display'), h('div', { class: 'stack' },
       h('div', { class: 'grid g3' },
         group('b-units', t('Units'), [['km', t('Kilometres')], ['mi', t('Miles')]], 'units'),
-        // each name in its own language, marked as such so a screen reader pronounces it
-        group('b-lang', t('Language'), S.languages.map((l) => [l.code, l.name, { lang: l.locale }]), 'language'),
+        language(),
         group('b-theme', t('Theme'), [['auto', t('Automatic')], ['light', t('Light')], ['dark', t('Dark')]], 'theme')),
       asyncButton(t('Save'), async () => {
         await put({ units: d.units, language: d.language, theme: d.theme });

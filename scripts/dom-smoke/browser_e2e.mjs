@@ -3,7 +3,7 @@
 // 1. phone viewport: every page must fit the screen (no horizontal scroll) and nothing may throw
 // 2. click-through: navigation, refresh, a command, a setting, units, language, the mobile "More" menu
 import puppeteer from 'puppeteer-core';
-import { pseudoPass } from './pseudo_pass.mjs';
+import { layoutPass, pseudoPass } from './pseudo_pass.mjs';
 
 const BASE = process.env.BASE || 'http://localhost:8765';
 const SHOTS = process.env.SHOTS || '';
@@ -1048,12 +1048,15 @@ await au.close();
 await d.goto(`${BASE}/#/settings`, { waitUntil: 'networkidle0' });
 await sleep(1200);
 const press = (label) => d.evaluate((txt) => [...document.querySelectorAll('.seg button')].find((b) => b.textContent.trim() === txt).click(), label);
-await press('Miles'); await press('Deutsch');
+await press('Miles'); await d.select('#set-lang', 'de');
 await d.evaluate(() => { window.__stillTheSamePage = true; });
 await d.evaluate(() => [...document.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Save').click());
 await sleep(1500);
 const inGerman = await d.evaluate(() => document.documentElement.lang);
-await press('English');
+// the header changes language with the rest, not only at the next 30-second tick
+const bar = await d.evaluate(() => document.querySelector('.topbar').textContent);
+check('the header changes language at once', /Jetzt aktualisieren/.test(bar) && !/Refresh now|next check in/.test(bar), bar.slice(0, 120));
+await d.select('#set-lang', 'en');
 await d.evaluate(() => [...document.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Speichern').click());
 await sleep(1500);
 const inEnglishAgain = await d.evaluate(() => ({ lang: document.documentElement.lang, same: window.__stillTheSamePage === true,
@@ -1061,7 +1064,7 @@ const inEnglishAgain = await d.evaluate(() => ({ lang: document.documentElement.
 check('switching to German and back updates <html lang> and the navigation without a reload',
   inGerman === 'de' && inEnglishAgain.lang === 'en' && inEnglishAgain.same && /Overview/.test(inEnglishAgain.nav) && !/Übersicht/.test(inEnglishAgain.nav),
   `${inGerman} -> ${inEnglishAgain.lang} ${inEnglishAgain.nav}`);
-await press('Deutsch');
+await d.select('#set-lang', 'de');
 await d.evaluate(() => [...document.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Save').click());
 await sleep(1500);
 const nav = await d.evaluate(() => [...document.querySelectorAll('.sidebar .nav a')].map((a) => a.textContent.trim()).join(','));
@@ -1125,6 +1128,10 @@ if (SHOTS) await d.screenshot({ path: `${SHOTS}/german-trips.png` });
 await d.evaluate(() => fetch('/api/settings', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ units: 'km', language: 'en' }) }));
 // a fake, longer language: text that bypasses t() shows up, and every page must still fit a narrow phone
 await pseudoPass(browser, BASE, check, errors);
+// and every real language that is offered must fit it too
+for (const language of (await (await fetch(`${BASE}/api/settings`)).json()).languages.filter((l) => l.code !== 'en')) {
+  await layoutPass(browser, BASE, language, check, errors);
+}
 check('no JavaScript errors during the whole session', errors.length === 0, errors.slice(0, 3).join(' | '));
 await browser.close();
 console.log(failed ? `\n${failed} check(s) FAILED` : '\nend-to-end OK');

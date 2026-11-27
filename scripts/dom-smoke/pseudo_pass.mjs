@@ -26,26 +26,39 @@ export function pseudoCatalog() {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-/** check(name, ok, extra) records a result, as in browser_e2e.mjs. Returns the texts seen outside the brackets. */
-export async function pseudoPass(browser, base, check, errors = []) {
+/** Opens every route at 360 px in one language, runs `look` on each and leaves the demo in English. With `catalog`, the
+ *  request for that language's file is answered with it. */
+async function eachRoute(browser, base, { code, label, errors, catalog }, look) {
   const page = await browser.newPage();
   await page.setViewport({ width: 360, height: 780, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
-  page.on('pageerror', (e) => errors.push(`pageerror (pseudo): ${e.message}`));
-  await page.setRequestInterception(true);
-  const body = JSON.stringify(pseudoCatalog());
-  page.on('request', (req) => (new URL(req.url()).pathname === '/static/i18n/de.json'
-    ? req.respond({ status: 200, contentType: 'application/json', body }) : req.continue()));
+  page.on('pageerror', (e) => errors.push(`pageerror (${label}): ${e.message}`));
+  if (catalog) {
+    await page.setRequestInterception(true);
+    const body = JSON.stringify(catalog);
+    page.on('request', (req) => (new URL(req.url()).pathname === `/static/i18n/${code}.json`
+      ? req.respond({ status: 200, contentType: 'application/json', body }) : req.continue()));
+  }
   const setLanguage = (language) => page.evaluate((l) => fetch('/api/settings', {
     method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ language: l }) }).then((r) => r.status), language);
   await page.goto(`${base}/`, { waitUntil: 'networkidle0' });
-  await setLanguage('de');
-  const outside = new Map();
+  const status = await setLanguage(code);
   try {
+    if (status !== 200) throw new Error(`could not set the language to ${code}: HTTP ${status}`);
     for (const route of ROUTES) {
       await page.goto('about:blank');
       await page.goto(`${base}/#/${route}`, { waitUntil: 'networkidle0' });
       await sleep(1300);
-      const seen = await page.evaluate(() => {
+      await look(route || 'overview', await measure(page));
+    }
+  } finally {
+    await setLanguage('en');
+    await page.close();
+  }
+}
+
+/** The texts of a page and what sticks out of a 360 px screen. */
+function measure(page) {
+  return page.evaluate(() => {
         for (const d of document.querySelectorAll('#main details')) d.open = true;
         const texts = [];
         const walk = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
@@ -69,21 +82,33 @@ export async function pseudoPass(browser, base, check, errors = []) {
         const over = [...document.querySelectorAll('body *')].filter((e) => e.getBoundingClientRect().right > vw + 1 && !scrolls(e) && !e.closest('svg'));
         const culprits = over.filter((e) => !over.some((o) => o !== e && e.contains(o))).slice(0, 5)
           .map((e) => `${e.tagName.toLowerCase()}.${String(e.getAttribute('class') || '').split(' ').join('.')} in .${String(e.parentElement.getAttribute('class') || '').split(' ')[0]} +${Math.round(e.getBoundingClientRect().right - vw)}px`);
-        return { texts, translated: texts.some((x) => x.includes('⟦')), scrollW: document.documentElement.scrollWidth, vw, culprits };
-      });
-      check(`pseudo-language #/${route || 'overview'} is translated and fits 360 px`, seen.translated && seen.scrollW <= seen.vw + 1, `scrollWidth=${seen.scrollW}/${seen.vw} ${[...new Set(seen.culprits)].join(' | ')}`);
-      for (let text of seen.texts) {
-        let before;
-        do { before = text; text = text.replace(/⟦[^⟦⟧]*⟧/g, ' '); } while (text !== before);
-        const rest = text.replace(/\s+/g, ' ').trim();
-        if (/\p{L}{3,}/u.test(rest)) (outside.get(rest) || outside.set(rest, new Set()).get(rest)).add(route || 'overview');
-      }
+        return { texts, lang: document.documentElement.lang, scrollW: document.documentElement.scrollWidth, vw, culprits };
+  });
+}
+
+const fits = (seen) => seen.scrollW <= seen.vw + 1;
+const width = (seen) => `scrollWidth=${seen.scrollW}/${seen.vw} ${[...new Set(seen.culprits)].join(' | ')}`;
+
+/** check(name, ok, extra) records a result, as in browser_e2e.mjs. Returns the texts seen outside the brackets. */
+export async function pseudoPass(browser, base, check, errors = []) {
+  const outside = new Map();
+  await eachRoute(browser, base, { code: 'de', label: 'pseudo', errors, catalog: pseudoCatalog() }, (route, seen) => {
+    check(`pseudo-language #/${route} is translated and fits 360 px`, seen.texts.some((x) => x.includes('⟦')) && fits(seen), width(seen));
+    for (let text of seen.texts) {
+      let before;
+      do { before = text; text = text.replace(/⟦[^⟦⟧]*⟧/g, ' '); } while (text !== before);
+      const rest = text.replace(/\s+/g, ' ').trim();
+      if (/\p{L}{3,}/u.test(rest)) (outside.get(rest) || outside.set(rest, new Set()).get(rest)).add(route);
     }
-  } finally {
-    await setLanguage('en');
-    await page.close();
-  }
+  });
   return outside;
+}
+
+/** A real language: every page must carry its locale and fit 360 px (long compounds in tabs, chips and table heads). */
+export async function layoutPass(browser, base, { code, locale }, check, errors = []) {
+  await eachRoute(browser, base, { code, label: code, errors }, (route, seen) => {
+    check(`${code} #/${route} fits 360 px`, seen.lang === locale && fits(seen), `lang=${seen.lang} ${width(seen)}`);
+  });
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
