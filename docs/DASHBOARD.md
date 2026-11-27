@@ -93,6 +93,13 @@ Overview parked card and the Parked tab. The Overview card draws after the first
 parked-loss answer arrives; if every stand is flagged as an unrecorded charge it shows the quiet line with the count.
 Its subtitle stays two translated fragments around the number, because `t()` takes a single argument.
 
+## Insight
+`analytics.py` owns charging and driving insight and the projected range; the routes are in `routers/reports.py`.
+`pages/stats.js` has the tabs Overview, Charging, Driving and Parked. The two insight tabs are rendered by
+`lib/insight-charging.js` and `lib/insight-driving.js` (data in, nodes out), the weekday × hour grid with its table
+fallback is `lib/heatmap.js`, and the Battery card is `lib/rangecard.js`. One sequence number in `stats.js` stops a late
+answer from drawing over another tab or period. What the numbers mean is in [INSIGHTS.md](INSIGHTS.md).
+
 ## Quality bar
 Mobile first (360 px), keyboard operable, visible focus, labels on inputs, colour never the only signal, respects
 `prefers-reduced-motion`, light and dark via the CSS variables only (no hard-coded colours), empty/loading/error states

@@ -74,6 +74,11 @@ it does not reload every 30 seconds like the other views, because a stand only c
 ends before it starts, or a minimum stay of 0 or less, is refused. A stand below the detection floor has no cost, but
 its cost basis (place, tariff) is still named like that of any other stand at the same place.
 
+The **Parked** tab shows 50 stands a page, newest first, with **Newer** and **Older** buttons. The figures above the
+table always cover the whole period. In the API, `limit` (1–200, default 50) and `offset` select the page of
+`sessions`; `total` counts every stand in the period, and `aggregates` (with `flagged`, the likely unrecorded charges)
+do not depend on the page.
+
 ## Data quality
 
 The card runs a fixed list of checks over the last 30 days and says how many findings each has. Severity is shown as
