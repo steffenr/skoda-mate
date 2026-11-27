@@ -13,7 +13,7 @@
 ## Commands
 
 - Tests: `uv run --extra dev pytest -q` (in DDEV: `ddev test`). Keep the suite green; every fix gets a test.
-- Lint and types, both gates: `uv run --extra dev ruff check` and `uv run --extra dev mypy` (37 source files).
+- Lint and types, both gates: `uv run --extra dev ruff check` and `uv run --extra dev mypy` (49 source files).
 - Node 26 for everything under `scripts/dom-smoke` (`.nvmrc`; CI reads the same file). The app itself ships no Node code.
 - Demo server (fictional car, no account, no network):
   `DEMO=1 DB_PATH=<scratch>/demo.db uv run uvicorn --factory skoda_mate.web:app --port 8766` (add `DEMO_CARS=2` for two cars).
@@ -23,7 +23,7 @@
   `node a11y_axe.mjs http://localhost:8766`, `node a11y_contrast.mjs http://localhost:8766`.
 - Contract check against Škoda's OpenAPI: `.venv/bin/python scripts/check_contract.py`.
 - CI (`.github/workflows/ci.yml`) runs the same four things: `test` (ruff, mypy, pytest with coverage), `frontend`
-  (jsdom unit checks and `i18n_coverage.mjs`), `browser` (demo server plus `run.mjs`, `browser_e2e.mjs`, axe and
+  (unit checks, `i18n_extract.mjs --check` and `i18n_coverage.mjs`), `browser` (demo server plus `run.mjs`, `browser_e2e.mjs`, axe and
   contrast). The a11y scripts report rather than gate; keep their output in the artifacts worth reading.
 
 ## Rules
@@ -41,9 +41,11 @@
   `ContextDep` (`context.AppContext`). Shared shaping of API responses belongs in `presenters.py`, the Škoda/MQTT
   lifecycle in `cloud.py`. Do not put endpoints back into `web.py`.
 - **MQTT commands** stay opt-in and allowlisted; starting the auxiliary heater (S-PIN) stays dashboard-only.
-- **Translations.** Every visible frontend string is `t('English')` with a German entry; backend messages shown to users
-  get their German entry in `static/de_backend.js`, keyed by the exact English text. Nav labels are `label:` entries in
-  the `PAGES` table (`static/app.js`); `i18n_coverage.mjs` checks those too. Setup and login are English-only on purpose
+- **Translations** ([docs/TRANSLATIONS.md](docs/TRANSLATIONS.md)). Every visible string is `t('English')`, or `tn()` for a
+  count, with an entry in `static/i18n/de.json`. A sentence is one key with `{placeholders}`, never joined pieces. A
+  text that reaches `t()` through a variable is marked `N_('English')`. Backend texts shown to users are templates in
+  `skoda_mate/messages.py`. After a change run `i18n_extract.mjs`, `scripts/i18n_backend.py` and `i18n_coverage.mjs`.
+  Nav labels are `label:` entries in the `PAGES` table (`static/app.js`). Setup and login are English-only on purpose
   (they render before the session and the language setting exist).
 - **Routes.** One table, `PAGES` in `static/app.js`: a page is one entry plus `static/pages/<name>.js`. Sidebar, router,
   nav highlight and preloading all derive from it, so never add a second list.

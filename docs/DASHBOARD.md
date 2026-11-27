@@ -40,8 +40,8 @@ them), barChart, sparkline. `mapview.js` mapView (Leaflet from cdnjs, OpenStreet
 clustering, offline fallback).
 `car.js` carView. `quality.js` checkLabel/actionLabel, the data-quality names shared by System and the Activity List
 tab. `icons.js` icon(name) (see ICON_NAMES). `format.js` km/mi aware formatters (`f.km`, `f.cons`, `f.kwh`,
-`f.money`, `f.duration`, `f.dateTime`, `f.dayLabel`, `f.shortPlace`, …). `i18n.js` `t('English')`; add German with
-`extendDE({...})` at the top of your page file. `style.css` holds tokens and components; page styles live in
+`f.money`, `f.duration`, `f.dateTime`, `f.dayLabel`, `f.shortPlace`, …). `i18n.js` `t('English', vars)`, `tn(one, other, n)`, `N_`,
+`tm`/`tx` for backend messages; German goes into `i18n/de.json` ([TRANSLATIONS.md](TRANSLATIONS.md)). `style.css` holds tokens and components; page styles live in
 `pages-a.css` / `pages-b.css` (loaded by `index.html`), keep a new rule next to the page it belongs to.
 
 `setup.js` with `setup.html` / `login.html` is the one deliberate exception: it renders before a session (and before
