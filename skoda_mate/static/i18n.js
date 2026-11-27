@@ -32,6 +32,9 @@ export const CATALOGS = {
   sv: jsonCatalog('sv'),
   tr: jsonCatalog('tr'),
   uk: jsonCatalog('uk'),
+  ja: jsonCatalog('ja'),
+  ko: jsonCatalog('ko'),
+  zh_Hans: jsonCatalog('zh_Hans'),
 };
 
 let lang = 'en';

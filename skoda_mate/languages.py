@@ -28,6 +28,9 @@ LANGUAGES = (
     Language("sv", "Svenska", "sv"),
     Language("tr", "Türkçe", "tr"),
     Language("uk", "Українська", "uk"),
+    Language("ja", "日本語", "ja"),
+    Language("ko", "한국어", "ko"),
+    Language("zh_Hans", "简体中文", "zh-Hans"),
 )
 BY_CODE = {language.code: language for language in LANGUAGES}
 DEFAULT = BY_CODE["en"]
