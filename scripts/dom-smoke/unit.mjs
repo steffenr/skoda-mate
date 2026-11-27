@@ -44,4 +44,59 @@ assert.equal(iso(monthsAgo(new Date(2028, 2, 31), 1)), '2028-02-29');
 assert.equal(iso(monthsAgo(new Date(2026, 6, 31), 6)), '2026-01-31');
 assert.equal(iso(monthsAgo(new Date(2026, 4, 31), 12)), '2025-05-31');
 assert.equal(iso(monthsAgo(new Date(2026, 0, 15), 6)), '2025-07-15');
+
+// ------------------------------------------------------------------ translation loader
+const i18n = await import('../../skoda_mate/static/i18n.js');
+const use = (code, entries) => { i18n.CATALOGS[code] = async () => entries; };
+
+await i18n.setLang('en');
+assert.equal(i18n.t('{n} cars', { n: 2 }), '2 cars', 'placeholders are filled in English');
+assert.equal(i18n.t('Open##action'), 'Open', 'the context suffix is not part of the English text');
+assert.equal(i18n.N_('Anything##x'), 'Anything##x', 'N_ only marks a string');
+assert.equal(i18n.tn('{n} day', '{n} days', 1), '1 day');
+assert.equal(i18n.tn('{n} day', '{n} days', 0), '0 days');
+assert.equal(i18n.tn('{n} day', '{n} days', 2), '2 days');
+assert.equal(i18n.tn('{n} day##x', '{n} days##x', 2), '2 days');
+
+use('xx', { 'Open##action': 'Öffnen', 'Hi {name}': 'Hallo {name}' });
+await i18n.setLang('xx');
+assert.equal(i18n.getLang(), 'xx');
+assert.equal(i18n.getLocale(), 'xx', 'the locale defaults to the code');
+assert.equal(i18n.t('Open##action'), 'Öffnen', 'a catalog entry for the full key wins');
+assert.equal(i18n.t('Missing##ctx'), 'Missing', 'a missing key falls back to English without its context');
+assert.equal(i18n.t('constructor'), 'constructor', 'an object property is not a translation');
+assert.equal(i18n.t('Hi {name}', { name: '{x} <b>', x: 'no' }), 'Hallo {x} <b>', 'a value is inserted literally, once');
+assert.equal(i18n.t('Keep {like this} and {other}', { n: 1 }), 'Keep {like this} and {other}', 'an unknown placeholder stays');
+assert.ok(i18n.hasKey('Hi {name}') && !i18n.hasKey('Missing'));
+assert.equal(i18n.catalog()['Hi {name}'], 'Hallo {name}');
+
+// plural forms follow the locale's CLDR rules, not "is it 1?"
+use('uu', { '{n} days': { one: 'one {n}', few: 'few {n}', many: 'many {n}', other: 'other {n}' } });
+await i18n.setLang('uu', 'uk');
+assert.equal(i18n.getLocale(), 'uk');
+for (const [n, form] of [[1, 'one'], [21, 'one'], [2, 'few'], [22, 'few'], [5, 'many'], [11, 'many'], [1.5, 'other']]) {
+  assert.equal(i18n.tn('{n} day', '{n} days', n), `${form} ${n}`, `Ukrainian plural for ${n}`);
+}
+assert.equal(i18n.tn('{n} day', '{n} days', 5, { n: '5,0' }), 'many 5,0', 'a formatted number is shown, the raw one picks the form');
+use('uv', { '{n} days': { other: 'only {n}' } });
+await i18n.setLang('uv', 'uk');
+assert.equal(i18n.tn('{n} day', '{n} days', 2), 'only 2', 'a missing category falls back to other');
+
+// a catalog that cannot be loaded leaves the page in English
+i18n.CATALOGS.broken = async () => { throw new Error('offline'); };
+const warn = console.warn; console.warn = () => {};
+await i18n.setLang('broken');
+console.warn = warn;
+assert.equal(i18n.t('Hi {name}', { name: 'A' }), 'Hi A');
+
+// two quick switches: the last choice wins even when the first catalog arrives later
+let release;
+i18n.CATALOGS.slow = () => new Promise((r) => { release = () => r({ Word: 'slow' }); });
+use('fast', { Word: 'fast' });
+const first = i18n.setLang('slow');
+await i18n.setLang('fast');
+release();
+await first;
+assert.deepEqual([i18n.getLang(), i18n.t('Word')], ['fast', 'fast']);
+await i18n.setLang('en');
 console.log('frontend unit checks OK');

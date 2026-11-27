@@ -1,8 +1,31 @@
-// Minimal i18n: pages write English with t('English text'); German is looked up by that exact string and falls back
-// to English. Add entries to DE as pages grow; a missing entry is never an error.
+// Minimal i18n: pages write English with t('English text'); a catalog looks it up by that exact string and falls back
+// to English, so a missing entry is never an error. One catalog is loaded at a time; English needs none.
+// Placeholders are {named}. A key may carry a context, 'Open##action', when one English text needs two translations.
+
+/** @typedef {Record<string, string | Record<string, string>>} Catalog  an object value holds plural forms */
+/** @type {Record<string, () => Promise<Catalog>>} */
+export const CATALOGS = {};
+
 let lang = 'en';
-export const setLang = (l) => { lang = l; };
+let locale = 'en';
+let current = {};
+let latest = 0;
+
+/** Switch language. The page keeps its old texts until the catalog is there; when switches overlap, the last one wins. */
+export async function setLang(code, bcp47) {
+  const mine = ++latest;
+  let loaded = {};
+  if (Object.hasOwn(CATALOGS, code)) {
+    try { loaded = await CATALOGS[code](); } catch (e) { console.warn(`translation ${code} not loaded, showing English`, e); }
+  }
+  if (mine !== latest) return;
+  lang = code;
+  locale = bcp47 ?? code;
+  current = loaded;
+}
 export const getLang = () => lang;
+export const getLocale = () => locale;
+export const catalog = () => current;
 
 const DE = {
   'Loading…': 'Lädt …', 'Nothing here yet': 'Noch nichts vorhanden', 'Cancel': 'Abbrechen', 'Confirm': 'Bestätigen',
@@ -15,7 +38,29 @@ const DE = {
   'Key expires': 'Schlüssel läuft ab', 'Not available': 'Nicht verfügbar', 'Odometer': 'Kilometerstand', 'Climate': 'Klima',
   'Doors': 'Türen', 'Windows': 'Fenster', 'Demo': 'Demo', 'requests used this hour': 'Anfragen in dieser Stunde', 'Last update from the car': 'Letzte Meldung des Autos', 'Updated': 'Aktualisiert',
 };
-export function t(en) { return (lang === 'de' && DE[en]) || en; }
+const lookup = (key) => (Object.hasOwn(current, key) ? current[key] : lang === 'de' && Object.hasOwn(DE, key) ? DE[key] : undefined);
+const english = (key) => key.replace(/##.*$/s, '');
+// One pass over the template: a value that itself looks like {a placeholder} stays as it is.
+const fill = (template, vars) => (vars ? template.replace(/\{(\w+)\}/g, (m, k) => (Object.hasOwn(vars, k) ? String(vars[k]) : m)) : template);
+
+export function t(key, vars) {
+  const found = lookup(key);
+  return fill(typeof found === 'string' && found ? found : english(key), vars);
+}
+
+/** A text with a count: tn('{n} day', '{n} days', days). The catalog entry sits under `other` and holds the forms its
+ *  language has; the CLDR rules of the locale pick one. `vars.n` is shown instead of `n` (a formatted number). */
+export function tn(one, other, n, vars) {
+  const values = { n, ...vars };
+  const forms = lookup(other);
+  const form = forms && typeof forms === 'object' ? forms[new Intl.PluralRules(locale).select(Number(n))] ?? forms.other : undefined;
+  if (form) return fill(form, values);
+  return fill(english(new Intl.PluralRules('en').select(Number(n)) === 'one' ? one : other), values);
+}
+
+/** Marks a text that reaches t() through a variable, so the extractor sees it. */
+export const N_ = (key) => key;
+export const hasKey = (key) => Object.hasOwn(current, key) || (lang === 'de' && Object.hasOwn(DE, key));
 export function extendDE(entries) { Object.assign(DE, entries); }
 extendDE({
   'The server does not know this feature yet. Mate is probably still running an older version: restart it (ddev restart, or docker compose up -d --build).': 'Der Server kennt diese Funktion noch nicht. Mate läuft vermutlich noch in einer älteren Version: Starte es neu (ddev restart oder docker compose up -d --build).',
