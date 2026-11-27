@@ -369,7 +369,7 @@ await sleep(1500);
 const ov1 = await narrow.evaluate(parkedCardProbe);
 check('Overview parked card requests the last seven days with a six-hour minimum', /from=\d{4}-\d{2}-\d{2}&to=\d{4}-\d{2}-\d{2}&min_hours=6&tz_offset=-?\d+/.test(parkedReq), parkedReq);
 check('Overview parked card shows median, count, energy, floor subtitle and warning count', ov1.found && ov1.stats === 1 && /Median loss 1[.,]5 ?kWh\/day/.test(ov1.text) && /Parked sessions 1\b/.test(ov1.text) && /Energy 1[.,]5 kWh/.test(ov1.text)
-  && /One percent of the battery is about 0[.,]77 kWh, so smaller losses are not measurable\./.test(ov1.text) && /1 left out as likely unrecorded charges/.test(ov1.text) && !/NaN|null|undefined/.test(ov1.text), ov1.text);
+  && /One percent of the battery is about 0[.,]77 kWh, so smaller losses are not measurable\./.test(ov1.text) && /1 left out as likely unrecorded charge(?!s)/.test(ov1.text) && !/NaN|null|undefined/.test(ov1.text), ov1.text);
 check('Overview parked card links Details to #/stats, sits after Last charge and fits 360 px', ov1.details === '#/stats' && ov1.afterCharge && ov1.sw <= ov1.iw, `${ov1.details} after=${ov1.afterCharge} scrollWidth=${ov1.sw}/${ov1.iw}`);
 // A failing request must not break the rest of the Overview: no card, the other cards stay
 parkedMode = 'fail';
@@ -1056,10 +1056,11 @@ const inGerman = await d.evaluate(() => document.documentElement.lang);
 await press('English');
 await d.evaluate(() => [...document.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Speichern').click());
 await sleep(1500);
-const back = await d.evaluate(() => ({ lang: document.documentElement.lang, same: window.__stillTheSamePage === true,
+const inEnglishAgain = await d.evaluate(() => ({ lang: document.documentElement.lang, same: window.__stillTheSamePage === true,
   nav: [...document.querySelectorAll('.sidebar .nav a')].map((a) => a.textContent.trim()).join(',') }));
 check('switching to German and back updates <html lang> and the navigation without a reload',
-  inGerman === 'de' && back.lang === 'en' && back.same && /Overview/.test(back.nav) && !/Übersicht/.test(back.nav), `${inGerman} -> ${back.lang} ${back.nav}`);
+  inGerman === 'de' && inEnglishAgain.lang === 'en' && inEnglishAgain.same && /Overview/.test(inEnglishAgain.nav) && !/Übersicht/.test(inEnglishAgain.nav),
+  `${inGerman} -> ${inEnglishAgain.lang} ${inEnglishAgain.nav}`);
 await press('Deutsch');
 await d.evaluate(() => [...document.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Save').click());
 await sleep(1500);

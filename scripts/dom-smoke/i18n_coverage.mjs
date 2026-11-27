@@ -4,7 +4,7 @@
 //   SHOW=500 node i18n_coverage.mjs (list more problems)
 import fs from 'node:fs';
 import { CATALOGS } from '../../skoda_mate/static/i18n.js';
-import { compare, readKeys, scan, STATIC } from './i18n_lib.mjs';
+import { compare, problemLines, readKeys, scan, STATIC } from './i18n_lib.mjs';
 
 // A key that starts in lower case is usually a piece of a sentence, which another language cannot reorder. These are the
 // ones that stand on their own, each group with the reason.
@@ -20,7 +20,7 @@ const STANDALONE = new Set([
   'completed with the car’s figures', 'repeated in your files', 'reported by the car', 'at home price', 'from fuel level',
   'estimated from battery level', 'inferred (from battery level)', 'home price', 'public DC price', 'public AC price',
   'the duration of the trip; charging happened somewhere during it', 'the car stood here; charging happened somewhere in it',
-  'requests used this hour', 'just now',
+  'requests used this hour', 'just now', 'new', 'completed', 'known',
   // a label followed by a colon and a value
   'time windows', 'timers', 'outliers left out:',
 ]);
@@ -31,7 +31,7 @@ const all = { ...keys.backend, ...keys.frontend };
 let failed = 0;
 const report = (what, lines) => {
   console.log(`${what}: ${lines.length} problem(s)`);
-  for (const line of lines.slice(0, +process.env.SHOW || 40)) console.log(`  ${line.slice(0, 160)}`);
+  for (const line of problemLines(what, lines, +process.env.SHOW || 40)) console.log(line);
   failed += lines.length;
 };
 
