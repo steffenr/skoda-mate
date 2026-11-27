@@ -6,21 +6,14 @@ import { carView } from '../lib/car.js';
 import { lineChart } from '../lib/charts.js';
 import { mapView } from '../lib/mapview.js';
 import * as f from '../lib/format.js';
-import { extendDE, t } from '../i18n.js';
+import { t } from '../i18n.js';
 import { estimateNote, liveSoc } from '../lib/livesoc.js';
 import { kwhOrFloor, medianLossStat } from '../lib/floor.js';
-
-extendDE({
-  'Power': 'Leistung', 'Until': 'Bis', 'Time left': 'Restzeit', 'Done at': 'Fertig um',
-  'Parked, last 7 days': 'Geparkt, letzte 7 Tage', 'No parked stand long enough yet.': 'Noch kein ausreichend langer Stand.',
-  'One percent of the battery is about': 'Ein Prozent der Batterie sind etwa', 'so smaller losses are not measurable.': 'kleinere Verluste sind daher nicht messbar.',
-  'left out as likely unrecorded charges': 'als wahrscheinlich nicht erfasste Ladevorgänge nicht mitgezählt',
-});
 
 const isoDay = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
 const CHARGE_STATE = {
-  CHARGING: ['Charging', 'good'], READY_FOR_CHARGING: ['Plugged in, not charging', 'info'], CONNECT_CABLE: ['Cable not connected', ''],
+  CHARGING: ['Charging##state', 'good'], READY_FOR_CHARGING: ['Plugged in, not charging', 'info'], CONNECT_CABLE: ['Cable not connected', ''],
   CONSERVING: ['Conserving (battery care)', 'info'], DISCHARGING: ['Discharging', 'warn'], CHARGING_INTERRUPTED: ['Charging interrupted', 'warn'],
 };
 

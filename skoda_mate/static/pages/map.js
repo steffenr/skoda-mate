@@ -5,21 +5,7 @@ import { icon } from '../lib/icons.js';
 import { banner, button, card, empty, loading } from '../lib/ui.js';
 import { mapView } from '../lib/mapview.js';
 import * as f from '../lib/format.js';
-import { extendDE, t } from '../i18n.js';
-
-extendDE({
-  'Map layers': 'Kartenebenen', 'Parked places': 'Parkplätze', 'Charge locations': 'Ladeorte', 'Trip start and end': 'Fahrtenstart und -ziel', 'Car now': 'Auto jetzt',
-  'Places': 'Orte', 'readings while parked': 'Messungen im Stand', 'Show all': 'Alle zeigen', 'Show everything': 'Alles anzeigen', 'Show on map': 'Auf der Karte zeigen',
-  'Open place': 'Ort öffnen', 'Visits': 'Besuche', 'Days': 'Tage', 'last seen': 'zuletzt gesehen', 'first seen': 'zuerst gesehen',
-  'Nothing to show on the map yet': 'Noch nichts auf der Karte', 'Mate collects places while the car is parked, charging or driving.': 'Mate sammelt Orte, solange das Auto parkt, lädt oder fährt.',
-  'Could not load the map data': 'Kartendaten konnten nicht geladen werden', 'Try again': 'Erneut versuchen', 'The car is driving: its position is not reported while moving.': 'Das Auto fährt: Die Position wird während der Fahrt nicht gemeldet.',
-  'Dashed lines connect the start and end of a trip. They are straight lines, not the route driven, which the car does not report.': 'Gestrichelte Linien verbinden Start und Ziel einer Fahrt. Es sind Luftlinien, nicht die gefahrene Route, denn diese meldet das Auto nicht.',
-  'Places are grouped within about 100 m. The number counts readings taken while parked there, so it grows with parking time, not only with visits.': 'Orte werden im Umkreis von etwa 100 m zusammengefasst. Die Zahl zählt Messungen im Stand an diesem Ort und wächst daher mit der Parkdauer, nicht nur mit der Zahl der Besuche.',
-  'Click a circle on the map, or choose the place from the list with the keyboard, to open it.': 'Klicken Sie auf der Karte auf einen Kreis oder wählen Sie den Ort mit der Tastatur in der Liste aus, um ihn zu öffnen.',
-  'Home': 'Zuhause', 'trips': 'Fahrten', 'trip': 'Fahrt', 'Charge': 'Ladevorgang', 'Unknown place': 'Unbekannter Ort', 'Start': 'Start', 'End': 'Ende', 'Position reported': 'Position gemeldet',
-  'Showing only the newest {n} per layer.': 'Es werden nur die neuesten {n} je Ebene gezeigt.',
-  'Showing the newest {n} per layer.': 'Es werden die neuesten {n} je Ebene gezeigt.',
-});
+import { t } from '../i18n.js';
 
 const LAYERS = [['parked', 'Parked places', 'a-k1'], ['charges', 'Charge locations', 'a-k3'], ['trips', 'Trip start and end', 'a-k2']];
 const key = (lat, lon) => `${lat.toFixed(3)},${lon.toFixed(3)}`;

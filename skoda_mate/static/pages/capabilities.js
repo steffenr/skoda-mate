@@ -4,19 +4,7 @@ import { h, mount } from '../lib/dom.js';
 import { icon } from '../lib/icons.js';
 import { banner, card, chip, empty, stat } from '../lib/ui.js';
 import * as f from '../lib/format.js';
-import { extendDE, t, tEnum } from '../i18n.js';
-import '../de_backend.js';
-
-extendDE({
-  'Capabilities': 'Funktionen', 'What is possible with your car': 'Was mit deinem Auto möglich ist',
-  'Everything the official Škoda API offers, what your car supports, and what Mate adds on top.': 'Alles, was die offizielle Škoda-API bietet, was dein Auto unterstützt und was Mate on top ergänzt.',
-  'commands your car supports': 'Befehle, die dein Auto unterstützt', 'data parts your car reports': 'Datenbereiche, die dein Auto meldet', 'Commands': 'Befehle', 'Data the car reports': 'Daten, die das Auto meldet', 'What Mate adds': 'Was Mate ergänzt', 'Not possible with the Škoda API': 'Mit der Škoda-API nicht möglich',
-  'supported': 'unterstützt', 'not supported': 'nicht unterstützt', 'unknown yet': 'noch unbekannt', 'reported': 'gemeldet', 'not reported': 'nicht gemeldet',
-  'present': 'vorhanden', 'unsupported': 'nicht unterstützt', 'disabled': 'deaktiviert', 'unavailable': 'nicht verfügbar', 'missing': 'fehlt', 'unknown': 'unbekannt',
-  'Open': 'Öffnen', 'Parameters': 'Parameter', 'In Mate': 'In Mate', 'fields reported': 'Felder gemeldet', 'commands supported': 'Befehle unterstützt', 'data parts available': 'Datenbereiche verfügbar',
-  'API version': 'API-Version', 'Request limit': 'Anfragelimit', 'per hour per car': 'pro Stunde und Auto', 'API reference': 'API-Referenz',
-  'Reading costs one request; every command costs one more.': 'Lesen kostet eine Anfrage; jeder Befehl eine weitere.',
-});
+import { t, tEnum } from '../i18n.js';
 
 const GROUPS = { read: 'Read', charging: 'Charging', climate: 'Climate' };
 const fmtVal = (r) => {
@@ -51,7 +39,7 @@ export default async function capabilities(root, ctx) {
       h('div', { class: 'small' }, t(o.what)),
       h('div', { class: 'tiny muted' }, `${t("Parameters")}: ${t(o.params)} · ${t("In Mate")}: ${t(o.mate)}`)),
     h('div', { class: 'row tight' }, chip(o.supported === null ? t('unknown yet') : o.supported ? t('supported') : t('not supported'), o.supported ? 'good' : o.supported === false ? 'warn' : ''),
-      o.supported === false ? null : h('a', { class: 'btn sm', href: `#/${o.page === 'overview' ? '' : o.page}` }, t('Open'))));
+      o.supported === false ? null : h('a', { class: 'btn sm', href: `#/${o.page === 'overview' ? '' : o.page}` }, t('Open##action'))));
   const ops = card(t('Commands'), h('div', { class: 'stack' }, ...Object.entries(GROUPS).map(([g, label]) =>
     h('div', { class: 'stack' }, h('h3', null, t(label)), ...data.operations.filter((o) => o.group === g).map(opRow)))), { ic: 'sliders' });
 
@@ -64,7 +52,7 @@ export default async function capabilities(root, ctx) {
 
   const derived = card(t('What Mate adds'), h('div', { class: 'stack' }, ...data.derived.map((d) =>
     h('div', { class: 'b-line' }, h('div', { style: { flex: 1 } }, h('strong', null, t(d.title)), h('div', { class: 'small' }, t(d.how))),
-      h('a', { class: 'btn sm', href: `#/${d.page}` }, t('Open'))))), { ic: 'plus' });
+      h('a', { class: 'btn sm', href: `#/${d.page}` }, t('Open##action'))))), { ic: 'plus' });
 
 
   // What the API offers but this car does not report (hidden from the data list above, stated here instead)

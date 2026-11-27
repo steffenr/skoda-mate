@@ -3,19 +3,7 @@ import { h } from './dom.js';
 import { banner, card, empty, stat } from './ui.js';
 import { lineChart } from './charts.js';
 import * as f from './format.js';
-import { extendDE, t } from '../i18n.js';
-
-extendDE({
-  'Projected range': 'Hochgerechnete Reichweite', 'At 100 % charge': 'Bei 100 % Ladung', 'Readings used': 'Verwendete Messwerte', 'outliers left out:': 'Ausreißer ausgelassen:',
-  'Trend per year': 'Trend pro Jahr', 'First to last 90 days': 'Erste und letzte 90 Tage',
-  'A comparison appears once two separate 90-day periods have enough readings.': 'Ein Vergleich erscheint, sobald zwei getrennte 90-Tage-Zeiträume genug Messwerte haben.',
-  'Projected range over time': 'Hochgerechnete Reichweite im Zeitverlauf',
-  'No projected range yet': 'Noch keine hochgerechnete Reichweite',
-  'It needs readings with a charge level of at least 20 % and a reported range.': 'Dafür braucht es Messwerte mit mindestens 20 % Ladestand und gemeldeter Reichweite.',
-  'Projected range from reported range.': 'Aus der gemeldeten Reichweite hochgerechnet.',
-  'It scales the range the car reports to 100 % charge. Temperature, load and driving style are unknown and move it, for example with the seasons.':
-    'Die vom Auto gemeldete Reichweite wird auf 100 % Ladung hochgerechnet. Temperatur, Beladung und Fahrweise sind unbekannt und verschieben den Wert, zum Beispiel mit den Jahreszeiten.',
-});
+import { t } from '../i18n.js';
 
 const signed = (v, digits) => `${v > 0 ? '+' : ''}${f.num(v, digits)}`;
 const noon = (day) => `${day}T12:00:00`;  // a bare date would be read as UTC and could show the day before

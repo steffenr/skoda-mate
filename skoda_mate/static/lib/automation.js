@@ -4,30 +4,7 @@ import { h, mount } from './dom.js';
 import { icon } from './icons.js';
 import { asyncButton, banner, button, card, chip, confirmDialog, field, loading, modal, toast } from './ui.js';
 import * as f from './format.js';
-import { extendDE, t } from '../i18n.js';
-
-extendDE({
-  'Automation': 'Automatisierung', 'Webhooks': 'Webhooks',
-  'Mate sends signed JSON to your own address when something happens, for example to Home Assistant, Node-RED or n8n.': 'Mate sendet signiertes JSON an deine eigene Adresse, wenn etwas passiert, zum Beispiel an Home Assistant, Node-RED oder n8n.',
-  'No webhooks yet.': 'Noch keine Webhooks.', 'Add webhook': 'Webhook hinzufügen', 'Edit webhook': 'Webhook bearbeiten', 'Edit': 'Bearbeiten', 'Name': 'Name', 'URL': 'URL',
-  'Events': 'Ereignisse', 'events': 'Ereignisse', 'Enabled': 'Aktiviert', 'Disabled': 'Deaktiviert', 'Save': 'Speichern', 'Cancel': 'Abbrechen', 'Close': 'Schließen', 'Delete': 'Löschen',
-  'The events, including your car’s name and VIN and the names of your places, leave Mate and go to this address. Use an address you trust; https:// keeps them private on the way.': 'Die Ereignisse, mit Name und FIN deines Autos und den Namen deiner Orte, verlassen Mate und gehen an diese Adresse. Verwende nur eine Adresse, der du vertraust; https:// schützt sie auf dem Weg.',
-  'Signing secret': 'Signatur-Geheimnis', 'Copy it now. Mate will not show it again.': 'Jetzt kopieren. Mate zeigt es nicht noch einmal an.',
-  'Your receiver checks the X-Skoda-Mate-Signature header with it.': 'Dein Empfänger prüft damit den Header X-Skoda-Mate-Signature.',
-  'Copy': 'Kopieren', 'Copied': 'Kopiert', 'Could not copy. Select the text and copy it yourself.': 'Kopieren nicht möglich. Markiere den Text und kopiere ihn selbst.', 'Done': 'Fertig',
-  'New secret': 'Neues Geheimnis', 'Create a new secret?': 'Neues Geheimnis erzeugen?', 'The old secret stops working at once. Your receiver needs the new one.': 'Das alte Geheimnis gilt sofort nicht mehr. Dein Empfänger braucht das neue.',
-  'Delete this webhook?': 'Diesen Webhook löschen?', 'Its delivery log is deleted too.': 'Das Zustellprotokoll wird mit gelöscht.', 'Webhook deleted': 'Webhook gelöscht', 'Webhook saved': 'Webhook gespeichert',
-  'Send test': 'Test senden', 'The test was delivered.': 'Der Test wurde zugestellt.', 'The test failed': 'Der Test ist fehlgeschlagen',
-  'Deliveries': 'Zustellungen', 'Last 20 deliveries': 'Letzte 20 Zustellungen', 'Nothing was sent yet.': 'Noch nichts gesendet.', 'Retry': 'Erneut senden', 'Queued again': 'Erneut eingereiht',
-  'Delivered': 'Zugestellt', 'Failed': 'Fehlgeschlagen', 'Waiting': 'Wartet', 'Sending': 'Wird gesendet', 'attempts': 'Versuche', 'attempt': 'Versuch', 'next try': 'nächster Versuch', 'Last delivery': 'Letzte Zustellung',
-  'The secret cannot be read. Create a new secret.': 'Das Geheimnis ist nicht lesbar. Erzeuge ein neues.',
-  'Low-battery warning below (%)': 'Warnung bei niedrigem Akku unter (%)', 'The “Battery low” event is sent when the charge level falls below this value.': 'Das Ereignis „Akku niedrig“ wird gesendet, wenn der Ladestand unter diesen Wert fällt.',
-  'Could not load the webhooks': 'Webhooks konnten nicht geladen werden', 'Saved': 'Gespeichert',
-  'Driving': 'Fahren', 'Charging': 'Laden', 'Climate': 'Klima', 'Security': 'Sicherheit', 'Places': 'Orte', 'System': 'System',
-  'Trip started': 'Fahrt begonnen', 'Trip ended': 'Fahrt beendet', 'Charging started': 'Laden begonnen', 'Charging ended': 'Laden beendet', 'Charge limit reached': 'Ladelimit erreicht',
-  'Cable plugged in': 'Kabel eingesteckt', 'Cable unplugged': 'Kabel gezogen', 'Battery low': 'Akku niedrig', 'Climate started': 'Klimatisierung gestartet', 'Climate stopped': 'Klimatisierung beendet',
-  'Doors opened': 'Türen geöffnet', 'Windows opened': 'Fenster geöffnet', 'Arrived at a place': 'An einem Ort angekommen', 'Left a place': 'Einen Ort verlassen', 'Car data cannot be read': 'Fahrzeugdaten nicht lesbar', 'Test': 'Test',
-});
+import { t } from '../i18n.js';
 
 const EVENT_LABEL = {
   'trip.started': 'Trip started', 'trip.ended': 'Trip ended', 'charge.started': 'Charging started', 'charge.ended': 'Charging ended', 'charge.completed': 'Charge limit reached',

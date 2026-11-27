@@ -5,36 +5,7 @@ import { h, mount } from '../lib/dom.js';
 import { icon } from '../lib/icons.js';
 import { asyncButton, banner, button, card, chip, empty, field, stat, table, toast } from '../lib/ui.js';
 import * as f from '../lib/format.js';
-import { extendDE, t } from '../i18n.js';
-
-extendDE({
-  'Import trips': 'Fahrten importieren', 'Back to trips': 'Zurück zu den Fahrten',
-  'How to export your trips from the MyŠkoda app': 'So exportierst du deine Fahrten aus der MyŠkoda-App',
-  'Open the MyŠkoda app and select your car.': 'Öffne die MyŠkoda-App und wähle dein Auto.',
-  'Open the trip statistics (the list of your trips). Menu names can differ slightly between app versions.': 'Öffne die Fahrtstatistik (die Liste deiner Fahrten). Die Menünamen können sich je nach App-Version leicht unterscheiden.',
-  'Choose the period you want and use the export (share) button to save a CSV file. The app names it tripStatistics_<VIN>.csv, or tripStatistics_from_DDMMYYYY_to_DDMMYYYY_<VIN>.csv for a chosen period.': 'Wähle den gewünschten Zeitraum und speichere mit der Export-Schaltfläche (Teilen) eine CSV-Datei. Die App nennt sie tripStatistics_<FIN>.csv, bei einem gewählten Zeitraum tripStatistics_from_TTMMJJJJ_to_TTMMJJJJ_<FIN>.csv.',
-  'Move the file(s) to this computer (AirDrop, e-mail, cloud drive) and choose them below. You can pick several files at once.': 'Übertrage die Datei(en) auf diesen Computer (AirDrop, E-Mail, Cloud) und wähle sie unten aus. Du kannst mehrere Dateien gleichzeitig wählen.',
-  'The app cannot export the whole history.': 'Die App kann nicht die gesamte Historie exportieren.',
-  'It looks like the app only keeps roughly the last seven months of trips: in a sample export the oldest trip was from 30 April 2026, although the car had driven over 33,000 km before that. Export what the app offers, and repeat the export now and then (for example monthly). From now on Mate keeps the history itself; you only need the import for the time before Mate started.': 'Es sieht so aus, als behielte die App nur etwa die letzten sieben Monate an Fahrten: In einer Beispiel-Exportdatei stammte die älteste Fahrt vom 30. April 2026, obwohl das Auto davor über 33.000 km gefahren war. Exportiere, was die App anbietet, und wiederhole den Export ab und zu (zum Beispiel monatlich). Ab jetzt führt Mate die Historie selbst; der Import ist nur für die Zeit vor Mates Start nötig.',
-  'Your files': 'Deine Dateien', 'Time zone of the export': 'Zeitzone des Exports',
-  'The export contains local times without a time zone. Use the zone where the car is driven.': 'Der Export enthält Ortszeiten ohne Zeitzone. Nimm die Zone, in der das Auto gefahren wird.',
-  'CSV files': 'CSV-Dateien', 'Check the files (nothing is saved)': 'Dateien prüfen (es wird nichts gespeichert)', 'Choose at least one CSV file first.': 'Wähle zuerst mindestens eine CSV-Datei.',
-  'Preview': 'Vorschau', 'Imported': 'Importiert', 'new trips': 'neue Fahrten', 'already known': 'bereits bekannt', 'completed with the car’s figures': 'mit den Werten des Autos ergänzt',
-  'repeated in your files': 'in deinen Dateien doppelt', 'without distance (skipped)': 'ohne Strecke (übersprungen)', 'Period': 'Zeitraum', 'Distance': 'Strecke',
-  'public charging stops found': 'öffentliche Ladestopps gefunden', 'overnight charges derived': 'nächtliche Ladevorgänge abgeleitet',
-  'Import {n} trips': 'Importiere {n} Fahrten', 'Nothing new to import.': 'Es gibt nichts Neues zu importieren.',
-  'Nothing was saved yet. Press import to add the new trips.': 'Es wurde noch nichts gespeichert. Drücke „Importieren“, um die neuen Fahrten hinzuzufügen.',
-  'Done. You can import the same files again at any time: nothing is added twice.': 'Fertig. Du kannst dieselben Dateien jederzeit erneut importieren: Nichts wird doppelt angelegt.',
-  'Open the trips': 'Fahrten ansehen', 'Statistics': 'Statistik',
-  'How duplicates are handled': 'Wie Duplikate behandelt werden',
-  'The same trip in several files (overlapping periods, the full export plus a period) is counted once.': 'Dieselbe Fahrt in mehreren Dateien (überlappende Zeiträume, der komplette Export plus ein Zeitraum) wird nur einmal gezählt.',
-  'A trip Mate already has (recorded by Mate or fetched earlier) is recognised by its start time and distance or its odometer range, and is completed with the car’s own figures instead of being added again. Your notes stay.': 'Eine Fahrt, die Mate schon hat (von Mate aufgezeichnet oder früher geladen), wird an Startzeit und Strecke oder am Kilometerstand erkannt und mit den Werten des Autos ergänzt, statt erneut angelegt. Deine Notizen bleiben.',
-  'Nothing is ever deleted, and an export of another car is refused.': 'Es wird nie etwas gelöscht, und der Export eines anderen Autos wird abgelehnt.',
-  'Rows without a distance (the car was on but did not move) are skipped.': 'Zeilen ohne Strecke (das Auto war an, ist aber nicht gefahren) werden übersprungen.',
-  'Trips with public charging stops also add one charge each; overnight charges are derived from the charge levels between trips (marked “inferred”).': 'Fahrten mit öffentlichen Ladestopps legen zusätzlich je einen Ladevorgang an; nächtliche Ladevorgänge werden aus den Ladeständen zwischen den Fahrten abgeleitet (als „abgeleitet“ markiert).',
-  'in these files': 'in diesen Dateien', 'counted once': 'einmal gezählt', 'Some files or rows could not be used:': 'Einige Dateien oder Zeilen konnten nicht verwendet werden:',
-  'new': 'neu', 'known': 'bekannt', 'completed': 'ergänzt', 'Start': 'Start', 'From': 'Von', 'To': 'Nach', 'Status': 'Status', 'file': 'Datei', 'files': 'Dateien', 'rows': 'Zeilen', 'trips': 'Fahrten',
-});
+import { t } from '../i18n.js';
 
 const STATUS = { new: ['new', 'good'], updated: ['completed', 'info'], unchanged: ['known', ''] };
 
@@ -80,7 +51,7 @@ export default async function importPage(root, ctx) {
         !r.dry_run && r.charges_inferred ? `${r.charges_inferred} ${t('overnight charges derived')}` : null].filter(Boolean).join(' · ')),
       r.preview.length ? table([
         { label: t('Start'), render: (x) => f.dateTime(x.start), cls: 'nowrap' }, { label: t('From'), render: (x) => f.shortPlace(x.from) },
-        { label: t('To'), render: (x) => f.shortPlace(x.to) }, { label: t('Distance'), render: (x) => f.km(x.km, 0), num: true },
+        { label: t('To##place'), render: (x) => f.shortPlace(x.to) }, { label: t('Distance'), render: (x) => f.km(x.km, 0), num: true },
         { label: t('Status'), render: (x) => chip(t(STATUS[x.status][0]), STATUS[x.status][1]) }], r.preview, { label: t('Import preview') }) : null);
   }
 

@@ -67,7 +67,7 @@ export function carView(o) {
   // ---- what is going on right now (only when it is): charging line, driving, climate. Parked / plugged are shown elsewhere.
   const live = [];
   // charging details live next to the battery on the overview; the car only shows its own state
-  if (snap.in_motion) live.push(chip(t('Driving'), 'info', 'route'));
+  if (snap.in_motion) live.push(chip(t('Driving##state'), 'info', 'route'));
   if (snap.climate_state && !['OFF', 'UNKNOWN', 'UNSUPPORTED', 'COMPLETED'].includes(snap.climate_state)) live.push(chip(`${t('Climate')} ${snap.climate_state.toLowerCase()}`, 'info', 'thermo'));
 
   return h('div', { class: 'carcard' }, summary, box, h('div', { class: 'cs-grid' }, ...cells), live.length ? h('div', { class: 'badges' }, ...live) : null);

@@ -1,14 +1,10 @@
 // The "below the detection floor" display shared by the Overview parked card and Statistics → Parked. The charge level is
 // a whole percent, so a stand that lost less than one percent has a median or a total of exactly zero: that reads as
 // "below the detection floor", never as a measured 0.0.
-import { extendDE, t } from '../i18n.js';
+import { t } from '../i18n.js';
 import { h } from './dom.js';
 import * as f from './format.js';
 import { stat } from './ui.js';
-
-extendDE({
-  'below the detection floor': 'unter der Nachweisgrenze', 'Median loss': 'Medianverlust', 'kWh/day': 'kWh/Tag',
-});
 
 export const floorText = () => t('below the detection floor');
 export const belowFloor = (cls = 'small muted') => h('span', { class: cls }, floorText());

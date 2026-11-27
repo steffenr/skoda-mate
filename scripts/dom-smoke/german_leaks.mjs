@@ -12,8 +12,7 @@ const seen = new Map();
 for (const r of ROUTES) {
   await p.goto(`${BASE}/#/${r}`, { waitUntil: 'networkidle0' }); await p.reload({ waitUntil: 'networkidle0' }); await new Promise((x) => setTimeout(x, 2200));
   const leaks = await p.evaluate(async () => {
-    const { dictionary } = await import('/static/i18n.js');
-    const DE = dictionary();
+    const DE = await (await fetch('/static/i18n/de.json')).json();
     const english = new Map(Object.entries(DE).filter(([k, v]) => k !== v).map(([k]) => [k, true]));
     const out = [];
     const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);

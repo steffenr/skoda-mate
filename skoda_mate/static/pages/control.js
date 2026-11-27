@@ -4,58 +4,11 @@ import { h, mount } from '../lib/dom.js';
 import { icon } from '../lib/icons.js';
 import { asyncButton, banner, button, card, chip, empty, field, loading, table, toast } from '../lib/ui.js';
 import * as f from '../lib/format.js';
-import { extendDE, t } from '../i18n.js';
+import { t } from '../i18n.js';
 import { estimateNote, liveSoc } from '../lib/livesoc.js';
-import '../de_backend.js';
-
-extendDE({
-  'No remote commands available.': 'Keine Fernbefehle verfügbar.', 'Your car does not offer any, or Mate does not know yet which ones it supports.': 'Dein Auto bietet keine an, oder Mate weiß noch nicht, welche es unterstützt.',
-  'Only supported controls are shown.': 'Es werden nur unterstützte Steuerungen angezeigt.', 'Everything else, with the reason, is listed under Capabilities.': 'Alles andere steht mit Begründung unter „Funktionen“.', 'Open Capabilities': 'Funktionen öffnen',
-  'Control': 'Steuerung', 'Charging': 'Laden', 'Climate': 'Klima', 'Auxiliary heater': 'Standheizung', 'Ventilation': 'Lüftung',
-  'Start charging': 'Laden starten', 'Stop charging': 'Laden stoppen', 'Set charge limit': 'Ladelimit setzen', 'Set charge mode': 'Lademodus setzen',
-  'Update charging profile': 'Ladeprofil ändern', 'Start climate': 'Klima starten', 'Stop climate': 'Klima stoppen',
-  'Start auxiliary heating': 'Standheizung starten', 'Stop auxiliary heating': 'Standheizung stoppen',
-  'Start ventilation': 'Lüftung starten', 'Stop ventilation': 'Lüftung stoppen',
-  'Not supported by this car': 'Von diesem Auto nicht unterstützt', 'Supported operations not known yet': 'Unterstützte Funktionen noch nicht bekannt',
-  'Request performed': 'Anfrage ausgeführt', 'The car confirms with the next reading.': 'Das Auto bestätigt mit der nächsten Messung.',
-  'Waiting for confirmation': 'Warte auf Bestätigung', 'Škoda accepted the request. Mate reads the car again in about 45 seconds.': 'Škoda hat die Anfrage angenommen. Mate liest das Auto in etwa 45 Sekunden erneut aus.',
-  'Charge limit': 'Ladelimit', 'Charge limit now': 'Aktuelles Ladelimit', 'Set limit': 'Limit setzen', 'Charge mode': 'Lademodus', 'Set mode': 'Modus setzen',
-  'Plugged in, not charging': 'Angesteckt, lädt nicht', 'Cable not connected': 'Kabel nicht verbunden', 'Conserving (battery care)': 'Schonend (Batterieschutz)',
-  'Discharging': 'Entlädt', 'Charging interrupted': 'Laden unterbrochen', 'Unknown': 'Unbekannt', 'remaining': 'verbleibend',
-  'Manual': 'Manuell', 'Timer': 'Timer', 'Timer with climate': 'Timer mit Klimatisierung', 'Preferred charging times': 'Bevorzugte Ladezeiten',
-  'Only own current': 'Nur eigener Strom', 'Immediate discharging': 'Sofort entladen', 'Home storage charging': 'Heimspeicher-Laden',
-  'Target temperature': 'Zieltemperatur', 'Without external power': 'Ohne externe Stromversorgung', 'Running': 'Läuft', 'Off': 'Aus', 'target': 'Ziel', 'ready': 'fertig',
-  'Duration (minutes)': 'Dauer (Minuten)', 'Mode': 'Modus', 'Heating': 'Heizen', 'Ventilation only': 'Nur Lüften',
-  'The auxiliary heater needs your S-PIN.': 'Die Standheizung braucht deine S-PIN.', 'Add it under Settings.': 'Hinterlege sie unter Einstellungen.',
-  'Charging profiles': 'Ladeprofile', 'Profile name': 'Profilname', 'Target charge': 'Ziel-Ladestand', 'Maximum current': 'Maximaler Strom',
-  'Reduced': 'Reduziert', 'Maximum': 'Maximal', 'Unlock plug when charged': 'Stecker nach dem Laden entriegeln', 'Permanent': 'Dauerhaft',
-  'Minimum charge': 'Mindest-Ladestand', 'Keep at least this charge': 'Mindestens diesen Ladestand halten', 'Minimum charge level': 'Mindest-Ladestand in %',
-  'Preferred charging times': 'Bevorzugte Ladezeiten', 'Timers': 'Timer', 'Enabled': 'Aktiv', 'From': 'Von', 'To': 'Bis', 'Add time window': 'Zeitfenster hinzufügen',
-  'Add timer': 'Timer hinzufügen', 'Remove': 'Entfernen', 'Time': 'Uhrzeit', 'Type': 'Typ', 'One-off': 'Einmalig', 'Recurring': 'Wiederkehrend', 'Day': 'Tag',
-  'Save profile': 'Profil speichern', 'Discard changes': 'Änderungen verwerfen', 'unsaved changes': 'nicht gespeicherte Änderungen',
-  'No charging profiles reported.': 'Keine Ladeprofile gemeldet.', 'none': 'keine', 'No windows set': 'Keine Zeitfenster', 'No timers set': 'Keine Timer',
-  'Command log': 'Befehlsprotokoll', 'No commands sent yet.': 'Noch keine Befehle gesendet.', 'Command': 'Befehl', 'Result': 'Ergebnis', 'Sent': 'Gesendet',
-  'Failed': 'Fehlgeschlagen', 'When': 'Wann', 'Details': 'Details', 'Request budget': 'Anfragebudget', 'requests used this hour': 'Anfragen in dieser Stunde verbraucht',
-  'Every command costs 1 of the 20 requests per hour Škoda allows per car.': 'Jeder Befehl kostet 1 der 20 Anfragen pro Stunde, die Škoda pro Auto erlaubt.',
-  'Not available through the Škoda API': 'Über die Škoda-API nicht verfügbar',
-  'Lock, unlock, honk, flash and wake-up do not exist in the official API.': 'Verriegeln, Entriegeln, Hupen, Blinken und Aufwecken gibt es in der offiziellen API nicht.',
-  'See what else is missing': 'Weitere fehlende Funktionen ansehen', 'Could not load the command list': 'Befehlsliste konnte nicht geladen werden',
-  'Try again': 'Erneut versuchen', 'Choose a temperature between 15.5 and 30 °C.': 'Wähle eine Temperatur zwischen 15,5 und 30 °C.',
-  'Choose a duration between 5 and 60 minutes.': 'Wähle eine Dauer zwischen 5 und 60 Minuten.', 'Not known': 'Unbekannt',
-  'Limit steps': 'Schritte von 10 %', 'Most cars accept the charge limit in steps of 10 %.': 'Die meisten Autos akzeptieren das Ladelimit in 10-%-Schritten.',
-  'Name must not be empty.': 'Der Name darf nicht leer sein.', 'Target charge must be between 1 and 100 %.': 'Der Ziel-Ladestand muss zwischen 1 und 100 % liegen.',
-  'Minimum charge must be between 1 and 100 %.': 'Der Mindest-Ladestand muss zwischen 1 und 100 % liegen.',
-  'Charging times need a start and an end time.': 'Ladezeiten brauchen Start- und Endzeit.', 'Timers need a time.': 'Timer brauchen eine Uhrzeit.',
-  'Recurring timers need at least one weekday.': 'Wiederkehrende Timer brauchen mindestens einen Wochentag.',
-  'No S-PIN is stored.': 'Es ist keine S-PIN gespeichert.', 'Charging profile at the current position': 'Ladeprofil am aktuellen Standort', 'next charge': 'nächstes Laden', 'next free in': 'frei in',
-  'No reading yet': 'Noch keine Messung', 'Mate is asking Škoda for the first time. This takes a moment.': 'Mate fragt Škoda zum ersten Mal ab. Das dauert einen Moment.',
-  'Increase': 'Erhöhen', 'Decrease': 'Verringern', 'Current state': 'Aktueller Zustand', 'Windows heating': 'Scheibenheizung',
-  'MON': 'Mo', 'TUE': 'Di', 'WED': 'Mi', 'THU': 'Do', 'FRI': 'Fr', 'SAT': 'Sa', 'SUN': 'So',
-  'Monday': 'Montag', 'Tuesday': 'Dienstag', 'Wednesday': 'Mittwoch', 'Thursday': 'Donnerstag', 'Friday': 'Freitag', 'Saturday': 'Samstag', 'Sunday': 'Sonntag',
-});
 
 const CHARGE_STATE = {
-  CHARGING: ['Charging', 'good'], READY_FOR_CHARGING: ['Plugged in, not charging', 'info'], CONNECT_CABLE: ['Cable not connected', ''],
+  CHARGING: ['Charging##state', 'good'], READY_FOR_CHARGING: ['Plugged in, not charging', 'info'], CONNECT_CABLE: ['Cable not connected', ''],
   CONSERVING: ['Conserving (battery care)', 'info'], DISCHARGING: ['Discharging', 'warn'], CHARGING_INTERRUPTED: ['Charging interrupted', 'warn'],
 };
 const MODE_LABEL = {

@@ -1,17 +1,8 @@
 // Data-quality names, shared by the System page (the Data quality card) and the Activity List tab (the quality_fix and
 // quality_review events), so a check or repair has one label in both places. Ids are quality.CHECKS / quality.ACTIONS.
-import { extendDE, t } from '../i18n.js';
+import { t } from '../i18n.js';
 import { h } from './dom.js';
 import * as f from './format.js';
-
-extendDE({
-  'Trips that never ended': 'Fahrten ohne Ende', 'Charges that never ended': 'Ladevorgänge ohne Ende', 'Charges with an estimated end': 'Ladevorgänge mit geschätztem Ende',
-  'Charges inferred from battery readings': 'Aus Batteriewerten abgeleitete Ladevorgänge', 'Approximate trips': 'Ungefähre Fahrten', 'Long gaps between readings': 'Lange Lücken zwischen Messungen',
-  'Odometer jumps or decreases': 'Sprünge oder Rückgänge im Kilometerstand', 'Groups of duplicate trips': 'Gruppen doppelter Fahrten', 'API errors in the last 24 h': 'API-Fehler in den letzten 24 h',
-  'Operations stuck for over 30 min': 'Seit über 30 min hängende Vorgänge', 'Data sections missing': 'Fehlende Datenbereiche',
-  'Close open trips': 'Offene Fahrten abschließen', 'Close open charges': 'Offene Ladevorgänge abschließen', 'Repair charges': 'Ladevorgänge reparieren',
-  'Add inferred charges': 'Abgeleitete Ladevorgänge ergänzen', 'Merge duplicate trips': 'Doppelte Fahrten zusammenführen',
-});
 
 const CHECK = {
   open_trips: 'Trips that never ended', open_charges: 'Charges that never ended', estimated_charges: 'Charges with an estimated end', inferred_charges: 'Charges inferred from battery readings',
@@ -26,15 +17,6 @@ const ACTION = {
 // What each repair does to a row, in words a user can check against the trip or charge page. Mirrors quality.py:
 // `_close_open_trips` / `_close_open_charges` (the end rules shared with activity.PARKED / NOT_CHARGING) and
 // `_dedupe_trips` (the oldest row keeps its numbers, the copies go into merged_json, notes are joined).
-extendDE({
-  'Each trip gets an end: the first reading after its start that shows the car parked, otherwise its last reading. The trip is then marked as approximate.':
-    'Jede Fahrt bekommt ein Ende: die erste Messung nach ihrem Beginn, die das Auto geparkt zeigt, sonst ihre letzte Messung. Die Fahrt gilt danach als ungefähr.',
-  'Each charge gets an end: the first reading after its start that shows the car no longer charging, otherwise its last charging reading. The end is marked as estimated.':
-    'Jeder Ladevorgang bekommt ein Ende: die erste Messung nach seinem Beginn, die zeigt, dass das Auto nicht mehr lädt, sonst seine letzte Lademessung. Das Ende gilt als geschätzt.',
-  'Each group becomes one trip: the oldest trip keeps its numbers and the notes of all copies. The copies leave the lists but are saved with it, and "Undo merge" on the trip page restores them.':
-    'Jede Gruppe wird zu einer Fahrt: Die älteste Fahrt behält ihre Werte und die Notizen aller Kopien. Die Kopien verschwinden aus den Listen, bleiben aber bei ihr gespeichert; „Zusammenführen rückgängig“ auf der Fahrtseite stellt sie wieder her.',
-  'Findings you marked as reviewed stay as they are.': 'Als geprüft markierte Funde bleiben, wie sie sind.',
-});
 const EXPLAIN = {
   close_open_trips: 'Each trip gets an end: the first reading after its start that shows the car parked, otherwise its last reading. The trip is then marked as approximate.',
   close_open_charges: 'Each charge gets an end: the first reading after its start that shows the car no longer charging, otherwise its last charging reading. The end is marked as estimated.',
@@ -56,12 +38,6 @@ export const actionLabel = (action) => (ACTION[action] ? t(ACTION[action]) : act
 // ---- one line per finding, built from the sample's structured fields (quality.py `_sample`): translated words plus
 // formatted dates and numbers, never the backend's English `label` (which stays for other API clients and is the
 // fallback for a kind this code does not know).
-extendDE({
-  'Review undone': 'Prüfung zurückgenommen', 'review undone': 'Prüfung zurückgenommen',
-  'Trip': 'Fahrt', 'Charge': 'Ladevorgang', 'Gap': 'Lücke', 'Silent since': 'Stumm seit', 'Odometer': 'Kilometerstand', 'failed': 'fehlgeschlagen',
-  'Section': 'Abschnitt', 'missing': 'fehlt', 'Vehicle information': 'Fahrzeuginformationen', 'Charging data': 'Ladedaten', 'Climate data': 'Klimadaten',
-  'Position data': 'Positionsdaten',
-});
 
 const SECTION = { info: 'Vehicle information', charging: 'Charging data', climate: 'Climate data', position: 'Position data' };
 

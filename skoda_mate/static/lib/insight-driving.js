@@ -4,18 +4,7 @@ import { card, empty, stat, table } from './ui.js';
 import { barChart } from './charts.js';
 import { heatmap } from './heatmap.js';
 import * as f from './format.js';
-import { extendDE, t } from '../i18n.js';
-
-extendDE({
-  'No trips in this period': 'Keine Fahrten in diesem Zeitraum', 'Pick a longer period to see driving insight.': 'Wähle einen längeren Zeitraum, um die Fahrtenauswertung zu sehen.',
-  'Average trip': 'Durchschnittliche Fahrt', 'average duration': 'mittlere Dauer', 'Projected distance per year': 'Hochgerechnete Strecke pro Jahr',
-  'A projection from the odometer over this many days:': 'Eine Hochrechnung aus dem Kilometerstand über so viele Tage:',
-  'Top destinations': 'Häufigste Ziele', 'Destination': 'Ziel', 'Trip lengths': 'Fahrtlängen', 'Number of trips by distance': 'Anzahl der Fahrten nach Strecke',
-  'Longest trips': 'Längste Fahrten', 'Date': 'Datum', 'Route': 'Route', 'From': 'Von', 'To': 'Nach',
-  'When you drive': 'Wann du fährst', 'Trips by weekday and start hour': 'Fahrten nach Wochentag und Startstunde',
-  'Trips with an estimated start time are left out of the heatmap:': 'Fahrten mit geschätzter Startzeit fehlen in der Wochenübersicht:',
-  'Consumption trend': 'Verbrauchstrend', 'No consumption yet': 'Noch kein Verbrauch',
-});
+import { t } from '../i18n.js';
 
 const MI = 0.621371;
 const DASH = '–';

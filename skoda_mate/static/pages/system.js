@@ -5,58 +5,7 @@ import { asyncButton, banner, button, card, chip, confirmDialog, empty, kv, load
 import capabilitiesPage from './capabilities.js';
 import * as f from '../lib/format.js';
 import { checkLabel, fixExplanation, sampleNode } from '../lib/quality.js';
-import { extendDE, t } from '../i18n.js';
-
-extendDE({
-  'Skip to content': 'Zum Inhalt springen', 'Table': 'Tabelle', 'Commands sent': 'Gesendete Befehle', 'Monthly statistics': 'Monatsstatistik', 'Import preview': 'Importvorschau',
-  'Status': 'Status', 'Capabilities': 'Funktionen', 'API calls': 'API-Aufrufe', 'Diagnostics': 'Diagnose', 'System sections': 'Bereiche von System',
-  'Newer': 'Neuer', 'Older': 'Älter', 'Only failed': 'Nur fehlgeschlagene', 'No failed calls.': 'Keine fehlgeschlagenen Aufrufe.', 'Calls': 'Aufrufe', 'Pages': 'Seiten',
-  'System': 'System', 'Request budget': 'Anfragebudget', 'Requests used in the last hour': 'Anfragen in der letzten Stunde', 'Request limit': 'Anfragelimit',
-  'Reserved for commands': 'Für Befehle reserviert', 'Left for reading': 'Zum Auslesen übrig', 'Left for commands': 'Für Befehle übrig', 'Škoda reports remaining': 'Škoda meldet noch',
-  'Next free slot in': 'Nächster freier Platz in', 'Limit reached': 'Limit erreicht', 'Within the limit': 'Im Rahmen des Limits',
-  'Škoda allows about 20 requests per hour per car. Every reading and every command costs one request.': 'Škoda erlaubt etwa 20 Anfragen pro Stunde und Auto. Jede Messung und jeder Befehl kostet eine Anfrage.',
-  'Polling status': 'Abfragestatus', 'Last successful reading': 'Letzte erfolgreiche Messung', 'Car reported': 'Auto meldete', 'Next reading in': 'Nächste Messung in', 'Readings so far': 'Bisherige Messungen',
-  'Mode': 'Modus', 'Active (car is busy)': 'Aktiv (Auto ist beschäftigt)', 'Idle': 'Ruhe', 'Intervals': 'Intervalle', 'idle': 'Ruhe', 'active': 'aktiv', 'Blocked': 'Gesperrt', 'Last error': 'Letzter Fehler',
-  'API key expires': 'API-Schlüssel läuft ab', 'Not connected': 'Nicht verbunden', 'Reading is blocked until the key is replaced.': 'Das Auslesen ist gesperrt, bis der Schlüssel ersetzt wird.', 'none': 'keiner',
-  'Recent API calls': 'Letzte API-Aufrufe', 'When': 'Wann', 'Endpoint': 'Endpunkt', 'Result': 'Ergebnis', 'OK': 'OK', 'Failed': 'Fehlgeschlagen', 'No calls yet.': 'Noch keine Aufrufe.',
-  'Could not load': 'Konnte nicht geladen werden', 'Try again': 'Erneut versuchen',
-  'Data parts': 'Datenbereiche', 'What the car reports, part by part.': 'Was das Auto meldet, Bereich für Bereich.', 'Part': 'Bereich', 'State': 'Status', 'Reason': 'Grund',
-  'present': 'vorhanden', 'unsupported': 'nicht unterstützt', 'disabled': 'deaktiviert', 'unavailable': 'nicht verfügbar', 'missing': 'fehlt', 'unknown': 'unbekannt',
-  'Errors reported by Škoda': 'Von Škoda gemeldete Fehler', 'No errors reported.': 'Keine Fehler gemeldet.',
-  'Supported operations': 'Unterstützte Funktionen', 'Remote operations this car accepts. Controls for anything else are shown disabled.': 'Fernfunktionen, die dieses Auto akzeptiert. Alles andere ist in der Steuerung deaktiviert.',
-  'Not known yet. Mate has not received the list from Škoda.': 'Noch nicht bekannt. Mate hat die Liste noch nicht von Škoda erhalten.', 'This car supports no remote operations.': 'Dieses Auto unterstützt keine Fernfunktionen.',
-  'Not available through the official Škoda API': 'Über die offizielle Škoda-API nicht verfügbar', 'These things exist in other apps but the public API does not offer them, so Mate does not pretend to.': 'Das gibt es in anderen Apps, die öffentliche API bietet es aber nicht. Mate tut deshalb nicht so, als ginge es.',
-  'Raw data': 'Rohdaten', 'Show raw data': 'Rohdaten anzeigen', 'Hide raw data': 'Rohdaten ausblenden',
-  'The raw answer contains your VIN, licence plate and exact position. Do not post it publicly.': 'Die Rohdaten enthalten FIN, Kennzeichen und genaue Position. Poste sie nicht öffentlich.',
-  'The last answer exactly as Škoda sent it.': 'Die letzte Antwort genau so, wie Škoda sie gesendet hat.', 'No raw data stored yet.': 'Noch keine Rohdaten gespeichert.',
-  'Diagnostics': 'Diagnose', 'Download diagnostics': 'Diagnose herunterladen',
-  'A report for bug reports: poller status, data parts, supported operations, recent calls and commands, and the answer from Škoda with VIN, plate, name, position and profile names removed. The API key and S-PIN are never included.':
-    'Ein Bericht für Fehlermeldungen: Abfragestatus, Datenbereiche, unterstützte Funktionen, letzte Aufrufe und Befehle sowie die Antwort von Škoda ohne FIN, Kennzeichen, Name, Position und Profilnamen. API-Schlüssel und S-PIN sind nie enthalten.',
-  'App': 'App', 'Version': 'Version', 'Health': 'Zustand', 'Connected to Škoda': 'Mit Škoda verbunden', 'Last successful contact': 'Letzter erfolgreicher Kontakt', 'Healthy': 'In Ordnung', 'Demo mode': 'Demo-Modus', 'yes': 'ja', 'no': 'nein',
-  'Start charging': 'Laden starten', 'Stop charging': 'Laden stoppen', 'Set charge limit': 'Ladelimit setzen', 'Set charge mode': 'Lademodus setzen', 'Update charging profile': 'Ladeprofil ändern',
-  'Start climate': 'Klima starten', 'Stop climate': 'Klima stoppen', 'Start auxiliary heating': 'Standheizung starten', 'Stop auxiliary heating': 'Standheizung stoppen',
-  'Start ventilation': 'Lüftung starten', 'Stop ventilation': 'Lüftung stoppen',
-  'Lock / unlock': 'Verriegeln / Entriegeln', 'Honk, flash, wake-up': 'Hupen, Blinken, Aufwecken', 'Trip history from the car': 'Fahrtenverlauf vom Auto', 'Driving route and speed trace': 'Fahrstrecke und Geschwindigkeitsverlauf',
-  'Charging history import': 'Import des Ladeverlaufs', 'Battery health (SoH)': 'Batteriezustand (SoH)', 'Battery capacity': 'Batteriekapazität', 'Outside temperature': 'Außentemperatur',
-  'Service, inspection, warning lights, software version': 'Service, Inspektion, Warnleuchten, Softwareversion', 'Seat and steering-wheel heating, climate timers': 'Sitz- und Lenkradheizung, Klima-Timer',
-  'Live updates': 'Live-Updates', 'Send destination to the car, charger search': 'Ziel ans Auto senden, Ladesäulensuche',
-  'The public API has no lock or unlock operation. The lock state is shown read-only.': 'Die öffentliche API kennt kein Verriegeln oder Entriegeln. Der Schlossstatus wird nur angezeigt.',
-  'Not offered by the public API.': 'Von der öffentlichen API nicht angeboten.',
-  'No trip data. Trips are derived by Mate from the odometer and the parked/driving state, so times are accurate to the poll interval.': 'Keine Fahrtdaten. Mate leitet Fahrten aus Kilometerstand und Park-/Fahrzustand ab, die Zeiten sind daher nur auf das Abfrageintervall genau.',
-  'Position is not available while driving, and the quota allows ~20 reads per hour.': 'Die Position ist während der Fahrt nicht verfügbar, und das Kontingent erlaubt etwa 20 Abfragen pro Stunde.',
-  'No history endpoint. Sessions are detected live from the charging status.': 'Es gibt keinen Verlaufsendpunkt. Ladevorgänge werden live aus dem Ladestatus erkannt.',
-  'Not reported. Mate shows an estimate from charges, which includes charging losses.': 'Wird nicht gemeldet. Mate zeigt eine Schätzung aus Ladevorgängen, die Ladeverluste enthält.',
-  'Not reported. Enter it in Settings so energy and consumption can be computed.': 'Wird nicht gemeldet. Trage sie in den Einstellungen ein, damit Energie und Verbrauch berechnet werden können.',
-  'Not in the public API, so there is no consumption-versus-temperature chart.': 'Nicht in der öffentlichen API, daher gibt es kein Diagramm Verbrauch gegen Temperatur.',
-  'Not in the public API.': 'Nicht in der öffentlichen API.', 'Not controllable through the public API.': 'Über die öffentliche API nicht steuerbar.',
-  'No push events: Mate polls within Škoda\'s request limit (about 20 per hour per car).': 'Keine Push-Ereignisse: Mate fragt im Rahmen von Škodas Anfragelimit ab (etwa 20 pro Stunde und Auto).',
-  'Data quality': 'Datenqualität', 'Check again': 'Erneut prüfen', 'Checked': 'Geprüft', 'Important': 'Wichtig', 'Info': 'Hinweis', 'Review': 'Prüfen', 'Fix': 'Beheben', 'Close': 'Schließen',
-  'Everything else looks consistent.': 'Alles andere wirkt stimmig.', 'Everything else looks consistent or was reviewed.': 'Alles andere wirkt stimmig oder wurde geprüft.',
-  'Mark as reviewed': 'Als geprüft markieren', 'Reviewed': 'Geprüft', 'Undo': 'Rückgängig', 'new since': 'neu seit', 'Everything looks consistent.': 'Alles wirkt stimmig.', 'Show all checks': 'Alle Prüfungen anzeigen', 'No findings': 'Keine Funde', 'reviewed': 'geprüft', 'and': 'und', 'more': 'weitere',
-  'Findings': 'Funde', 'Examples': 'Beispiele',
-  'Apply this fix?': 'Diese Korrektur anwenden?', 'Findings this fix changes:': 'Funde, die diese Korrektur ändert:', 'Nothing is lost.': 'Es geht nichts verloren.', 'Fixed': 'Behoben',
-  'What Fix does': 'Was „Beheben“ macht', 'It changes these findings:': 'Geändert werden diese Funde:',
-});
+import { t } from '../i18n.js';
 
 const PART_STATE = { present: 'good', unsupported: '', disabled: 'warn', unavailable: 'warn', missing: 'bad', unknown: '' };
 const OP_LABEL = {

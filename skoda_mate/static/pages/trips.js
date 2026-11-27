@@ -3,23 +3,7 @@ import { h, mount, debounce } from '../lib/dom.js';
 import { icon } from '../lib/icons.js';
 import { banner, button, card, chip, empty, field, loading, seg, stat } from '../lib/ui.js';
 import * as f from '../lib/format.js';
-import { extendDE, t } from '../i18n.js';
-
-extendDE({
-  'Trip search': 'Fahrten suchen', 'Search places and notes': 'Orte und Notizen suchen', 'From': 'Von', 'To': 'Bis', 'Min. distance': 'Mindeststrecke',
-  'Reset filters': 'Filter zurücksetzen', 'List': 'Liste', 'Month': 'Monat', 'Export CSV': 'CSV exportieren', 'Import trips': 'Fahrten importieren', 'Trips found': 'Gefundene Fahrten',
-  'Total distance': 'Gesamtstrecke', 'Total duration': 'Gesamtdauer', 'Total energy': 'Gesamtenergie', 'Average consumption': 'Ø Verbrauch', 'Total cost': 'Gesamtkosten',
-  'Load more': 'Mehr laden', 'No trips found': 'Keine Fahrten gefunden', 'Try other filters, or wait for the next drive.': 'Andere Filter probieren oder auf die nächste Fahrt warten.',
-  'Mate derives trips from the odometer and the car’s parked/driving state.': 'Mate leitet Fahrten aus Kilometerstand und Park-/Fahrzustand des Autos ab.',
-  'approx': 'ca.', 'Estimated trip': 'Geschätzte Fahrt',
-  'Found through an odometer jump; times are estimated.': 'Über einen Kilometersprung gefunden; die Zeiten sind geschätzt.',
-  'Previous month': 'Voriger Monat', 'Next month': 'Nächster Monat', 'Trip calendar': 'Fahrtenkalender', 'trips': 'Fahrten', 'trip': 'Fahrt',
-  'Energy is only counted for trips where it is known.': 'Energie wird nur für Fahrten mit bekanntem Wert gezählt.',
-  'Showing the newest {n} of {total} trips. Narrow the filters to see the rest.': 'Zeigt die neuesten {n} von {total} Fahrten. Mit Filtern lässt sich der Rest eingrenzen.',
-  'Totals cover only the loaded trips.': 'Die Summen gelten nur für die geladenen Fahrten.',
-  'Could not load trips': 'Fahrten konnten nicht geladen werden', 'Try again': 'Erneut versuchen', 'Costs are estimated at your home tariff.': 'Kosten sind mit Ihrem Heimtarif geschätzt.',
-  'of': 'von', 'with energy': 'mit Energie', 'Day': 'Tag', 'Show this day': 'Diesen Tag anzeigen',
-});
+import { t } from '../i18n.js';
 
 const PAGE = 40;
 export const APPROX_TIP = 'Found through an odometer jump; times are estimated.';

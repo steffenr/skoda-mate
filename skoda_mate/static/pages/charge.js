@@ -5,52 +5,8 @@ import { asyncButton, banner, button, card, chip, empty, enableOnChange, field, 
 import { lineChart } from '../lib/charts.js';
 import { mapView } from '../lib/mapview.js';
 import * as f from '../lib/format.js';
-import { extendDE, t } from '../i18n.js';
+import { t } from '../i18n.js';
 import { chargePlace, placeChip, typeChip } from './charges.js';
-
-extendDE({
-  'Read from a trip export.': 'Aus dem Fahrtenexport gelesen.',
-  'Charging happened somewhere during this trip. The export only says how much the battery level rose and how much energy that is, not where the car charged, the levels before and after, the power or the charger type. The times are the start and end of the trip, and the place shown is the trip destination. Charges Mate sees live include all of these.':
-    'Geladen wurde irgendwann während dieser Fahrt. Der Export sagt nur, um wie viel der Batteriestand stieg und wie viel Energie das ist, nicht aber wo geladen wurde, die Stände davor und danach, die Leistung oder die Ladeart. Die Zeiten sind Start und Ende der Fahrt, der angezeigte Ort ist das Fahrtziel. Ladevorgänge, die Mate live sieht, enthalten all das.',
-  'the duration of the trip; charging happened somewhere during it': 'die Dauer der Fahrt; geladen wurde irgendwann währenddessen',
-  'Where it happened': 'Wo es passiert ist', 'Open the trip': 'Fahrt öffnen', 'End': 'Ende',
-  'The export does not say where the charger was. It was somewhere on this trip (straight line between start and end).': 'Der Export nennt den Ladeort nicht. Es war irgendwo auf dieser Fahrt (gerade Linie zwischen Start und Ende).',
-  'Time window': 'Zeitfenster', 'Trip duration': 'Fahrtdauer', 'the car stood here; charging happened somewhere in it': 'das Auto stand hier; geladen wurde irgendwann darin',
-  'Charging power': 'Ladeleistung', 'unknown': 'unbekannt', 'At': 'Bei', 'this takes about': 'dauert das etwa',
-  'Inferred charge.': 'Abgeleiteter Ladevorgang.',
-  'Why: this happened before Mate started recording your car, so it had no readings from this time. Škoda’s API only reports the charge type (AC/DC) and power while the car is charging, and has no charging history to ask afterwards.':
-    'Warum: Das war, bevor Mate dein Auto aufgezeichnet hat, es gab also keine Messwerte aus dieser Zeit. Škodas API liefert Ladeart (AC/DC) und Leistung nur, während das Auto lädt, und hat keinen Ladeverlauf zum Nachfragen.',
-  'Why: Mate took no readings during this time (it was not running or could not reach Škoda), so it never saw the car charging. Škoda’s API reports the charge type (AC/DC) and power only while the car is charging.':
-    'Warum: Mate hat in dieser Zeit keine Messwerte aufgenommen (es lief nicht oder erreichte Škoda nicht) und sah das Auto daher nie laden. Škodas API liefert Ladeart (AC/DC) und Leistung nur, während das Auto lädt.',
-  'Why: Mate took readings during this time, but none of them showed the car charging (the charge was probably shorter than the polling interval). Škoda’s API reports the charge type (AC/DC) and power only while the car is charging.':
-    'Warum: Mate hat in dieser Zeit Messwerte aufgenommen, aber keiner zeigte das Auto beim Laden (der Ladevorgang war wohl kürzer als das Abfrageintervall). Škodas API liefert Ladeart (AC/DC) und Leistung nur, während das Auto lädt.',
-  'Mate did not see this charge happen. The battery level rose from the first to the second moment shown, with no driving in between, so the car must have been charged then. Read the time as “somewhere between”, the energy as the level change times your battery capacity (divided by a typical efficiency for the wall figure), and the type as unknown. A charge that Mate sees live is measured exactly and replaces an inferred one.':
-    'Mate hat diesen Ladevorgang nicht live gesehen. Der Batteriestand stieg vom ersten zum zweiten angezeigten Zeitpunkt, ohne dass dazwischen gefahren wurde, also wurde das Auto dazwischen geladen. Die Zeit bedeutet „irgendwann dazwischen“, die Energie ist die Stand-Änderung mal Batteriekapazität (für den Netzwert durch einen typischen Wirkungsgrad geteilt), der Typ ist unbekannt. Ein live erfasster Ladevorgang ist exakt gemessen und ersetzt einen abgeleiteten.',
-  'Charge': 'Ladevorgang', 'Back to charges': 'Zurück zu den Ladevorgängen', 'Delivered energy': 'Gelieferte Energie', 'Battery start → end': 'Batterie Start → Ende', 'Average power': 'Ø Leistung', 'Max power': 'Max. Leistung',
-  'Charging curve': 'Ladekurve', 'Charging power': 'Ladeleistung', 'Battery': 'Batterie', 'Charging now': 'Lädt gerade', 'Running': 'Läuft',
-  'The curve is drawn from the readings Mate took during this session (a few minutes apart). It is not a continuous measurement, so short peaks can be missing.': 'Die Kurve besteht aus den Messwerten, die Mate während des Ladevorgangs aufgenommen hat (einige Minuten Abstand). Sie ist keine durchgehende Messung, kurze Spitzen können fehlen.',
-  'Shaded: Mate has no readings from this time, so no line is drawn there.': 'Schattiert: Aus dieser Zeit hat Mate keine Messwerte, daher ist dort keine Linie gezeichnet.',
-  'Mate had no reading when the charge ended, so the end time is estimated from the last reading before it and the rise in battery level after it.':
-    'Mate hatte keinen Messwert, als der Ladevorgang endete. Die Endzeit ist daher aus dem letzten Messwert davor und dem Anstieg des Batteriestands danach geschätzt.',
-  'end estimated': 'Ende geschätzt',
-  'Not enough readings for a curve': 'Zu wenige Messwerte für eine Kurve', 'Mate needs at least two readings during the session.': 'Mate braucht mindestens zwei Messwerte während des Ladevorgangs.',
-  'Cost': 'Kosten', 'Place': 'Ort', 'Auto': 'Automatisch', 'Home': 'Zuhause', 'Public': 'Öffentlich', 'Where was this charged?': 'Wo wurde geladen?', 'Auto uses the home position from your tariff settings.': 'Automatisch nutzt die Heimposition aus Ihren Tarifeinstellungen.',
-  'Total cost (manual)': 'Gesamtkosten (manuell)', 'Set cost': 'Kosten setzen', 'Clear manual cost': 'Manuelle Kosten löschen', 'Cost saved': 'Kosten gespeichert', 'Manual cost removed': 'Manuelle Kosten entfernt', 'Enter a valid amount': 'Gültigen Betrag eingeben',
-  'Place saved': 'Ort gespeichert', 'Note': 'Notiz', 'Save note': 'Notiz speichern', 'Note saved': 'Notiz gespeichert', 'Add a note': 'Notiz hinzufügen',
-  'How this cost was calculated': 'So wurden die Kosten berechnet', 'Cost entered by you. It replaces the calculation.': 'Von Ihnen eingetragene Kosten. Sie ersetzen die Berechnung.',
-  'Calculated: delivered energy × your price': 'Berechnet: gelieferte Energie × Ihr Preis', 'Cost is a guess: the place is unknown, so the home price was used. Choose Home or Public, or tell Mate where home is.': 'Die Kosten sind eine Schätzung: Der Ort ist unbekannt, daher wurde der Heimpreis verwendet. Wählen Sie Zuhause oder Öffentlich oder teilen Sie Mate mit, wo Ihr Zuhause ist.',
-  'Cost uses the price of this place.': 'Die Kosten nutzen den Preis dieses Ortes.',
-  'No cost: the delivered energy is unknown.': 'Keine Kosten: Die gelieferte Energie ist unbekannt.', 'home price': 'Heimpreis', 'public AC price': 'Preis öffentlich AC', 'public DC price': 'Preis öffentlich DC', 'per kWh': 'pro kWh',
-  'Delivered vs into the battery': 'Geliefert vs. in die Batterie', 'Delivered (from the grid)': 'Geliefert (aus dem Netz)', 'Into the battery': 'In die Batterie', 'Difference': 'Differenz',
-  'The difference is charging loss (heat in the charger, cable and car), usually 5 to 15 %. Both values are estimates: delivered energy is integrated from the power readings, battery energy from the change in battery level and your battery capacity.': 'Die Differenz ist Ladeverlust (Wärme in Lader, Kabel und Auto), meist 5 bis 15 %. Beide Werte sind Schätzungen: Die gelieferte Energie wird aus den Leistungswerten integriert, die Batterieenergie aus der Änderung des Batteriestands und Ihrer Batteriekapazität.',
-  'Delivered energy is lower than the energy into the battery. That cannot be real: the power readings were too far apart to integrate well. Treat both numbers as rough estimates.': 'Die gelieferte Energie ist niedriger als die Energie in der Batterie. Das kann nicht stimmen: Die Leistungswerte lagen zu weit auseinander. Beide Zahlen sind grobe Schätzungen.',
-  'efficiency': 'Wirkungsgrad', 'This is where home is': 'Hier ist mein Zuhause', 'Home is not set for this place': 'Zuhause ist für diesen Ort nicht festgelegt',
-  'Mate can only set home to where the car is parked right now. The car is currently somewhere else, so go there and press this again.': 'Mate kann Zuhause nur dort festlegen, wo das Auto gerade parkt. Das Auto steht gerade woanders. Fahren Sie dorthin und drücken Sie erneut.',
-  'Set the home position to where the car is parked now. Charges within the home radius then count as Home.': 'Setzt die Heimposition auf den aktuellen Parkplatz des Autos. Ladevorgänge im Heimradius zählen dann als Zuhause.',
-  'Home position saved': 'Heimposition gespeichert', 'Location': 'Ort', 'Could not load this charge': 'Dieser Ladevorgang konnte nicht geladen werden', 'This charge does not exist': 'Diesen Ladevorgang gibt es nicht',
-  'It may have been removed.': 'Er wurde möglicherweise entfernt.', 'Try again': 'Erneut versuchen', 'Unknown place': 'Unbekannter Ort', 'Started': 'Gestartet', 'Ended': 'Beendet', 'Duration': 'Dauer',
-  'Charge target': 'Ladeziel', 'Charge details': 'Details', 'Previous charge': 'Vorheriger Ladevorgang',
-});
 
 // The demo's home place is stored as the English name; show it in the reader's language like the map and places pages.
 const displayName = (p) => (p.kind === 'home' && p.name === 'Home' ? t('Home') : p.name);

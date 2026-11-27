@@ -52,7 +52,7 @@ ignore_missing_imports = true
 include = ["skoda_mate*"]
 
 [tool.setuptools.package-data]
-skoda_mate = ["index.html", "login.html", "setup.html", "static/*", "static/lib/*", "static/pages/*"]
+skoda_mate = ["index.html", "login.html", "setup.html", "static/*", "static/lib/*", "static/pages/*", "static/i18n/*.json"]
 
 [tool.coverage.run]
 source = ["skoda_mate"]
