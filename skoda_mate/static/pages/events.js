@@ -1,11 +1,18 @@
-// Events: what Mate noticed between readings (locks, doors, plug, charging, trips, commands), filterable and grouped by day.
+// Activity: the day as a timeline (drive, charge, climate, parked, unheard) and, as a second tab, the event list: what Mate
+// noticed between readings (locks, doors, plug, charging, trips, commands), filterable and grouped by day.
 import { h, mount, debounce } from '../lib/dom.js';
 import { icon } from '../lib/icons.js';
-import { banner, button, card, chip, empty, field, loading } from '../lib/ui.js';
+import { banner, button, card, chip, empty, field, loading, seg } from '../lib/ui.js';
 import * as f from '../lib/format.js';
+import { barBox, clockAt, dayStartMs } from '../lib/dates.js';
+import { actionLabel, checkLabel } from '../lib/quality.js';
 import { extendDE, t } from '../i18n.js';
 
 extendDE({
+  'Activity': 'Aktivität', 'Timeline': 'Zeitleiste', 'Previous week': 'Vorherige Woche', 'Next week': 'Nächste Woche', 'Not heard from': 'Nichts gehört',
+  'Nothing recorded in this week': 'In dieser Woche wurde nichts aufgezeichnet',
+  'Mate records a day from the readings it has. A gap means it did not hear from the car.': 'Mate zeichnet einen Tag aus den vorhandenen Messungen auf. Eine Lücke heißt, dass es vom Auto nichts gehört hat.',
+  'Text list': 'Textliste', 'Could not load the timeline': 'Die Zeitleiste konnte nicht geladen werden', 'Colour key': 'Farbschlüssel',
   'Events': 'Ereignisse', 'All': 'Alle', 'Search': 'Suchen', 'From': 'Von', 'To': 'Bis', 'Clear filters': 'Filter zurücksetzen', 'Load more': 'Mehr laden',
   'Showing': 'Zeige', 'of': 'von', 'events': 'Ereignisse', 'No events found': 'Keine Ereignisse gefunden', 'Nothing matches these filters.': 'Zu diesen Filtern gibt es nichts.',
   'Mate records events when it notices a change between two readings.': 'Mate zeichnet Ereignisse auf, wenn es zwischen zwei Messungen eine Änderung bemerkt.',
@@ -20,6 +27,7 @@ extendDE({
   'Start charging': 'Laden starten', 'Stop charging': 'Laden stoppen', 'Set charge limit': 'Ladelimit setzen', 'Set charge mode': 'Lademodus setzen',
   'Update charging profile': 'Ladeprofil ändern', 'Start climate': 'Klima starten', 'Stop climate': 'Klima stoppen', 'Start auxiliary heating': 'Standheizung starten',
   'Stop auxiliary heating': 'Standheizung stoppen', 'Start ventilation': 'Lüftung starten', 'Stop ventilation': 'Lüftung stoppen',
+  'Data fixed': 'Daten korrigiert', 'Data reviewed': 'Daten geprüft', 'changed': 'geändert', 'marked as reviewed': 'als geprüft markiert',
 });
 
 const KINDS = {
@@ -31,6 +39,7 @@ const KINDS = {
   climate: ['Climate', 'thermo', 'info'], aux_heating: ['Auxiliary heating', 'flame', 'info'], ventilation: ['Ventilation', 'fan', 'info'],
   charge_start: ['Charging started', 'bolt', 'good'], charge_end: ['Charging finished', 'bolt', 'good'], charge_state: ['Charging status', 'battery', ''],
   trip_start: ['Trip started', 'route', 'info'], trip_end: ['Trip finished', 'route', 'info'], command: ['Command', 'sliders', ''],
+  quality_fix: ['Data fixed', 'shield', 'good'], quality_review: ['Data reviewed', 'shield', ''],
 };
 const COMMAND_LABEL = {
   start_charging: 'Start charging', stop_charging: 'Stop charging', set_charge_limit: 'Set charge limit', set_charge_mode: 'Set charge mode', update_charging_profile: 'Update charging profile',
@@ -51,14 +60,19 @@ function detail(e) {
         !ok && m[3] ? h('span', { class: 'small muted' }, m[3]) : null);
     }
   }
+  // Data quality (quality.fix / quality.review): "<action>:<rows changed>" and "<check>:on|off"
+  const fixed = e.kind === 'quality_fix' && /^(\w+):(\d+)$/.exec(d || '');
+  if (fixed) return `${actionLabel(fixed[1])}: ${f.num(+fixed[2])} ${t('changed')}`;
+  const reviewed = e.kind === 'quality_review' && /^(\w+):(on|off)$/.exec(d || '');
+  if (reviewed) return `${checkLabel(reviewed[1])}: ${reviewed[2] === 'on' ? t('marked as reviewed') : t('review undone')}`;
   if (!d) return null;
   const km = /^([\d.]+) km$/.exec(d);
   if (e.kind === 'trip_end' && km) return f.km(+km[1], 1);
   return d.replace(/_/g, ' ').replace(/ -> /g, ' → ');
 }
 
-export default async function events(root, ctx) {
-  ctx.setTitle(t('Events'));
+/** The filtered event table. Mounts into `root` and returns the refresh to run on a poll tick. */
+async function listTab(root, ctx) {
   const base = `/api/vehicles/${ctx.vid}/events`;
   const flt = { kind: '', q: '', from: '', to: '' };
   let items = [], total = 0, kinds = [], seq = 0, loadedOnce = false;
@@ -133,5 +147,131 @@ export default async function events(root, ctx) {
   listBox, moreBox);
   clearBtn.hidden = true;
   await load(true);
-  ctx.onTick(() => { if (loadedOnce && items.length <= PAGE) load(true, true); });
+  return () => { if (loadedOnce && items.length <= PAGE) load(true, true); };
+}
+
+// ---------------------------------------------------------------- timeline
+
+const MAX_BACK_DAYS = 30;  // the oldest reachable day is today minus 30; the endpoint answers any range of up to 31 days
+const SEGMENT_LABEL = { drive: 'Driving', charge: 'Charging', climate: 'Climate', aux: 'Auxiliary heating', vent: 'Ventilation', parked: 'Parked', unknown: 'Not heard from' };
+const SEGMENT_COLOUR = { aux: 'climate', vent: 'climate' };  // aux and vent share the climate colour and legend entry
+const LEGEND = ['drive', 'charge', 'climate', 'parked', 'unknown'];
+const segLabel = (k) => t(SEGMENT_LABEL[k] || k);
+
+extendDE({
+  'Times are accurate to the poll interval.': 'Die Zeiten sind so genau wie das Abfrageintervall.',
+  'estimated': 'geschätzt', 'at least': 'mindestens', 'free': 'kostenlos', 'Week': 'Woche',
+});
+
+const isoDay = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const addDays = (d, n) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n, 12);  // noon keeps DST shifts off the date
+const parseDay = (s) => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d, 12); };
+const todayNoon = () => parseDay(isoDay(new Date()));
+
+/** One bar. `dayStart`/`dayEnd` are the server's bounds of its day (ms), not the browser's midnight. Only a drive or charge
+ * with a record to open is a button; every other bar is a plain labelled element (no focus stop, no pointer cursor). */
+function bar(iv, dayStart, dayEnd, tzOffset) {
+  const { left, width } = barBox(iv.start, iv.minutes, dayStart, dayEnd);
+  const text = `${segLabel(iv.kind)} ${clockAt(iv.start, tzOffset, f.getLang())} – ${clockAt(iv.end, tzOffset, f.getLang())}${iv.estimated ? ` (${t('estimated')})` : ''}`;
+  const href = iv.kind === 'drive' && iv.trip_id != null ? `#/trips/${iv.trip_id}` : iv.kind === 'charge' && iv.charge_id != null ? `#/charges/${iv.charge_id}` : null;
+  const attrs = { class: ['tl-bar', `tl-${SEGMENT_COLOUR[iv.kind] || iv.kind}`, iv.estimated ? 'tl-estimated' : ''], style: { left: `${left}%`, width: `${width}%` }, title: text };
+  return href ? h('button', { ...attrs, type: 'button', 'aria-label': text, onclick: () => { location.hash = href; } })
+    : h('div', { ...attrs, role: 'img', 'aria-label': text });
+}
+
+// `f.money` prints 2 decimals, so anything under half a cent would read "0.00": it counts as zero.
+const MONEY_STEP = 0.01;
+
+/** The parts of a day or week line from a timeline `summary`. Driving time and parked time always appear; everything else
+ * only when non-zero (never "0.0 kWh"). A charge's energy belongs to the day it started: the morning after an overnight
+ * charge has charging time but no kWh, so it shows the time. A cost with a charge that had no amount is "at least"; a known cost that rounds to 0.00 is "free", an unknown one is left out. */
+function summaryParts(s, currency) {
+  const charged = s.kwh > 0 ? `${t('Charged')} ${f.kwh(s.kwh)}` : s.charge_min > 0 ? `${t('Charging')} ${f.duration(s.charge_min)}` : null;
+  return [`${t('Driving')} ${f.duration(s.drive_min)}`, charged,
+    s.climate_min > 0 ? `${t('Climate')} ${f.duration(s.climate_min)}` : null,
+    `${t('Parked')} ${f.duration(s.parked_min)}`,
+    s.unknown_min > 0 ? `${t('Not heard from')} ${f.duration(s.unknown_min)}` : null,
+    s.km > 0 ? f.km(s.km, 1) : null,
+    s.cost >= MONEY_STEP / 2 ? `${s.cost_partial ? `${t('at least')} ` : ''}${f.money(s.cost, currency)}`
+      : s.cost != null && s.cost >= 0 && !s.cost_partial ? t('free') : null].filter(Boolean);
+}
+
+function dayBlock(day, tzOffset, currency) {
+  const noon = parseDay(day.date);
+  const dayStart = dayStartMs(day.date, tzOffset), dayEnd = dayStartMs(isoDay(addDays(noon, 1)), tzOffset);
+  return h('section', { class: 'tl-day' },
+    h('h2', { class: 'b-dayh' }, f.date(noon.toISOString(), { weekday: 'long', day: 'numeric', month: 'short' })),
+    h('div', { class: 'tl-scroll' }, h('div', { class: 'tl-track' }, ...day.intervals.map((iv) => bar(iv, dayStart, dayEnd, tzOffset)))),
+    h('div', { class: 'small muted' }, summaryParts(day.summary, currency).join(' · ')),
+    h('details', { class: 'tl-text' }, h('summary', null, t('Text list')),
+      h('ul', null, ...day.intervals.map((iv) => h('li', null,
+        `${segLabel(iv.kind)}, ${clockAt(iv.start, tzOffset, f.getLang())} – ${clockAt(iv.end, tzOffset, f.getLang())} (${f.duration(iv.minutes)})${iv.estimated ? ` · ${t('estimated')}` : ''}${iv.place ? ` · ${iv.place}` : ''}`)))));
+}
+
+/** The week timeline. Mounts into `root` and returns the refresh to run on a poll tick. */
+async function timelineTab(root, ctx) {
+  let to = todayNoon(), seq = 0, loadedOnce = false, following = true;
+  const earliest = () => addDays(todayNoon(), -MAX_BACK_DAYS);
+  // Back one week, but never past the oldest reachable day: the last step is shorter instead of unreachable.
+  const go = (target) => { to = target > todayNoon() ? todayNoon() : target; following = to.getTime() === todayNoon().getTime(); load(); };
+  const step = (ic, label, onClick) => {
+    const b = button('', { ic, size: 'sm', title: label, onClick });
+    b.setAttribute('aria-label', label);
+    return b;
+  };
+  const prev = step('left', t('Previous week'), () => { const floor = addDays(earliest(), 6); const back = addDays(to, -7); go(back < floor ? floor : back); });
+  const next = step('right', t('Next week'), () => go(addDays(to, 7)));
+  const todayBtn = button(t('Today'), { size: 'sm', onClick: () => go(todayNoon()) });
+  const range = h('strong', { 'aria-live': 'polite' });
+  const body = h('div', { class: 'stack' });
+  const legend = h('div', { class: 'legend', role: 'group', 'aria-label': t('Colour key') },
+    h('span', null, '24 h'), ...LEGEND.map((k) => h('span', null, h('i', { class: `tl-${k}` }), segLabel(k))));
+
+  async function load(silent = false) {
+    const mine = ++seq;
+    const today = todayNoon(), from = addDays(to, -6);
+    prev.disabled = from <= earliest(); next.disabled = to >= today;
+    range.textContent = `${f.date(from.toISOString())} – ${f.date(to.toISOString())}`;
+    if (!silent) mount(body, loading());
+    try {
+      // one offset for the request and for the bars, so the bars use the very day bounds the server cut at
+      const tzOffset = new Date().getTimezoneOffset();
+      const q = new URLSearchParams({ from: isoDay(from), to: isoDay(to), tz_offset: String(tzOffset) });
+      const r = await ctx.api.get(`/api/vehicles/${ctx.vid}/timeline?${q}`);
+      if (mine !== seq) return;
+      loadedOnce = true;
+      mount(body, r.days.some((d) => d.intervals.length) ? h('div', { class: 'stack' },
+        h('div', { class: ['small', 'muted', 'tl-week'] }, `${t('Week')}: ${summaryParts(r.summary, ctx.currency).join(' · ')}`),
+        ...r.days.map((d) => dayBlock(d, tzOffset, ctx.currency)))
+        : empty(t('Nothing recorded in this week'), t('Mate records a day from the readings it has. A gap means it did not hear from the car.'), 'activity'));
+    } catch (e) {
+      if (mine !== seq || silent) return;
+      mount(body, banner('bad', `${t('Could not load the timeline')}: ${e.message}`), button(t('Try again'), { ic: 'refresh', onClick: () => load() }));
+    }
+  }
+
+  mount(root, h('div', { class: 'row between tl-toolbar' }, h('div', { class: 'row tight' }, prev, todayBtn, next), range), legend,
+    h('p', { class: 'small muted tl-precision' }, t('Times are accurate to the poll interval.')), body);
+  await load();
+  // Past midnight "today" moves on: a view that follows today follows it, a past week stays where it is.
+  return () => {
+    if (!loadedOnce || !following) return;
+    to = todayNoon();
+    load(true);
+  };
+}
+
+export default async function activity(root, ctx) {
+  ctx.setTitle(t('Activity'));
+  let mode = 'timeline', refresh = null, token = 0;
+  const panel = h('div', { class: 'stack' });
+  async function show() {
+    const mine = ++token;
+    refresh = null;
+    const tick = await (mode === 'timeline' ? timelineTab : listTab)(mount(panel), ctx);
+    if (mine === token) refresh = tick;
+  }
+  mount(root, h('div', null, seg([['timeline', t('Timeline')], ['list', t('List')]], mode, (m) => { mode = m; show(); }, t('Activity'))), panel);
+  ctx.onTick(() => refresh?.());
+  await show();
 }

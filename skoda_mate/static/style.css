@@ -449,3 +449,18 @@ a.card:hover { border-color: var(--control-line); }
   .pd-visits table.t th, .pd-visits table.t td { padding-left: 6px; padding-right: 6px; }
   .pd-visits .chip { padding: 2px 4px; font-size: 11px; }
 }
+
+/* Activity timeline: one 24 h track per day; bars sit at minute_of_day / 14.4 percent */
+.tl-toolbar { gap: 8px; flex-wrap: wrap; }
+.tl-day { display: flex; flex-direction: column; gap: 6px; }
+.tl-scroll { overflow-x: auto; }
+.tl-track { position: relative; height: 34px; min-width: 640px; background-color: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+  background-image: repeating-linear-gradient(90deg, transparent 0, transparent calc(25% - 1px), var(--chart-grid) calc(25% - 1px), var(--chart-grid) 25%); }
+.tl-bar { position: absolute; top: 3px; bottom: 3px; min-width: 2px; padding: 0; border: 0; border-radius: 4px; }
+button.tl-bar { cursor: pointer; }
+.tl-estimated { opacity: 0.55; }
+.tl-precision { margin: 0; }
+.tl-drive { background: var(--chart-1); } .tl-charge { background: var(--chart-2); } .tl-climate { background: var(--chart-4); }
+.tl-parked { background: var(--surface-3); box-shadow: inset 0 0 0 1px var(--line); } .tl-unknown { background: var(--muted); }
+.legend i.tl-parked { box-shadow: inset 0 0 0 1px var(--control-line); }
+.tl-text summary { cursor: pointer; font-size: 13px; color: var(--muted); } .tl-text ul { margin: 6px 0 0; padding-left: 18px; font-size: 13px; }
