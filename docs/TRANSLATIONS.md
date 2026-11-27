@@ -86,6 +86,9 @@ in the repository, a project settings file, a script or CI. Check placeholders w
 | Swedish | `sv.json` | machine translation, not reviewed by a speaker |
 | Turkish | `tr.json` | machine translation, not reviewed by a speaker |
 | Ukrainian | `uk.json` | machine translation, not reviewed by a speaker |
+| Japanese | `ja.json` | machine translation, not reviewed by a speaker |
+| Korean | `ko.json` | machine translation, not reviewed by a speaker |
+| Chinese (Simplified) | `zh_Hans.json` | machine translation, not reviewed by a speaker |
 
 The back-translation check for the machine-drafted catalogs is still open: no translation service was available when
 they were added.
