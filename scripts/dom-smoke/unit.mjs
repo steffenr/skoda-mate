@@ -196,5 +196,12 @@ const { problemLines } = await import('./i18n_lib.mjs');
 const long = `${'A long sentence. '.repeat(20)}{odometer}`;
 const [line] = problemLines('xx', compare({ [long]: { files: [] } }, { [long]: 'kurz {ort}' }, 'de'), 40);
 assert.ok(line.includes('xx: ') && line.includes(long) && line.includes('{ort}'), line);
+
+// the plural rules come from the locale registered in languages.py, not from a guess about the file name
+const { languages, unregistered } = await import('./i18n_lib.mjs');
+assert.deepEqual(languages('LANGUAGES = (\n    Language("en", "English", "en"),\n    Language("no", "Norsk bokmål", "nb"),\n    Language("zh_Hans", "简体中文", "zh-Hans"),\n)'),
+  [{ code: 'en', name: 'English', locale: 'en' }, { code: 'no', name: 'Norsk bokmål', locale: 'nb' }, { code: 'zh_Hans', name: '简体中文', locale: 'zh-Hans' }]);
+assert.deepEqual(languages().slice(0, 2).map((l) => [l.code, l.locale]), [['en', 'en'], ['de', 'de']], 'languages.py is read');
+assert.deepEqual(unregistered(['de', 'xx'], languages()), ['xx: in CATALOGS but not in skoda_mate/languages.py']);
 await i18n.setLang('en');
 console.log('frontend unit checks OK');
