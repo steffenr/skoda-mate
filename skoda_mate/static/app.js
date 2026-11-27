@@ -4,7 +4,7 @@ import { h, mount, clear } from './lib/dom.js';
 import { icon } from './lib/icons.js';
 import { asyncButton, banner, button, chip, empty, loading, modal, toast } from './lib/ui.js';
 import * as f from './lib/format.js';
-import { setLang, t, tm, tx, tn } from './i18n.js';
+import { getLocale, setLang, t, tm, tx, tn } from './i18n.js';
 
 // ------------------------------------------------------------------ API
 async function request(method, path, body) {
@@ -80,9 +80,10 @@ function applyTheme(theme) {
 
 async function loadSettings() {
   S.settings = await api.get("/api/settings");
-  f.setLocale({ units: S.settings.units, locale: S.settings.locale });
   await setLang(S.settings.language, S.settings.locale);
-  document.documentElement.lang = S.settings.locale;
+  // getLocale() is 'en' when the catalog could not be loaded: formats and lang then match the English texts
+  f.setLocale({ units: S.settings.units, locale: getLocale() });
+  document.documentElement.lang = getLocale();
   applyTheme(S.settings.theme);
 }
 

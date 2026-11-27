@@ -203,5 +203,27 @@ assert.deepEqual(languages('LANGUAGES = (\n    Language("en", "English", "en"),\
   [{ code: 'en', name: 'English', locale: 'en' }, { code: 'no', name: 'Norsk bokmål', locale: 'nb' }, { code: 'zh_Hans', name: '简体中文', locale: 'zh-Hans' }]);
 assert.deepEqual(languages().slice(0, 2).map((l) => [l.code, l.locale]), [['en', 'en'], ['de', 'de']], 'languages.py is read');
 assert.deepEqual(unregistered(['de', 'xx'], languages()), ['xx: in CATALOGS but not in skoda_mate/languages.py']);
+
+// a catalog that fails, hangs or is not an object leaves a page that is English throughout: texts, formats and lang
+const quiet = console.warn; console.warn = () => {};
+for (const [what, load] of [['rejects', async () => { throw new Error('offline'); }], ['is null', async () => null], ['is a list', async () => []],
+  ['is a string', async () => '<html>error</html>']]) {
+  i18n.CATALOGS.bad = load;
+  await i18n.setLang('bad', 'de');
+  assert.deepEqual([i18n.getLang(), i18n.getLocale(), i18n.t('Word'), i18n.tn('{n} day', '{n} days', 2)], ['en', 'en', 'Word', '2 days'], `a catalog that ${what}`);
+}
+const realFetch = globalThis.fetch;
+let asked;
+globalThis.fetch = (url, options) => new Promise((resolve, reject) => {
+  asked = url;
+  options?.signal?.addEventListener('abort', () => reject(options.signal.reason));
+});
+i18n.CATALOGS.hangs = i18n.jsonCatalog('hangs', 30);
+const gaveUp = await Promise.race([i18n.setLang('hangs', 'de').then(() => true), new Promise((r) => setTimeout(r, 1000, false))]);
+globalThis.fetch = realFetch;
+assert.ok(gaveUp, 'a request that never answers is given up');
+assert.equal(asked, '/static/i18n/hangs.json');
+assert.deepEqual([i18n.getLang(), i18n.getLocale()], ['en', 'en']);
+console.warn = quiet;
 await i18n.setLang('en');
 console.log('frontend unit checks OK');
