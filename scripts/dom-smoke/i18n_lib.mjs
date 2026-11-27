@@ -38,6 +38,14 @@ export function scan(files = sources()) {
 const placeholders = (s) => [...new Set([...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1]))].sort();
 const same = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
 
+const isSingleNumber = (locale, category) => {
+  const rules = new Intl.PluralRules(locale);
+  return Array.from({ length: 1001 }, (_, n) => n).filter((n) => rules.select(n) === category).length === 1;
+};
+
+/** Problems as printed lines: the language first, never cut off (the placeholders stand at the end). */
+export const problemLines = (what, problems, limit) => problems.slice(0, limit).map((line) => `  ${what}: ${line}`);
+
 /** What is wrong with a catalog, one line each; an empty list means it is complete for the locale. */
 export function compare(keys, catalog, locale) {
   const problems = [];
@@ -57,8 +65,10 @@ export function compare(keys, catalog, locale) {
     for (const [category, form] of Object.entries(value)) {
       if (!categories.includes(category)) { problems.push(`plural form ${category} unknown in ${locale}: ${key}`); continue; }
       const has = placeholders(String(form));
-      // Only the count may be left out ("one day"); the general form needs everything.
-      const missing = wanted.filter((p) => !has.includes(p) && (p !== 'n' || category === 'other'));
+      // The count may be left out ("one day") only where the form stands for a single number: German "one" is just 1,
+      // Ukrainian "one" is also 21 and French "one" also 0. The general form needs everything.
+      const optional = category !== 'other' && isSingleNumber(locale, category);
+      const missing = wanted.filter((p) => !has.includes(p) && !(p === 'n' && optional));
       if (missing.length || has.some((p) => !wanted.includes(p) && p !== 'n')) problems.push(`placeholders: ${key} (${category}) has {${has}}`);
     }
   }

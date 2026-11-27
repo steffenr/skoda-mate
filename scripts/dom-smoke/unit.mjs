@@ -163,5 +163,25 @@ assert.match(problems({}, 'uk'), /plural form few missing: \{n\} days/);
 assert.match(problems({ '{n} days': { one: '{n} Tag', other: 'Tage {x}' } }), /placeholders: \{n\} days \(other\)/);
 assert.match(problems({ '{x} of {n} files': { one: 'eine', other: '{x} von {n}' } }), /placeholders: \{x\} of \{n\} files \(one\)/, 'only the count may be left out of a form');
 
+
+// the import preview's status chips reach t() through a table: each must be extracted and have its German
+const everything = scan();
+for (const [key, word] of [['new', 'neu'], ['completed', 'ergänzt'], ['known', 'bekannt']]) {
+  assert.ok(everything[key]?.files.includes('pages/import.js'), `the import status "${key}" is extracted`);
+  assert.equal(german[key], word, `the import status "${key}" reads in German`);
+}
+
+// {n} may be left out only where the plural form stands for exactly one number
+const one = { '{n} trips': { files: [], one: '{n} trip' } };
+const forms = (locale, extra) => ({ '{n} trips': Object.fromEntries(new Intl.PluralRules(locale).resolvedOptions().pluralCategories.map((c) => [c, extra[c] ?? '{n} x'])) });
+assert.deepEqual(compare(one, forms('de', { one: 'eine Fahrt' }), 'de'), [], 'German "one" is only 1');
+assert.match(compare(one, forms('uk', { one: 'одна поїздка' }), 'uk').join(), /placeholders: \{n\} trips \(one\)/, 'Ukrainian "one" is also 21');
+assert.match(compare(one, forms('fr', { one: 'un trajet' }), 'fr').join(), /placeholders: \{n\} trips \(one\)/, 'French "one" is also 0');
+
+// a problem line names the language, the key and the placeholders, however long the key is
+const { problemLines } = await import('./i18n_lib.mjs');
+const long = `${'A long sentence. '.repeat(20)}{odometer}`;
+const [line] = problemLines('xx', compare({ [long]: { files: [] } }, { [long]: 'kurz {ort}' }, 'de'), 40);
+assert.ok(line.includes('xx: ') && line.includes(long) && line.includes('{ort}'), line);
 await i18n.setLang('en');
 console.log('frontend unit checks OK');

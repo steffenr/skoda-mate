@@ -19,7 +19,8 @@ Setup and login are English only: they are shown before the language setting exi
 - **Placeholders** (`{ago}`) keep their names. Move them wherever the sentence needs them.
 - **Plural forms** follow the [CLDR plural rules](https://www.unicode.org/cldr/charts/latest/supplemental/language_plural_rules.html):
   give every category the language has (German: `one`, `other`; Ukrainian: `one`, `few`, `many`, `other`; Japanese:
-  `other`). Only `{n}` may be left out of a form other than `other`.
+  `other`). `{n}` may be left out only of a form that stands for a single number (German `one` is just 1; Ukrainian
+  `one` is also 21 and French `one` also 0, so those keep `{n}`).
 - **Whole sentences.** Never join translated pieces, put a translated word into another sentence, or change a
   translation's case in code.
 - **Not translated:** product names (Škoda, MyŠkoda, Home Assistant, MQTT), units, and what the car or Škoda reports

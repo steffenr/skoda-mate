@@ -5,9 +5,9 @@ import { h, mount } from '../lib/dom.js';
 import { icon } from '../lib/icons.js';
 import { asyncButton, banner, button, card, chip, empty, field, stat, table, toast } from '../lib/ui.js';
 import * as f from '../lib/format.js';
-import { t, tm, tn } from '../i18n.js';
+import { N_, t, tm, tn } from '../i18n.js';
 
-const STATUS = { new: ['new', 'good'], updated: ['completed', 'info'], unchanged: ['known', ''] };
+const STATUS = { new: [N_('new'), 'good'], updated: [N_('completed'), 'info'], unchanged: [N_('known'), ''] };
 
 export default async function importPage(root, ctx) {
   ctx.setTitle(t('Import trips'));
