@@ -40,6 +40,9 @@ Choose one word in your language for each term, record it in your glossary, and 
 
 - Product names: Škoda, MyŠkoda, Mate, Home Assistant, Mosquitto, MQTT, Node-RED, n8n. They may be inflected the way
   your language inflects names, as long as the name stays recognisable.
+- Home Assistant's own menu paths and button names (such as "Settings → Devices & services"): use your language's
+  official Home Assistant labels only if you are sure of them; otherwise keep them in English and say so in your open
+  questions.
 - Units and abbreviations: km, mi, kWh, kW, h, min, s, %, °C, AC, DC, SoC, VIN (unless your language has its own usual
   abbreviation), TLS, URL, API, CSV, S-PIN.
 - Machine text: MQTT topic paths such as `{prefix}/VIN/events`, settings such as `DEMO=1`, field names in quotes such as
