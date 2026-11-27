@@ -13,7 +13,7 @@ import json
 import sqlite3
 from datetime import datetime, timedelta
 
-from . import places
+from . import automation, places
 from .store import set_setting
 
 MAX_GAP_H = 1.0  # never integrate power over a longer hole than this
@@ -84,16 +84,19 @@ def _db_value(v):
     return v
 
 
-def ingest(conn: sqlite3.Connection, vehicle_id: int, s: dict) -> None:
-    """Store one normalised snapshot (`ts` required) and update events, charges and trips."""
+def ingest(conn: sqlite3.Connection, vehicle_id: int, s: dict) -> list[dict]:
+    """Store one normalised snapshot (`ts` required) and update events, charges and trips.
+
+    Returns the events this reading produced (see `automation.collect`); only the poller passes them on."""
     prev = last_snapshot(conn, vehicle_id)
+    since = conn.execute("SELECT COALESCE(MAX(id),0) FROM events").fetchone()[0]
     cols = _columns(conn)
     row = {"recorded_at": s["ts"], **{k: _db_value(v) for k, v in s.items() if k in cols and k != "recorded_at"}}
     row.setdefault("charging", 0)
     names = list(row)
     cur = conn.execute(f"INSERT INTO snapshots(vehicle_id,{','.join(names)}) VALUES(?,{','.join('?' * len(names))})",
                        (vehicle_id, *row.values()))
-    snap_id = cur.lastrowid
+    snap_id = int(cur.lastrowid or 0)  # an INSERT always has one
     _events(conn, vehicle_id, prev, s, snap_id)
     _charge(conn, vehicle_id, prev, s)
     ended_before = conn.execute("SELECT COUNT(*) FROM events WHERE vehicle_id=? AND kind='trip_end'", (vehicle_id,)).fetchone()[0]
@@ -103,6 +106,7 @@ def ingest(conn: sqlite3.Connection, vehicle_id: int, s: dict) -> None:
     if rose or ended_after != ended_before:  # new evidence that the car was charged while nobody was watching
         infer_charges(conn, vehicle_id)
     conn.commit()
+    return automation.collect(conn, vehicle_id, since, prev, s, snap_id)
 
 
 # ---------------------------------------------------------------------------------------------- events

@@ -10,10 +10,11 @@ import asyncio
 import json
 import logging
 import time
+from collections.abc import Callable
 from contextlib import suppress
 from dataclasses import dataclass, field
 
-from . import commands, normalise, recorder, store
+from . import automation, commands, normalise, recorder, store
 from .budget import RequestBudget
 from .client import ApiError, RateInfo
 
@@ -45,11 +46,13 @@ class Runtime:
     api_errors: list = field(default_factory=list)
     captured_at: str | None = None
     polls: int = 0
+    failures: int = 0  # failed readings in a row
 
 
 class Poller:
     def __init__(self, conn, api, *, spin_getter=None, publisher=None, clock=time.time, utcnow=None):
         self.conn, self.api, self.publisher, self.clock = conn, api, publisher, clock
+        self.on_events: Callable[[int, list[dict]], None] | None = None  # MQTT events and webhooks (see cloud.py)
         self.spin_getter = spin_getter or (lambda: "")
         self.utcnow = utcnow or (lambda: time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime(self.clock())))
         self.rt: dict[str, Runtime] = {}
@@ -98,12 +101,17 @@ class Poller:
         try:
             res = await self.api.get_vehicle(vin)
         except ApiError as e:
-            return self._failed(r, e, now, "get_vehicle")
+            out = self._failed(r, e, now, "get_vehicle")
+            r.failures += 1  # readings only: a refused command says nothing about whether the car can be read
+            if r.failures == automation.POLL_FAILURES:
+                self._emit(r, [{"event": "poll.failed", "at": self.utcnow(),
+                                "data": {"failures": r.failures, "kind": e.kind, "error": r.last_error}}])
+            return out
         store.log_call(self.conn, r.vid, now, "get_vehicle", True)
         self._rate(r, res.rate)
         r.key_expires_at = res.key_expires_at or r.key_expires_at
         parsed = normalise.parse(res.data, self.utcnow())
-        recorder.ingest(self.conn, r.vid, parsed.snapshot)
+        events = recorder.ingest(self.conn, r.vid, parsed.snapshot)
         store.save_sections(self.conn, r.vid, parsed.sections, parsed.snapshot["ts"])
         store.save_sections(self.conn, r.vid, {
             "operations": {"list": parsed.operations}, "part_state": parsed.part_state, "api_errors": {"list": parsed.errors},
@@ -115,7 +123,7 @@ class Poller:
         r.operations, r.part_state, r.api_errors = parsed.operations, parsed.part_state, parsed.errors
         r.captured_at, r.last_ok, r.last_poll_at = parsed.captured_at, parsed.snapshot["ts"], now
         r.last_error = r.error_kind = None
-        r.backoff, r.polls = 60, r.polls + 1
+        r.backoff, r.polls, r.failures = 60, r.polls + 1, 0
         r.active = normalise.running_actively(parsed)
         idle, active = self.intervals()
         r.next_poll = self.clock() + (active if r.active else idle)
@@ -124,7 +132,15 @@ class Poller:
                 self.publisher.publish_state(vin, parsed.snapshot, parsed.sections)
             except Exception:  # an MQTT hiccup must never stop polling
                 _LOG.exception("MQTT publish failed")
+        self._emit(r, events)  # after the state, so a consumer of an event sees the car as it is now
         return {"ok": True, "captured_at": parsed.captured_at, "active": r.active}
+
+    def _emit(self, r: Runtime, events: list[dict]) -> None:
+        if events and self.on_events:
+            try:
+                self.on_events(r.vid, events)
+            except Exception:  # MQTT or webhooks must never stop polling
+                _LOG.exception("could not pass on events")
 
     def _rate(self, r: Runtime, rate: RateInfo) -> None:
         r.budget.observe(rate.limit, rate.remaining, rate.reset_at())
