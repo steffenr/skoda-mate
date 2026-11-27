@@ -74,3 +74,13 @@ in the repository, a project settings file, a script or CI. Check placeholders w
 |---|---|---|
 | English (source) | — | — |
 | German | `de.json` | reference translation |
+| Danish | `da.json` | machine translation, not reviewed by a speaker |
+| Dutch | `nl.json` | machine translation, not reviewed by a speaker |
+| Norwegian Bokmål | `nb.json` | machine translation, not reviewed by a speaker |
+| Finnish | `fi.json` | machine translation, not reviewed by a speaker |
+| Swedish | `sv.json` | machine translation, not reviewed by a speaker |
+
+The back-translation check for these five is still open: no translation service was available when they were added.
+
+Found a wrong text? Open an issue with the language, the English text (or a screenshot) and where it appears; a
+correction is a one-line change to that language's file.

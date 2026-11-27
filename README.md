@@ -37,7 +37,7 @@ no shared code.
 | **Places** | Named places with radius, colour and per-place prices; visits, days, parked time and cost per place ([how places work](docs/PLACES.md)) |
 | **Settings · System** | Units, language, capacity, polling, API-key status, request budget, data parts, raw data, redacted diagnostics, a data-quality card with safe fixes and "mark as reviewed" ([details](docs/ACTIVITY.md#data-quality)) |
 
-Also: Home Assistant via MQTT Discovery, [signed webhooks](docs/WEBHOOKS.md), a JSON API, CSV export, database backup, demo mode, English and German ([how to add a language](docs/TRANSLATIONS.md)).
+Also: Home Assistant via MQTT Discovery, [signed webhooks](docs/WEBHOOKS.md), a JSON API, CSV export, database backup, demo mode, and seven languages: Danish, Dutch, English, Finnish, German, Norwegian and Swedish ([how to add a language](docs/TRANSLATIONS.md)).
 
 ## Screenshots
 
