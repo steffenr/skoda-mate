@@ -10,7 +10,7 @@ import asyncio
 import logging
 from collections.abc import Callable
 
-from . import automation, commands, costs, ha_mqtt, mqtt_config, places, recorder
+from . import automation, commands, costs, ha_mqtt, ha_values, mqtt_config, recorder
 from .client import SkodaApi
 from .config import Config
 from .poller import Poller
@@ -26,6 +26,7 @@ class Cloud:
         self.task: asyncio.Task | None = None
         self.api: SkodaApi | None = None
         self.mqtt_error: str | None = None  # why the publisher could not start (shown on the Settings page)
+        self.values = ha_values.Values(conn)  # what Mate derives itself, published next to the API's values
 
     # ------------------------------------------------------------------ credentials
     def spin(self) -> str:
@@ -105,28 +106,6 @@ class Cloud:
         return {"config": mqtt_config.public_view(conf), "status": status, "discovery_prefix": ha_mqtt.DISCOVERY_PREFIX,
                 "entities_per_car": len(ha_mqtt.discovery("x", "VIN", None, commands=conf["commands"]))}
 
-    def _extras(self, vin: str) -> dict:
-        """Values Mate derives itself, published next to the API's own: the last finished trip and charge."""
-        row = self.conn.execute("SELECT id FROM vehicles WHERE vin=?", (vin,)).fetchone()
-        out: dict = {}
-        if not row:
-            return out
-        tariff = costs.load_tariff(self.conn)
-        t = self.conn.execute("SELECT * FROM trips WHERE vehicle_id=? AND ended_at IS NOT NULL "
-                              "ORDER BY started_at DESC LIMIT 1", (row["id"],)).fetchone()
-        if t:
-            t = dict(t)
-            out.update(last_trip_km=round(t["distance_km"], 1) if t.get("distance_km") is not None else None,
-                       last_trip_kwh=t.get("energy_kwh"), last_trip_consumption=t.get("avg_kwh_100km"))
-        c = self.conn.execute("SELECT * FROM charges WHERE vehicle_id=? AND ended_at IS NOT NULL "
-                              "ORDER BY started_at DESC LIMIT 1", (row["id"],)).fetchone()
-        if c:
-            c = dict(c)
-            place = places.get(self.conn, c["geofence_id"]) if c.get("geofence_id") else None
-            out.update(last_charge_kwh=c.get("energy_kwh"),
-                       last_charge_cost=(costs.charge_cost(c, tariff, place) or {}).get("amount"))
-        return out
-
     def _make_publisher(self, p: Poller):
         conf = self.mqtt_config()
         self.mqtt_error = None
@@ -156,7 +135,7 @@ class Cloud:
             holder["pub"] = ha_mqtt.Publisher(
                 conf["host"], conf["port"], conf["user"], conf["password"], conf["prefix"], tls=conf["tls"],
                 tls_insecure=conf["tls_insecure"], discovery=conf["discovery"], commands=conf["commands"],
-                publish_fields=conf["publish_fields"], extras=self._extras, currency=lambda: costs.load_tariff(self.conn).get("currency", "EUR"),
+                publish_fields=conf["publish_fields"], extras=self.values.for_vin, currency=lambda: costs.load_tariff(self.conn).get("currency", "EUR"),
                 on_command=lambda vin, name, params: asyncio.run_coroutine_threadsafe(run_mqtt_command(vin, name, params), loop))
             return holder["pub"]
         except Exception as e:  # e.g. a TLS setup problem: the dashboard shows it instead of Mate failing
