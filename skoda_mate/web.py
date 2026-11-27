@@ -1,6 +1,6 @@
 """FastAPI app: configuration, lifespan, middleware and router wiring. Nothing else.
 
-The routes live in `routers/` (pages, auth, setup, mqtt, vehicles, trips, charges, reports, places, settings), the
+The routes live in `routers/` (pages, auth, setup, mqtt, vehicles, trips, charges, reports, places, settings, webhooks), the
 state they share in `context.py`, the Škoda/MQTT connection in `cloud.py`, the row shaping in `presenters.py`.
 This module is the only place that knows about all of them.
 """
@@ -24,6 +24,7 @@ from .poller import Poller
 from .routers import auth as auth_routes
 from .routers import charges, mqtt, pages, quality, reports, settings, setup, trips, vehicles
 from .routers import places as places_routes
+from .routers import webhooks as webhook_routes
 from .secrets_store import SecretBox
 
 _LOG = logging.getLogger(__name__)
@@ -70,7 +71,8 @@ def create_app(cfg: Config | None = None, conn=None, poller: Poller | None = Non
     if static_dir.exists():
         app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
-    for module in (pages, auth_routes, setup, mqtt, vehicles, trips, charges, reports, quality, places_routes, settings):
+    for module in (pages, auth_routes, setup, mqtt, vehicles, trips, charges, reports, quality, places_routes, settings,
+                   webhook_routes):
         app.include_router(module.router)
     return app
 
