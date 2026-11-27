@@ -77,7 +77,7 @@ export default async function charges(root, ctx) {
     const ac = by((c) => c.charge_type === 'AC'), dc = by((c) => c.charge_type === 'DC');
     const guess = items.some((c) => c.cost_basis === 'tariff-guess');
     return h('div', { class: 'grid auto a-totals' },
-      card(null, stat(t('Sessions'), f.num(S.total), { ic: 'plug', sub: closed.length !== items.length ? `${items.length - closed.length} ${t('Running')}` : null })),
+      card(null, stat(t('Sessions'), f.num(S.total), { ic: 'plug', sub: closed.length !== items.length ? tn('{n} Running', '{n} Running', items.length - closed.length) : null })),
       card(null, stat(t('Energy charged'), f.num(kwh, 1), { unit: 'kWh', ic: 'bolt' })),
       card(null, stat(t('Total cost'), f.money(sum(items, (c) => c.cost), ctx.currency), { ic: 'coin', sub: guess ? t('Costs are estimates based on your tariff.') : null })),
       card(null, stat(t('Home vs public'), `${f.num(home, 0)} / ${f.num(pub, 0)}`, { unit: 'kWh', ic: 'home', sub: unk > 0.05 ? t('+ {energy} kWh unknown place', { energy: f.num(unk, 0) }) : null })),

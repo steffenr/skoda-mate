@@ -5,7 +5,7 @@ import { asyncButton, banner, button, card, chip, confirmDialog, empty, kv, load
 import capabilitiesPage from './capabilities.js';
 import * as f from '../lib/format.js';
 import { checkLabel, fixExplanation, sampleNode } from '../lib/quality.js';
-import { t, tx, N_ } from '../i18n.js';
+import { t, tn, tx, N_ } from '../i18n.js';
 
 const PART_STATE = { present: 'good', unsupported: '', disabled: 'warn', unavailable: 'warn', missing: 'bad', unknown: '' };
 const OP_LABEL = {
@@ -49,14 +49,14 @@ export default async function system(root, ctx) {
     await recheck();
     if (!qualityError) toast(message(r), 'good');
   }
-  const review = (c, reviewed, opts) => act(() => ctx.api.post(`${base}/quality/review`, { check: c.id, reviewed }), () => t(reviewed ? 'Reviewed' : N_('Review undone')), opts);
+  const review = (c, reviewed, opts) => act(() => ctx.api.post(`${base}/quality/review`, { check: c.id, reviewed }), () => t(reviewed ? N_('Reviewed') : N_('Review undone')), opts);
 
   function reviewModal(c) {
     const err = h('div');
     const samples = c.samples || [];
     const more = c.count - samples.length;
     const sampleList = () => (samples.length ? h('ul', { class: 'quality-samples small' }, ...samples.map((sm) => h('li', null, sampleNode(sm)))) : null);
-    const moreLine = () => (samples.length && more > 0 ? h('div', { class: 'tiny muted' }, t('and {n} more', { n: f.num(more) })) : null);
+    const moreLine = () => (samples.length && more > 0 ? h('div', { class: 'tiny muted' }, tn('and {n} more', 'and {n} more', more, { n: f.num(more) })) : null);
     const list = sampleList();
     // what the repair does, shown before anyone clicks Fix and repeated in the confirmation
     const explain = c.fix ? fixExplanation(c.fix, { reviewed: !!c.reviewed_at }) : null;
@@ -70,7 +70,7 @@ export default async function system(root, ctx) {
         const confirmBody = h('div', { class: 'stack' },
           explain ? h('p', null, explain) : null,
           samples.length ? h('div', { class: 'tiny muted' }, t('It changes these findings:')) : null, sampleList(), moreLine(),
-          h('p', null, `${t('Findings this fix changes:')} ${f.num(c.count)}. ${t('Nothing is lost.')}`));
+          h('p', null, `${t('Findings this fix changes:')} ${f.num(c.count)}`), h('p', null, t('Nothing is lost.')));
         const ok = await confirmDialog(t('Apply this fix?'), confirmBody);
         if (!ok) return;
         await act(() => ctx.api.post(`${base}/quality/fix`, { action: c.fix }), (r) => `${t('Fixed')}: ${f.num(r.changed)}`, { close, err });
@@ -92,15 +92,15 @@ export default async function system(root, ctx) {
       const row = (c) => {
         const done = c.reviewed_at && !c.count;
         return h('div', { class: 'quality-row', 'data-check': c.id },
-          c.count ? chip(t(c.severity === 'important' ? 'Important' : 'Info'), c.severity === 'important' ? 'bad' : 'warn') : h('span', { class: 'tiny muted quality-none' }, t('No findings')),
+          c.count ? chip(t(c.severity === 'important' ? N_('Important') : N_('Info')), c.severity === 'important' ? 'bad' : 'warn') : h('span', { class: 'tiny muted quality-none' }, t('No findings')),
           h('span', { class: 'quality-label' }, qualityLabel(c), ' ', h('strong', null, f.num(c.count)),
-            c.reviewed_at ? h('span', { class: 'tiny muted' }, ' ', done ? `${t('Reviewed')} ${f.dayLabel(c.reviewed_at)}` : t('new since {date}', { date: f.dayLabel(c.reviewed_at) })) : null),
+            c.reviewed_at ? h('span', { class: 'tiny muted' }, ' ', done ? t('Reviewed {date}', { date: f.dayLabel(c.reviewed_at) }) : t('new since {date}', { date: f.dayLabel(c.reviewed_at) })) : null),
           done ? asyncButton(t('Undo'), () => review(c, false), { size: 'sm', ic: 'left' }) : button(t('Review'), { size: 'sm', onClick: () => reviewModal(c) }));
       };
       body = h('div', { class: 'stack' },
         h('div', { class: 'row tight' },
-          nImp ? chip(`${f.num(nImp)} ${t('Important')}`, 'bad', 'alert') : null, nInfo ? chip(`${f.num(nInfo)} ${t('Info')}`, 'warn', 'info') : null,
-          nReviewed ? chip(t('{n} reviewed', { n: f.num(nReviewed) })) : null,
+          nImp ? chip(tn('{n} Important', '{n} Important', nImp, { n: f.num(nImp) }), 'bad', 'alert') : null, nInfo ? chip(tn('{n} Info', '{n} Info', nInfo, { n: f.num(nInfo) }), 'warn', 'info') : null,
+          nReviewed ? chip(tn('{n} reviewed', '{n} reviewed', nReviewed, { n: f.num(nReviewed) })) : null,
           h('span', { class: 'tiny muted' }, `${t('Checked')}: ${f.dateTime(quality.checked_at)}`)),
         ...found.map(row),
         h('div', { class: 'small muted' }, nReviewed ? t('Everything else looks consistent or was reviewed.') : found.length ? t('Everything else looks consistent.') : t('Everything looks consistent.')),

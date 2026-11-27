@@ -30,7 +30,7 @@ export default async function capabilities(root, ctx) {
     h('div', { class: 'grid auto' },
       card(null, stat(t('Commands'), `${s.operations_supported} / ${s.operations_total}`, { ic: 'sliders', sub: t('commands supported') })),
       card(null, stat(t('Data the car reports'), `${s.parts_available} / ${s.parts_total}`, { ic: 'activity', sub: t('data parts available') })),
-      card(null, stat(t('Request limit'), `${c.rate_limit_per_hour}`, { ic: 'signal', sub: `${t('per hour per car')}. ${t('Reading costs one request; every command costs one more.')}` })),
+      card(null, stat(t('Request limit'), `${c.rate_limit_per_hour}`, { ic: 'signal', sub: [h('div', null, t('per hour per car')), h('div', null, t('Reading costs one request; every command costs one more.'))] })),
       card(null, stat(t('API version'), c.version, { ic: 'info', sub: h('a', { href: c.docs, target: '_blank', rel: 'noopener' }, t('API reference')) }))));
 
   const opRow = (o) => h('div', { class: 'b-line' },

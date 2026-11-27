@@ -40,7 +40,7 @@ function detail(e) {
   }
   // Data quality (quality.fix / quality.review): "<action>:<rows changed>" and "<check>:on|off"
   const fixed = e.kind === 'quality_fix' && /^(\w+):(\d+)$/.exec(d || '');
-  if (fixed) return `${actionLabel(fixed[1])}: ${t('{n} changed', { n: f.num(+fixed[2]) })}`;
+  if (fixed) return `${actionLabel(fixed[1])}: ${tn('{n} changed', '{n} changed', +fixed[2], { n: f.num(+fixed[2]) })}`;
   const reviewed = e.kind === 'quality_review' && /^(\w+):(on|off)$/.exec(d || '');
   if (reviewed) return `${checkLabel(reviewed[1])}: ${reviewed[2] === 'on' ? t('marked as reviewed') : t('review undone')}`;
   if (!d) return null;
@@ -198,7 +198,7 @@ async function timelineTab(root, ctx) {
   const range = h('strong', { 'aria-live': 'polite' });
   const body = h('div', { class: 'stack' });
   const legend = h('div', { class: 'legend', role: 'group', 'aria-label': t('Colour key') },
-    h('span', null, N_('24 h')), ...LEGEND.map((k) => h('span', null, h('i', { class: `tl-${k}` }), segLabel(k))));
+    h('span', null, t('24 h')), ...LEGEND.map((k) => h('span', null, h('i', { class: `tl-${k}` }), segLabel(k))));
 
   async function load(silent = false) {
     const mine = ++seq;

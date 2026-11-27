@@ -225,5 +225,21 @@ assert.ok(gaveUp, 'a request that never answers is given up');
 assert.equal(asked, '/static/i18n/hangs.json');
 assert.deepEqual([i18n.getLang(), i18n.getLocale()], ['en', 'en']);
 console.warn = quiet;
+
+// ------------------------------------------------------------------ what another language needs
+const modules = (await import('./i18n_lib.mjs')).sources();
+const found3 = scan(modules);
+for (const key of ['Reviewed {date}', '{n} inferred', '{n} changed', '{n} reviewed', 'and {n} more', '{n} Running', '{n} Important', '{n} Info']) {
+  assert.ok(found3[key], `${key} is one key`);
+}
+for (const key of ['{n} inferred', '{n} changed', '{n} reviewed', 'and {n} more', '{n} Running', '{n} Important', '{n} Info']) {
+  assert.ok(found3[key].one, `${key} has plural forms: other languages inflect it`);
+}
+for (const [file, src] of Object.entries(modules)) assert.doesNotMatch(src, /\}\. \$\{t\(/, `${file}: two translations are not joined with ". "`);
+assert.match(modules['pages/events.js'], /h\('span', null, t\('24 h'\)\)/, 'the 24 h legend is translated');
+use('nf', { 'between {lo} and {hi}, {port}, {name}': '{lo} bis {hi}, {port}, {name}' });
+await i18n.setLang('nf', 'de');
+assert.equal(i18n.tm({ message: 'between {lo} and {hi}, {port}, {name}', params: { lo: 15.5, hi: 30, port: 1883, name: '2.5' } }),
+  '15,5 bis 30, 1883, 2.5', 'a fraction is written the way the locale writes it; whole numbers and texts stay');
 await i18n.setLang('en');
 console.log('frontend unit checks OK');

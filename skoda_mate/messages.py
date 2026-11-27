@@ -138,7 +138,7 @@ WEBHOOK_NOT_FOUND = Template("Not found")
 WEBHOOK_THRESHOLD = Template("The low-battery threshold must be a whole number from 5 to 50.")
 
 # ------------------------------------------------------------------ activity, trips, import, data quality
-BAD_DATE = Template("bad date {day}, expected YYYY-MM-DD")
+BAD_DATE = Template("bad date '{day}', expected YYYY-MM-DD")
 RANGE_REVERSED = Template("The start must be before the end.")
 RANGE_LIMIT_31 = Template("The range is limited to 31 days.")
 RANGE_ENDS_EARLY = Template("The range ends before it starts.")
@@ -153,13 +153,13 @@ MERGE_NOT_MERGED = Template("This trip was not merged.")
 IMPORT_TOO_MANY_FILES = Template("At most {n} files at once.")
 IMPORT_TOO_LARGE = Template("The files are too large (limit 8 MB in total).")
 IMPORT_NO_FILE = Template("Choose at least one CSV file.")
-IMPORT_TIME_ZONE = Template("Unknown time zone {name}. Use a name like Europe/Berlin.")
+IMPORT_TIME_ZONE = Template("Unknown time zone '{name}'. Use a name like Europe/Berlin.")
 
 # ------------------------------------------------------------------ commands
 CMD_REQUIRED = Template("'{key}' is required")
 CMD_NUMBER = Template("'{key}' must be a number")
 CMD_RANGE = Template("'{key}' must be between {lo} and {hi}")
-CMD_UNKNOWN = Template("unknown command {name}")
+CMD_UNKNOWN = Template("unknown command '{name}'")
 CMD_UNKNOWN_VEHICLE = Template("Unknown vehicle")
 CMD_NOT_SUPPORTED = Template("This car does not support that operation.")
 CMD_CHARGE_MODE = Template("'mode' must be one of {choices}")
@@ -205,7 +205,7 @@ MQTT_CONNECT_FAILED = Template("Could not connect: {error}")
 # ------------------------------------------------------------------ import report
 IMPORT_EMPTY = Template("The file is empty.")
 IMPORT_NOT_AN_EXPORT = Template("This does not look like a MyŠkoda trip export: missing column(s) {columns}. Found: {found}…")
-IMPORT_BAD_DATE = Template("line {line}: unreadable date {start} / {end}")
+IMPORT_BAD_DATE = Template("line {line}: unreadable date '{start}' / '{end}'")
 IMPORT_ENDS_EARLY = Template("line {line}: the trip ends before it starts")
 IMPORT_OTHER_CAR = Template("This export belongs to another car ({vin}), not this one. It was skipped.")
 

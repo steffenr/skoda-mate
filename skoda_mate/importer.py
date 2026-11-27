@@ -96,7 +96,7 @@ def get_tz(name: str) -> ZoneInfo:
     try:
         return ZoneInfo(name or "UTC")
     except (ZoneInfoNotFoundError, ValueError, KeyError):
-        raise ImportError_(messages.IMPORT_TIME_ZONE(name=repr(name))) from None
+        raise ImportError_(messages.IMPORT_TIME_ZONE(name=name)) from None
 
 
 def parse_local(text: str, tz: ZoneInfo) -> datetime | None:
@@ -167,7 +167,7 @@ def parse_file(name: str, text: str, tz: ZoneInfo) -> tuple[list[dict], FileRepo
         get = partial(_cell, row, idx)
         start, end = parse_local(get("start"), tz), parse_local(get("end"), tz)
         if start is None or end is None:
-            rep.add_error(messages.IMPORT_BAD_DATE(line=n, start=repr(get("start")), end=repr(get("end"))))
+            rep.add_error(messages.IMPORT_BAD_DATE(line=n, start=get("start"), end=get("end")))
             continue
         if end < start:
             rep.add_error(messages.IMPORT_ENDS_EARLY(line=n))
