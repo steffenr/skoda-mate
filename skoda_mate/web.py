@@ -22,7 +22,7 @@ from .context import AppContext
 from .middleware import BodyLimit, SecurityHeaders
 from .poller import Poller
 from .routers import auth as auth_routes
-from .routers import charges, mqtt, pages, reports, settings, setup, trips, vehicles
+from .routers import charges, mqtt, pages, quality, reports, settings, setup, trips, vehicles
 from .routers import places as places_routes
 from .secrets_store import SecretBox
 
@@ -67,7 +67,7 @@ def create_app(cfg: Config | None = None, conn=None, poller: Poller | None = Non
     if static_dir.exists():
         app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
-    for module in (pages, auth_routes, setup, mqtt, vehicles, trips, charges, reports, places_routes, settings):
+    for module in (pages, auth_routes, setup, mqtt, vehicles, trips, charges, reports, quality, places_routes, settings):
         app.include_router(module.router)
     return app
 
