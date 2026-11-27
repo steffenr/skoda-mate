@@ -4,6 +4,7 @@ import { h, mount } from '../lib/dom.js';
 import { icon } from '../lib/icons.js';
 import { asyncButton, banner, button, card, chip, confirmDialog, empty, field, kv, loading, seg, toast } from '../lib/ui.js';
 import { mapView } from '../lib/mapview.js';
+import { automationCard } from '../lib/automation.js';
 import * as f from '../lib/format.js';
 import { extendDE, t } from '../i18n.js';
 
@@ -394,11 +395,11 @@ export default async function settings(root, ctx) {
       h('div', { style: { marginTop: '12px' } }, button(t('Try again'), { ic: 'refresh', onClick: () => settings(root, ctx) }))));
     return;
   }
-  const boxes = [wrap(displayCard), wrap(tariffCard), wrap(capacityCard), wrap(pollingCard), wrap(keyCard), wrap(dataCard), wrap(mqttCard)];  // redraws[0..6]
+  const boxes = [wrap(displayCard), wrap(tariffCard), wrap(capacityCard), wrap(pollingCard), wrap(keyCard), wrap(dataCard), wrap(mqttCard), wrap(() => automationCard(ctx))];  // redraws[0..7]
   // Two columns on wide screens (one on phones and narrow windows): display, prices, battery, polling and data on the left, the Škoda and Home Assistant connections on the right
   mount(root, h('div', { class: 'set-cols' },
     h('div', { class: 'set-col' }, boxes[0], boxes[1], boxes[2], boxes[3], boxes[5]),
-    h('div', { class: 'set-col' }, boxes[4], boxes[6])));
+    h('div', { class: 'set-col' }, boxes[4], boxes[6], boxes[7])));
   loadMqtt().then(() => redraws[6]());
   root.classList.add('b-settings');
   // The data card shows the login e-mail from the status, so it follows the key card's redraws

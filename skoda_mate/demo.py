@@ -10,8 +10,9 @@ import random
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from . import places, recorder, store
+from . import places, recorder, store, webhooks
 from .client import ApiResult, RateInfo
+from .secrets_store import SecretBox
 
 DEMO_VIN = "TMBDEMO0000000001"
 DEMO_VIN2 = "TMBDEMO0000000002"  # second car, only with DEMO_CARS=2 (to try switching between cars)
@@ -126,6 +127,14 @@ class DemoApi:
 
     async def close(self):
         pass
+
+
+def seed_webhook(conn, box: SecretBox) -> None:
+    """A webhook to look at on the Automation card. Disabled, so the demo sends nothing anywhere."""
+    if not webhooks.listing(conn, box):
+        webhooks.create(conn, box, {"name": "Home Assistant (example)", "enabled": False,
+                                    "url": "http://homeassistant.local:8123/api/webhook/skoda-mate",
+                                    "events": ["charge.completed", "soc.low", "geofence.entered"]})
 
 
 def _seed_places(conn) -> None:

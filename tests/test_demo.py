@@ -14,6 +14,12 @@ def demo_client():
     return client_for(create_app(cfg, schema.connect(":memory:")))
 
 
+def test_the_demo_has_one_disabled_webhook_so_automation_is_visible():
+    with demo_client() as c:
+        hooks = c.get("/api/webhooks").json()["webhooks"]
+    assert [(h["enabled"], h["url"].startswith("http://homeassistant.local")) for h in hooks] == [(False, True)]
+
+
 def test_demo_mode_needs_no_login_or_account_and_has_history():
     with demo_client() as c:
         assert c.get("/").status_code == 200  # straight to the dashboard
