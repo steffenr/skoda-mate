@@ -78,11 +78,14 @@ in the repository, a project settings file, a script or CI. Check placeholders w
 | Danish | `da.json` | machine translation, not reviewed by a speaker |
 | Spanish | `es.json` | machine translation, not reviewed by a speaker |
 | French | `fr.json` | machine translation, not reviewed by a speaker |
+| Hungarian | `hu.json` | machine translation, not reviewed by a speaker |
 | Italian | `it.json` | machine translation, not reviewed by a speaker |
 | Dutch | `nl.json` | machine translation, not reviewed by a speaker |
 | Norwegian Bokmål | `nb.json` | machine translation, not reviewed by a speaker |
 | Finnish | `fi.json` | machine translation, not reviewed by a speaker |
 | Swedish | `sv.json` | machine translation, not reviewed by a speaker |
+| Turkish | `tr.json` | machine translation, not reviewed by a speaker |
+| Ukrainian | `uk.json` | machine translation, not reviewed by a speaker |
 
 The back-translation check for the machine-drafted catalogs is still open: no translation service was available when
 they were added.
