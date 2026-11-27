@@ -8,16 +8,16 @@ import json
 import os
 import sqlite3
 import tempfile
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
 from starlette.background import BackgroundTask
 
-from .. import __version__, commands, places, stats, store
+from .. import __version__, activity, commands, places, recorder, stats, store
 from ..deps import ContextDep
-from ..presenters import csv_cell, local_bound, redact, rows, snap_out, vehicle
+from ..presenters import csv_cell, local_bound, local_day, redact, rows, snap_out, vehicle
 
 router = APIRouter()
 
@@ -75,6 +75,41 @@ def events(vid: int, ctx: ContextDep, kind: str | None = None, q: str | None = N
             "kinds": [x[0] for x in ctx.conn.execute("SELECT DISTINCT kind FROM events WHERE vehicle_id=? ORDER BY kind", (vid,))],
             "items": rows(ctx.conn.execute(f"SELECT * FROM events WHERE {w} ORDER BY at DESC, id DESC LIMIT ? OFFSET ?",
                                             [*args, limit, offset]))}
+
+
+@router.get("/api/vehicles/{vid}/timeline")
+def timeline_view(vid: int, ctx: ContextDep, from_: str | None = Query(None, alias="from"),
+                  to: str | None = None, tz_offset: int = Query(0, ge=-840, le=840)):
+    vehicle(ctx.conn, vid)
+    now = datetime.fromisoformat(ctx.now_iso())
+    try:
+        to_day = to or (now - timedelta(minutes=tz_offset)).date().isoformat()
+        to_date = local_day(to_day)  # app's 400, not FastAPI's raw isoformat message, before the default arithmetic
+        from_day = from_ or (to_date - timedelta(days=6)).isoformat()
+        return activity.timeline(ctx.conn, vid, from_day, to_day, tz_offset, now, ctx.tariff())
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from e
+
+
+@router.get("/api/vehicles/{vid}/parked-loss")
+def parked_loss_view(vid: int, ctx: ContextDep, from_: str | None = Query(None, alias="from"),
+                     to: str | None = None, min_hours: float = 6, tz_offset: int = Query(0, ge=-840, le=840)):
+    vehicle(ctx.conn, vid)
+    if not 1 <= min_hours <= 168:
+        raise HTTPException(400, "min_hours must be between 1 and 168.")
+    now = datetime.fromisoformat(ctx.now_iso())
+    to_day = to or (now - timedelta(minutes=tz_offset)).date().isoformat()
+    try:
+        from_day = from_ or (local_day(to_day) - timedelta(days=29)).isoformat()
+    except ValueError as e:  # the app's message for a malformed `to`, as the timeline route gives
+        raise HTTPException(400, str(e)) from e
+    from_iso, to_iso = local_bound(from_day, tz_offset), local_bound(to_day, tz_offset, end=True)
+    assert from_iso is not None and to_iso is not None
+    try:
+        return activity.parked_loss(ctx.conn, vid, from_iso, to_iso, min_hours,
+                                    recorder.battery_kwh(ctx.conn, vid), ctx.tariff())
+    except activity.RangeError as e:  # a reversed range; no length cap, the computation is linear in the readings
+        raise HTTPException(400, str(e)) from e
 
 
 @router.get("/api/vehicles/{vid}/map")

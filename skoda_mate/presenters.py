@@ -7,7 +7,7 @@ cannot start a formula) is applied in one place. Nothing here talks to FastAPI's
 from __future__ import annotations
 
 import json
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 from fastapi import HTTPException
 
@@ -46,20 +46,32 @@ def snap_out(row) -> dict | None:
     return d
 
 
+def local_day(day: str) -> date:
+    """A local YYYY-MM-DD date; the one message a malformed date gets, shared by the filters and the timeline."""
+    try:
+        return date.fromisoformat(day)
+    except ValueError:
+        raise ValueError(f"bad date {day!r}, expected YYYY-MM-DD") from None
+
+
 def local_bound(day: str | None, tz_offset: int = 0, end: bool = False) -> str | None:
     """A date filter from the browser -> a UTC ISO string comparable with the stored timestamps.
 
-    `day` is a local date (YYYY-MM-DD) or a full ISO datetime; `tz_offset` is JS `getTimezoneOffset()` (minutes,
+    `day` is a local date (YYYY-MM-DD), a full ISO datetime with a `T` (passed through), or the space-separated form
+    `YYYY-MM-DD HH:MM` (a local time, shifted into UTC like a date); `tz_offset` is JS `getTimezoneOffset()` (minutes,
     UTC minus local). A `to` date means "through the end of that day", so its bound is the next local midnight."""
     if not day:
         return None
     if "T" in day:
         return day
     try:
-        d = datetime.fromisoformat(day)
-    except ValueError:
-        raise HTTPException(400, f"bad date {day!r}, expected YYYY-MM-DD") from None
-    d = d + timedelta(days=1 if end else 0, minutes=tz_offset)
+        parsed = datetime.combine(local_day(day), datetime.min.time())
+    except ValueError as e:
+        try:
+            parsed = datetime.fromisoformat(day)
+        except ValueError:
+            raise HTTPException(400, str(e)) from None
+    d = parsed + timedelta(days=1 if end else 0, minutes=tz_offset)
     return d.replace(tzinfo=UTC).isoformat()
 
 

@@ -91,6 +91,11 @@ def charge_cost(charge: dict, tariff: dict, place: dict | None = None) -> dict:
         return {"amount": charge["cost_manual"], "kind": kind, "basis": "manual"}
     if place is not None and _priced(place):
         return {"amount": _place_amount(charge, place), "kind": kind, "basis": "place"}
+    return _tariff_cost(charge, tariff, kind)
+
+
+def _tariff_cost(charge: dict, tariff: dict, kind: str) -> dict:
+    """The tariff's price per kWh for the place kind; no energy is an unknown amount, never zero."""
     kwh = charge.get("energy_kwh")
     if not kwh:
         return {"amount": None, "kind": kind, "basis": "none"}
@@ -101,6 +106,18 @@ def charge_cost(charge: dict, tariff: dict, place: dict | None = None) -> dict:
     else:  # unknown place: assume the home price, flagged in `basis`
         price = tariff["home_kwh"]
     return {"amount": round(kwh * price, 2), "kind": kind, "basis": "tariff" if kind != "unknown" else "tariff-guess"}
+
+
+def energy_cost(charge: dict, tariff: dict, place: dict | None = None) -> dict:
+    """Energy alone, priced like `charge_cost` but never by the minute or with a session fee (parked loss: energy that
+    left the battery, not a charging session). A free place costs 0, a place's price per kWh wins, else the tariff for
+    the place kind. -> {amount, kind, basis}."""
+    kind = place_kind(charge, tariff, place)
+    if place is not None and place.get("free"):
+        return {"amount": 0.0, "kind": kind, "basis": "place"}
+    if place is not None and place.get("price_kwh") is not None and charge.get("energy_kwh"):
+        return {"amount": round(charge["energy_kwh"] * place["price_kwh"], 2), "kind": kind, "basis": "place"}
+    return _tariff_cost(charge, tariff, kind)
 
 
 def trip_cost(trip: dict, tariff: dict) -> float | None:
