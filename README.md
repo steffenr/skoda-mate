@@ -37,7 +37,7 @@ no shared code.
 | **Places** | Named places with radius, colour and per-place prices; visits, days, parked time and cost per place ([how places work](docs/PLACES.md)) |
 | **Settings · System** | Units, language, capacity, polling, API-key status, request budget, data parts, raw data, redacted diagnostics, a data-quality card with safe fixes and "mark as reviewed" ([details](docs/ACTIVITY.md#data-quality)) |
 
-Also: Home Assistant via MQTT Discovery, a JSON API, CSV export, database backup, demo mode, English and German.
+Also: Home Assistant via MQTT Discovery, [signed webhooks](docs/WEBHOOKS.md), a JSON API, CSV export, database backup, demo mode, English and German.
 
 ## Screenshots
 
@@ -237,11 +237,22 @@ template fields or `unraid/docker-compose.yml` ([docs/UNRAID.md](docs/UNRAID.md)
   servers refuse requests without it). `/health` answers `{"ok": true}` to everyone for Docker's check; details need a
   session or the API token.
 
+## Automation
+
+Under **Settings → Automation**, Mate sends **webhooks**: signed JSON to your own URL when a trip or watched charge
+starts or ends, the charge limit is reached, the battery runs low, the car arrives at or leaves one of your places, and
+more. Failed deliveries are retried and logged. Events, payload, signature check and examples:
+[docs/WEBHOOKS.md](docs/WEBHOOKS.md).
+
+The webhook secret is stored encrypted, shown once and never logged. The events carry your car's name and VIN and your
+place names to the URL you enter, which may be in your own network.
+
 ## Home Assistant
 
 Set it up under **Settings → MQTT**: broker address, port, user, password (encrypted), **Test connection**, live status,
 no restart. Mate then creates a device per car through MQTT discovery with about 40 entities: battery, range, charging,
-odometer, doors and windows, position, Mate's last trip and last charge. Control buttons and a charge-limit slider are
+odometer, doors and windows, position, Mate's last trip and last charge, current place, parked loss, projected range and
+data-quality count. For other tools it can publish one topic per value, and it publishes events to `…/events`. Control buttons and a charge-limit slider are
 opt-in (**Allow commands from Home Assistant**); starting the auxiliary heater is not available over MQTT. There is no
 lock entity, because the API cannot lock.
 

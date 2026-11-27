@@ -111,11 +111,23 @@ Add them to a dashboard: *Overview → pencil icon → Add card → Tile / Entit
 | Fuel level, Fuel range (combustion/hybrid cars) | %, km |
 | Last update from car | timestamp |
 
-**Values Mate calculates itself** (not provided by Škoda): *Last trip distance*, *Last trip energy*, *Last trip consumption*,
-*Last charge energy*, *Last charge cost* (uses your prices from the **Prices** page and your currency).
+**Values Mate calculates itself** (not provided by Škoda). What cannot be worked out is *unknown*, never zero.
+
+| Entity | Key | Unit | What it is |
+|---|---|---|---|
+| Last trip distance, energy, consumption | `last_trip_km`, `last_trip_kwh`, `last_trip_consumption` | km, kWh, kWh/100 km | the last finished trip |
+| Last charge energy, cost, place | `last_charge_kwh`, `last_charge_cost`, `last_charge_place` | kWh, your currency, text | the last finished charge; cost uses your **Prices** |
+| Place | `place` | text | the [place](PLACES.md) the car is parked in; unknown while driving or away from your places |
+| Parked loss (7 days), and its cost | `parked_loss_7d_kwh`, `parked_loss_7d_cost` | kWh, your currency | [battery lost while parked](ACTIVITY.md#parked-loss) |
+| Capacity estimate (from the wall) | `capacity_estimate_kwh` | kWh | wall energy per 100 % from long AC charges, so it includes charging losses; **not** battery health |
+| Projected range at 100 % | `range_at_100_km` | km | [the reported range scaled to a full battery](INSIGHTS.md#projected-range) |
+| Data quality issues | `quality_issues` | count | checks on the [data-quality card](ACTIVITY.md#data-quality) with something open |
+
+Parked loss, capacity, range and quality are recalculated at most every 15 minutes, and at once when something happens
+(a trip or charge ends, the cable is plugged in, ...).
 
 **Binary sensors**: Charging, Plug connected, Plug locked, Doors open, Windows open, Trunk open, Bonnet open, Lights, Driving,
-Unlocked. The lock state is **read-only** because the Škoda API cannot lock or unlock the car.
+Climate running, Unlocked. The lock state is **read-only** because the Škoda API cannot lock or unlock the car.
 
 **Position**: a *device tracker*, so the car appears on the Home Assistant map.
 
@@ -142,6 +154,55 @@ removes these entities from Home Assistant again.
 
 If the car does not support a function (for example no ventilation), pressing its button reports `rejected` with the
 reason. Mate shows what your car supports on the **Capabilities** page.
+
+## Topics
+
+`<prefix>` is the topic prefix (`skoda_mate`).
+
+| Topic | Retained | Content |
+|---|---|---|
+| `<prefix>/status` | yes | `online` / `offline` |
+| `<prefix>/<VIN>/state` | yes | all values as one JSON object (what Home Assistant reads) |
+| `<prefix>/<VIN>/position` | yes | `latitude`, `longitude`, `address` |
+| `<prefix>/<VIN>/fields/<key>` | yes | one value as a JSON scalar, e.g. `64`, `true`, `"HEATING"` |
+| `<prefix>/<VIN>/events` | **no** | one JSON message per event |
+| `<prefix>/<VIN>/cmd/<name>`, `<prefix>/<VIN>/cmd_result` | –, yes | commands, see *Controls* |
+
+### One topic per value
+
+For tools other than Home Assistant: `<prefix>/<VIN>/fields/<key>` has every key of the `state` object. A value is
+published when it changes; `captured_at` (when the car last reported) on every reading; and all of them again after a
+reconnect. A value that becomes **unknown** is sent as an **empty retained message**, which removes it from the broker.
+
+**Also publish one topic per value** on the MQTT card switches these topics off (they are on by default). That does not
+change Home Assistant discovery. Values the broker already holds stay there until you delete them.
+
+### Events
+
+`<prefix>/<VIN>/events` reports what happened, with the same [event names and data as the webhooks](WEBHOOKS.md#events):
+
+```json
+{"id": "5c1f…", "event": "charge.ended", "at": "2026-11-26T18:04:00+00:00",
+ "vehicle": {"id": 1, "name": "Enyaq", "vin": "TMB…"}, "data": {"charge_id": 42, "energy_kwh": 36.4, "place": "Home"}}
+```
+
+Events are **not retained** (QoS 0) and are not queued while the broker is unreachable, so an automation never acts on
+an old one. Use a [webhook](WEBHOOKS.md) when an event must not get lost. They are published whether or not the field
+topics are on. `id` is unique per event.
+
+```yaml
+alias: Enyaq reached its charge limit
+trigger:
+  - platform: mqtt
+    topic: skoda_mate/TMBJB9NY5RF999999/events
+condition:
+  - condition: template
+    value_template: "{{ trigger.payload_json.event == 'charge.completed' }}"
+action:
+  - service: notify.notify
+    data:
+      message: "The Enyaq reached {{ trigger.payload_json.data.end_soc }} %."
+```
 
 ## Examples
 

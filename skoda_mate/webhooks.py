@@ -283,8 +283,12 @@ class Worker:
     # ---- sending
     def _start_due(self) -> None:
         now = self.clock()
-        self.conn.execute("DELETE FROM webhook_deliveries WHERE created_at<?", (now - KEEP_DAYS * 86400,))
-        self.conn.commit()
+        oldest = now - KEEP_DAYS * 86400
+        # Write only when there is something to prune: this runs every few seconds on the connection everyone shares,
+        # and a commit would also save whatever another writer has half done.
+        if self.conn.execute("SELECT 1 FROM webhook_deliveries WHERE created_at<? LIMIT 1", (oldest,)).fetchone():
+            self.conn.execute("DELETE FROM webhook_deliveries WHERE created_at<?", (oldest,))
+            self.conn.commit()
         due = self.conn.execute("SELECT DISTINCT d.webhook_id id FROM webhook_deliveries d JOIN webhooks w "
                                 "ON w.id=d.webhook_id WHERE w.enabled=1 AND d.status='pending' AND d.next_at<=?",
                                 (now,)).fetchall()
