@@ -42,7 +42,7 @@ export default async function place(root, ctx) {
 
   async function onSaved(result) {
     if (result?.ok) { ctx.nav('places'); return; }  // deleted: the shared form already confirmed and toasted
-    try { await load(); draw(); } catch (e) { toast(t(e.message || String(e)), 'bad'); }
+    try { await load(); draw(); } catch (e) { toast(e.message || String(e), 'bad'); }
   }
 
   function openForm({ remove = false } = {}) {
@@ -114,7 +114,7 @@ export default async function place(root, ctx) {
     } catch (e) {
       if (e.status === 404) { notFound(); return; }
       mount(root, h('div', { class: 'stack' }, backLink(),
-        banner('bad', `${t('Could not load this place')}: ${t(e.message || String(e))}`),
+        banner('bad', `${t('Could not load this place')}: ${e.message || String(e)}`),
         button(t('Try again'), { onClick: start, ic: 'refresh' })));
       return;
     }

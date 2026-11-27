@@ -23,7 +23,7 @@ from urllib.parse import urlsplit
 
 import httpx
 
-from . import __version__
+from . import __version__, messages
 from .automation import EVENT_TYPES
 from .secrets_store import SecretBox
 
@@ -37,18 +37,18 @@ NAME_MAX, URL_MAX = 60, 2000
 IDLE_S = 5.0  # how often the worker looks for a retry that has become due
 TEST_EVENT = "test"
 
-NO_ANSWER = "No answer within 10 seconds."
-NO_CONNECTION = "Could not connect to the receiver."
-REDIRECTED = "The receiver redirected. Mate does not follow redirects."
-NO_SECRET = "The secret cannot be read. Create a new secret."
-DISABLED = "The webhook was disabled."
-INTERRUPTED = "Mate stopped while sending."
-BAD_NAME = "Enter a name of 1 to 60 characters."
-BAD_URL = "Enter a URL that starts with http:// or https://."
-URL_LOGIN = "The URL must not contain a user name or password."
-BAD_EVENTS = "Choose at least one event."
-ENABLE_FIRST = "Enable the webhook first."
-ALREADY_WAITING = "This delivery is already waiting to be sent."
+NO_ANSWER = messages.WEBHOOK_NO_ANSWER
+NO_CONNECTION = messages.WEBHOOK_NO_CONNECTION
+REDIRECTED = messages.WEBHOOK_REDIRECTED
+NO_SECRET = messages.WEBHOOK_NO_SECRET
+DISABLED = messages.WEBHOOK_DISABLED
+INTERRUPTED = messages.WEBHOOK_INTERRUPTED
+BAD_NAME = messages.WEBHOOK_NAME
+BAD_URL = messages.WEBHOOK_URL
+URL_LOGIN = messages.WEBHOOK_URL_LOGIN
+BAD_EVENTS = messages.WEBHOOK_EVENTS
+ENABLE_FIRST = messages.WEBHOOK_ENABLE_FIRST
+ALREADY_WAITING = messages.WEBHOOK_ALREADY_WAITING
 
 _DELIVERY_COLUMNS = "id, webhook_id, event, status, attempts, next_at, last_code, last_error, created_at"
 
@@ -59,7 +59,7 @@ class WebhookError(ValueError):
 
 class WebhookNotFound(WebhookError):
     def __init__(self):
-        super().__init__("Not found")
+        super().__init__(messages.WEBHOOK_NOT_FOUND)
 
 
 # ------------------------------------------------------------------ the store

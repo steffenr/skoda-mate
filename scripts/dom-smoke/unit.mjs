@@ -128,5 +128,17 @@ await i18n.setLang('de');
 assert.deepEqual(['CHARGING', 'VENTILATION', 'OPEN', 'AC', 'CELSIUS'].map(i18n.tEnum), ['Lädt', 'Lüften', 'Offen', 'AC', '°C'],
   'German values read as before, also where the same English word means something else elsewhere');
 assert.deepEqual(Object.keys(german).filter((k) => k.startsWith('enum:')), [], 'no enum: keys are left');
+
+// ------------------------------------------------------------------ messages from the backend
+use('mm', { '{vin}: {error}': '{vin} – {error}', 'Place not found.': 'Ort nicht gefunden.' });
+await i18n.setLang('mm', 'de');
+assert.equal(i18n.tm({ message: '{vin}: {error}', params: { vin: 'TMB…1', error: { message: 'Place not found.', params: {} } } }),
+  'TMB…1 – Ort nicht gefunden.', 'a parameter that is a message is translated too');
+assert.equal(i18n.tm({ message: 'New in the server {n}', params: { n: '{x}' } }), 'New in the server {x}');
+assert.equal(i18n.tm({ message: 'Place not found.' }), 'Ort nicht gefunden.', 'params may be missing');
+assert.equal(i18n.tx({ error: 'Place not found.', error_i18n: { message: 'Place not found.', params: {} } }), 'Ort nicht gefunden.');
+assert.equal(i18n.tx({ error: 'Plain from an older server' }), 'Plain from an older server', 'without a template the text stays');
+assert.equal(i18n.tx({ message: 'Hi', message_i18n: { message: 'Place not found.', params: {} } }, 'message'), 'Ort nicht gefunden.');
+assert.deepEqual([i18n.tx({ error: null }), i18n.tx(null), i18n.tx(undefined)], [null, null, null]);
 await i18n.setLang('en');
 console.log('frontend unit checks OK');

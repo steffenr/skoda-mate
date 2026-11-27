@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import re
 
+from . import messages
 from .config import Config
 from .secrets_store import SecretBox
 from .store import get_setting, set_setting
@@ -16,7 +17,7 @@ KEY = "mqtt"
 # "commands": accept car commands from MQTT. Off unless the user ticks it: anyone who can publish to the broker could use them.
 DEFAULTS = {"enabled": False, "host": "", "port": 1883, "user": "", "prefix": "skoda_mate", "discovery": True, "commands": False,
             "tls": False, "tls_insecure": False, "publish_fields": True}
-PASSWORD_AGAIN = "Enter the password again: the broker address changed."
+PASSWORD_AGAIN = messages.MQTT_PASSWORD_AGAIN
 PREFIX_RE = re.compile(r"^[A-Za-z0-9_-]{1,40}$")
 HOST_RE = re.compile(r"^[A-Za-z0-9._:\-\[\]]{1,253}$")  # names, IPv4, bracketed/plain IPv6
 
@@ -31,20 +32,20 @@ def validate(data: dict) -> dict:
     out["enabled"] = bool(data.get("enabled"))
     host = str(data.get("host", "")).strip()
     if host and not HOST_RE.match(host):
-        raise MqttConfigError("The broker address may only contain letters, digits, dots, dashes and colons (no http:// and no spaces).")
+        raise MqttConfigError(messages.MQTT_BROKER_ADDRESS)
     out["host"] = host
     try:
         raw_port = data.get("port", 1883)
         port = 1883 if raw_port in (None, "") else int(raw_port)
     except (TypeError, ValueError):
-        raise MqttConfigError("The port must be a number between 1 and 65535.") from None
+        raise MqttConfigError(messages.MQTT_PORT) from None
     if not 1 <= port <= 65535:
-        raise MqttConfigError("The port must be a number between 1 and 65535.")
+        raise MqttConfigError(messages.MQTT_PORT)
     out["port"] = port
     out["user"] = str(data.get("user", "")).strip()[:128]
     prefix = str(data.get("prefix", "") or DEFAULTS["prefix"]).strip()
     if not PREFIX_RE.match(prefix):
-        raise MqttConfigError("The topic prefix may only contain letters, digits, - and _ (no slashes), up to 40 characters.")
+        raise MqttConfigError(messages.MQTT_PREFIX)
     out["prefix"] = prefix
     out["discovery"] = bool(data.get("discovery", True))
     out["commands"] = bool(data.get("commands"))
@@ -52,7 +53,7 @@ def validate(data: dict) -> dict:
     out["tls"] = bool(data.get("tls"))
     out["tls_insecure"] = bool(data.get("tls_insecure")) and out["tls"]
     if out["enabled"] and not host:
-        raise MqttConfigError("Enter the broker address (the IP address or name of the computer running Home Assistant's MQTT broker).")
+        raise MqttConfigError(messages.MQTT_BROKER_MISSING)
     return out
 
 

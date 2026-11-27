@@ -7,7 +7,7 @@ from __future__ import annotations
 import json
 from datetime import datetime
 
-from . import places
+from . import messages, places
 
 MAX_GAP_H = 6.0
 MAX_PARTS = 12
@@ -33,19 +33,19 @@ def merge(conn, vid: int, ids: list[int]) -> int:
     """Merge the given trips into the earliest one. Returns its id."""
     ids = list(dict.fromkeys(int(i) for i in ids))
     if not 2 <= len(ids) <= MAX_PARTS:
-        raise MergeError(f"Choose between 2 and {MAX_PARTS} trips.")
+        raise MergeError(messages.MERGE_COUNT(n=MAX_PARTS))
     rows = [dict(r) for r in conn.execute(f"SELECT * FROM trips WHERE vehicle_id=? AND id IN ({','.join('?' * len(ids))})", (vid, *ids))]
     if len(rows) != len(ids):
-        raise MergeError("One of the trips does not exist.")
+        raise MergeError(messages.MERGE_MISSING)
     if any(r["ended_at"] is None or not r["started_at"] for r in rows):
-        raise MergeError("A trip that is still running cannot be merged.")
+        raise MergeError(messages.MERGE_RUNNING)
     rows.sort(key=lambda r: r["started_at"])
     for a, b in zip(rows, rows[1:], strict=False):
         gap = (_dt(b["started_at"]) - _dt(a["ended_at"])).total_seconds() / 3600
         if gap < -0.05:
-            raise MergeError("These trips overlap in time.")
+            raise MergeError(messages.MERGE_OVERLAP)
         if gap > MAX_GAP_H:
-            raise MergeError(f"These trips are more than {MAX_GAP_H:.0f} hours apart: that was a separate trip.")
+            raise MergeError(messages.MERGE_GAP(hours=f"{MAX_GAP_H:.0f}"))
     first, last = rows[0], rows[-1]
     parts: list[dict] = []
     for r in rows:
@@ -82,7 +82,7 @@ def unmerge(conn, vid: int, trip_id: int) -> list[int]:
     """Restore the original trips. The merged row becomes the first part again; notes typed on the merged trip stay on it."""
     t = conn.execute("SELECT * FROM trips WHERE id=? AND vehicle_id=?", (trip_id, vid)).fetchone()
     if not t or not t["merged_json"]:
-        raise MergeError("This trip was not merged.")
+        raise MergeError(messages.MERGE_NOT_MERGED)
     parts = json.loads(t["merged_json"])
     ids = [t["id"]]
     try:

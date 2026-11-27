@@ -25,8 +25,6 @@ const displayName = (p) => (p.kind === 'home' && p.name === 'Home' ? t('Home') :
 const kindName = (kind) => t(KINDS.find(([k]) => k === kind)?.[1] || 'Place');
 const radiusText = (m) => { const metres = m ?? 150; return f.km(metres / 1000, metres < 1000 ? 2 : 1); };
 const amount = (v) => (v === '' || v == null || Number.isNaN(Number(v)) ? null : Number(v));
-// Backend messages are English; t() looks them up in the catalog, so the toast follows the chosen language.
-const asError = (e) => new Error(t(e?.message || String(e)));
 
 function placeRow(p, onEdit) {
   const name = displayName(p);
@@ -151,12 +149,7 @@ export function placeForm({ place = null, point = null, draft: carried = null, h
   closeForm = modal(t(editing ? 'Edit place' : 'New place'), body, (close) => {
     const save = async () => {
       const payload = placeBody();
-      let saved;
-      try {
-        saved = editing ? await api.put(`/api/places/${place.id}`, payload) : await api.post('/api/places', payload);
-      } catch (e) {
-        throw asError(e);  // e.g. "Only one home place is allowed." must toast in German
-      }
+      const saved = editing ? await api.put(`/api/places/${place.id}`, payload) : await api.post('/api/places', payload);
       toast(t('Place saved'), 'good');
       close();
       await onSaved?.(saved);
@@ -166,12 +159,7 @@ export function placeForm({ place = null, point = null, draft: carried = null, h
         t('Trips and charges at this place lose their link. This cannot be undone.'),
         { confirmLabel: t('Delete place'), danger: true });
       if (!yes) return;
-      let result;
-      try {
-        result = await api.del(`/api/places/${place.id}`);
-      } catch (e) {
-        throw asError(e);
-      }
+      const result = await api.del(`/api/places/${place.id}`);
       toast(t('Place deleted'), 'good');
       close();
       await onSaved?.(result);

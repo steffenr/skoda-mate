@@ -11,7 +11,7 @@ from datetime import UTC, date, datetime, timedelta
 
 from fastapi import HTTPException
 
-from . import costs, places, recorder
+from . import costs, messages, places, recorder
 
 TYPICAL_WALLBOX_KW = 11.0  # a home AC charger: only used to say how long an inferred charge probably took
 HIDDEN_SECTIONS = {"raw", "operations", "part_state", "api_errors"}
@@ -50,7 +50,7 @@ def local_day(day: str) -> date:
     try:
         return date.fromisoformat(day)
     except ValueError:
-        raise ValueError(f"bad date {day!r}, expected YYYY-MM-DD") from None
+        raise ValueError(messages.BAD_DATE(day=repr(day))) from None
 
 
 def local_bound(day: str | None, tz_offset: int = 0, end: bool = False) -> str | None:
@@ -69,7 +69,7 @@ def local_bound(day: str | None, tz_offset: int = 0, end: bool = False) -> str |
         try:
             parsed = datetime.fromisoformat(day)
         except ValueError:
-            raise HTTPException(400, str(e)) from None
+            raise messages.UserError(400, e) from None
     d = parsed + timedelta(days=1 if end else 0, minutes=tz_offset)
     return d.replace(tzinfo=UTC).isoformat()
 

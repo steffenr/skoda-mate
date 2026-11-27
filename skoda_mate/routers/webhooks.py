@@ -5,14 +5,14 @@ import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 
-from .. import automation, store, webhooks
+from .. import automation, messages, store, webhooks
 from ..deps import ContextDep
 
 router = APIRouter(prefix="/api/webhooks")
 
-BAD_THRESHOLD = "The low-battery threshold must be a whole number from 5 to 50."
+BAD_THRESHOLD = messages.WEBHOOK_THRESHOLD
 
 
 @contextmanager
@@ -21,9 +21,9 @@ def _answering() -> Iterator[None]:
     try:
         yield
     except webhooks.WebhookNotFound as e:
-        raise HTTPException(404, str(e)) from e
+        raise messages.UserError(404, e) from e
     except webhooks.WebhookError as e:
-        raise HTTPException(400, str(e)) from e
+        raise messages.UserError(400, e) from e
 
 
 @router.get("")
@@ -45,7 +45,7 @@ def options(body: dict, ctx: ContextDep):
     value = body.get("soc_low_threshold")
     low, high = automation.SOC_LOW_RANGE
     if type(value) is not int or not low <= value <= high:
-        raise HTTPException(400, BAD_THRESHOLD)
+        raise messages.UserError(400, BAD_THRESHOLD)
     store.set_setting(ctx.conn, automation.SOC_LOW_KEY, str(value))
     ctx.conn.commit()
     return {"soc_low_threshold": value}

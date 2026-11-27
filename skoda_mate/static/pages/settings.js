@@ -252,7 +252,7 @@ export default async function settings(root, ctx) {
       if (!body.password) delete body.password;
       if (!body.clear) delete body.clear; else body.clear_password = true;
       delete body.clear;
-      try { mq = await ctx.api.put('/api/settings/mqtt', body); } catch (e) { throw new Error(t(e.message)); }
+      mq = await ctx.api.put('/api/settings/mqtt', body);
       toast(t(d.enabled ? 'Saved. Mate is connecting to Home Assistant.' : 'Saved.'), 'good');
       redraws[6]();
       pollStatus();

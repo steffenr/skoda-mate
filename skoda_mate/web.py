@@ -13,7 +13,7 @@ from pathlib import Path
 from fastapi import Depends, FastAPI
 from fastapi.staticfiles import StaticFiles
 
-from . import demo, places, recorder, schema
+from . import demo, messages, places, recorder, schema
 from .auth import Auth
 from .client import SkodaApi
 from .cloud import Cloud
@@ -65,6 +65,7 @@ def create_app(cfg: Config | None = None, conn=None, poller: Poller | None = Non
     # Added last = runs first: headers wrap everything, and the size check runs before any body is parsed.
     app.add_middleware(BodyLimit, authorized=ctx.authorized)
     app.add_middleware(SecurityHeaders)
+    app.add_exception_handler(messages.UserError, messages.user_error_response)  # refusals with their template
     app.state.ctx = ctx
     app.state.setup_code = ctx.setup_code  # for tests; people read the code from the log
     static_dir = HERE / "static"

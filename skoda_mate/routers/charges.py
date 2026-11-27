@@ -6,7 +6,7 @@ import json
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
-from .. import places, store
+from .. import messages, places, store
 from ..deps import ContextDep
 from ..presenters import charge_out, curve_gaps, local_bound, rows, vehicle
 from ..store import set_setting
@@ -84,7 +84,7 @@ def patch_charge(vid: int, cid: int, body: ChargePatch, ctx: ContextDep):
         sets.append("cost_manual=NULL")
     elif body.cost_manual is not None:
         if not 0 <= body.cost_manual <= 10000:
-            raise HTTPException(400, "cost out of range")
+            raise messages.UserError(400, messages.COST_OUT_OF_RANGE)
         sets.append("cost_manual=?")
         args.append(body.cost_manual)
     if body.note is not None:
@@ -103,12 +103,12 @@ def home_here(vid: int, ctx: ContextDep, charge_id: int | None = None):
     if charge_id is not None:
         c = ctx.conn.execute("SELECT lat, lon FROM charges WHERE id=? AND vehicle_id=?", (charge_id, vid)).fetchone()
         if not c or c["lat"] is None:
-            raise HTTPException(400, "That charge has no known location.")
+            raise messages.UserError(400, messages.CHARGE_WITHOUT_LOCATION)
         pos = {"lat": c["lat"], "lon": c["lon"]}
     else:
         pos = (store.load_sections(ctx.conn, vid).get("position") or {})
     if pos.get("lat") is None or pos.get("lon") is None:
-        raise HTTPException(400, "The car's position is not known yet (it is moving or not reported).")
+        raise messages.UserError(400, messages.CAR_POSITION_UNKNOWN)
     set_setting(ctx.conn, "tariff", json.dumps({**ctx.tariff(), "home_lat": pos["lat"], "home_lon": pos["lon"]}))
     places.upsert_home(ctx.conn, pos["lat"], pos["lon"])  # no radius: the home place keeps the one it has
     return {"ok": True, "home_lat": pos["lat"], "home_lon": pos["lon"]}

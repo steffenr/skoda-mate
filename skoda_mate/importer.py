@@ -23,7 +23,7 @@ from datetime import UTC, datetime, timedelta
 from functools import partial
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from . import merge, places, recorder
+from . import merge, messages, places, recorder
 
 
 def _cell(row: list[str], idx: dict[str, int | None], key: str) -> str:
@@ -91,7 +91,7 @@ def get_tz(name: str) -> ZoneInfo:
     try:
         return ZoneInfo(name or "UTC")
     except (ZoneInfoNotFoundError, ValueError, KeyError):
-        raise ImportError_(f"Unknown time zone {name!r}. Use a name like Europe/Berlin.") from None
+        raise ImportError_(messages.IMPORT_TIME_ZONE(name=repr(name))) from None
 
 
 def parse_local(text: str, tz: ZoneInfo) -> datetime | None:
@@ -336,7 +336,7 @@ def _public_charge(conn, vid: int, r: dict, kwh_cap: float | None) -> int:
 def run(conn, vid: int, vin: str, files: list[dict], tz_name: str, dry_run: bool) -> dict:
     """files: [{name, text}]. Returns the report the dashboard shows. dry_run=True writes nothing."""
     if not files:
-        raise ImportError_("Choose at least one CSV file.")
+        raise ImportError_(messages.IMPORT_NO_FILE)
     tz = get_tz(tz_name)
     all_rows, reports = [], []
     for f in files:

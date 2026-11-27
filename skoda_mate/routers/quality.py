@@ -1,10 +1,10 @@
 """The data-quality report and its repair actions."""
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from pydantic import BaseModel
 
-from .. import quality
+from .. import messages, quality
 from ..deps import ContextDep
 from ..presenters import vehicle
 
@@ -33,7 +33,7 @@ def quality_fix(vid: int, body: FixBody, ctx: ContextDep):
     try:
         return quality.fix(ctx.conn, vid, body.action, ctx.now_iso())
     except ValueError as e:
-        raise HTTPException(400, str(e)) from e
+        raise messages.UserError(400, e) from e
 
 
 @router.post("/api/vehicles/{vid}/quality/review")
@@ -42,4 +42,4 @@ def quality_review(vid: int, body: ReviewBody, ctx: ContextDep):
     try:
         return quality.review(ctx.conn, vid, body.check, body.reviewed, ctx.now_iso())
     except ValueError as e:
-        raise HTTPException(400, str(e)) from e
+        raise messages.UserError(400, e) from e

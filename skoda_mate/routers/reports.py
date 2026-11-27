@@ -15,7 +15,7 @@ from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
 from starlette.background import BackgroundTask
 
-from .. import __version__, activity, analytics, commands, places, recorder, stats, store
+from .. import __version__, activity, analytics, commands, messages, places, recorder, stats, store
 from ..deps import ContextDep
 from ..presenters import csv_cell, local_bound, local_day, redact, rows, snap_out, vehicle
 
@@ -90,7 +90,7 @@ def timeline_view(vid: int, ctx: ContextDep, from_: str | None = Query(None, ali
         from_day = from_ or (to_date - timedelta(days=6)).isoformat()
         return activity.timeline(ctx.conn, vid, from_day, to_day, tz_offset, now, ctx.tariff())
     except ValueError as e:
-        raise HTTPException(400, str(e)) from e
+        raise messages.UserError(400, e) from e
 
 
 @router.get("/api/vehicles/{vid}/parked-loss")
@@ -99,13 +99,13 @@ def parked_loss_view(vid: int, ctx: ContextDep, from_: str | None = Query(None, 
                      limit: int = Query(50, ge=1, le=200), offset: int = Query(0, ge=0)):
     vehicle(ctx.conn, vid)
     if not 1 <= min_hours <= 168:
-        raise HTTPException(400, "min_hours must be between 1 and 168.")
+        raise messages.UserError(400, messages.MIN_HOURS_RANGE)
     now = datetime.fromisoformat(ctx.now_iso())
     to_day = to or (now - timedelta(minutes=tz_offset)).date().isoformat()
     try:
         from_day = from_ or (local_day(to_day) - timedelta(days=29)).isoformat()
     except ValueError as e:  # the app's message for a malformed `to`, as the timeline route gives
-        raise HTTPException(400, str(e)) from e
+        raise messages.UserError(400, e) from e
     from_iso, to_iso = local_bound(from_day, tz_offset), local_bound(to_day, tz_offset, end=True)
     assert from_iso is not None and to_iso is not None
     try:
@@ -113,14 +113,14 @@ def parked_loss_view(vid: int, ctx: ContextDep, from_: str | None = Query(None, 
                                       recorder.battery_kwh(ctx.conn, vid), ctx.tariff())
         return activity.parked_page(result, limit, offset)
     except activity.RangeError as e:  # a reversed range; no length cap, the computation is linear in the readings
-        raise HTTPException(400, str(e)) from e
+        raise messages.UserError(400, e) from e
 
 
 def _range_bounds(from_: str | None, to: str | None, tz_offset: int) -> tuple[str | None, str | None]:
     """The optional local days of an insight period as UTC bounds; `to` counts through the end of its day."""
     lo, hi = local_bound(from_, tz_offset), local_bound(to, tz_offset, end=True)
     if lo and hi and lo >= hi:
-        raise HTTPException(400, "The range ends before it starts.")
+        raise messages.UserError(400, messages.RANGE_ENDS_EARLY)
     return lo, hi
 
 
@@ -167,11 +167,11 @@ async def command(vid: int, body: CommandBody, ctx: ContextDep):
     v = vehicle(ctx.conn, vid)
     p = ctx.poller
     if p is None:
-        raise HTTPException(503, "Not connected to MyŠkoda yet. Open Settings.")
+        raise messages.UserError(503, messages.NOT_CONNECTED)
     try:
         return await p.run_command(v["vin"], body.name, body.params)
     except commands.CommandError as e:
-        raise HTTPException(400, str(e)) from e
+        raise messages.UserError(400, e) from e
 
 
 @router.get("/api/vehicles/{vid}/raw")

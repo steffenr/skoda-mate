@@ -25,9 +25,6 @@ export function automationCard(ctx) {
     try { data = await ctx.api.get('/api/webhooks'); error = null; } catch (e) { data = null; error = e.message; }
     draw();
   }
-  /** An API call whose refusal is shown in the user's language. */
-  const send = async (call) => { try { return await call(); } catch (e) { throw new Error(t(e.message)); } };
-
   function showSecret(secret) {
     const input = h('input', { type: 'text', class: 'au-secret', readonly: true, value: secret, 'aria-label': t('Signing secret'), onfocus: (e) => e.target.select() });
     const body = h('div', { class: 'stack' }, banner('warn', t('Copy it now. Mate will not show it again.')), input,
@@ -59,12 +56,12 @@ export function automationCard(ctx) {
       hook ? h('div', { class: 'row' },
         asyncButton(t('New secret'), async () => {
           if (!await confirmDialog(t('Create a new secret?'), t('The old secret stops working at once. Your receiver needs the new one.'), { confirmLabel: t('New secret') })) return;
-          const { secret } = await send(() => ctx.api.post(`/api/webhooks/${hook.id}/secret`));
+          const { secret } = await ctx.api.post(`/api/webhooks/${hook.id}/secret`);
           close(); await load(); showSecret(secret);
         }, { ic: 'key' }),
         asyncButton(t('Delete'), async () => {
           if (!await confirmDialog(t('Delete this webhook?'), t('Its delivery log is deleted too.'), { confirmLabel: t('Delete'), danger: true })) return;
-          await send(() => ctx.api.del(`/api/webhooks/${hook.id}`));
+          await ctx.api.del(`/api/webhooks/${hook.id}`);
           close(); toast(t('Webhook deleted'), 'good'); await load();
         }, { ic: 'trash', kind: 'danger' })) : null,
       problem);
@@ -75,7 +72,7 @@ export function automationCard(ctx) {
         let made;
         try {
           made = hook ? await ctx.api.put(`/api/webhooks/${hook.id}`, payload) : await ctx.api.post('/api/webhooks', payload);
-        } catch (e) { mount(problem, banner('bad', t(e.message))); return; }
+        } catch (e) { mount(problem, banner('bad', e.message)); return; }
         done(); await load();
         if (hook) toast(t('Webhook saved'), 'good'); else showSecret(made.secret);
       }, { ic: 'check', kind: 'primary' }),
@@ -85,13 +82,13 @@ export function automationCard(ctx) {
   async function deliveryLog(hook) {
     const list = h('div', { class: 'stack' }, loading());
     const fill = async () => {
-      const { deliveries } = await send(() => ctx.api.get(`/api/webhooks/${hook.id}/deliveries`));
+      const { deliveries } = await ctx.api.get(`/api/webhooks/${hook.id}/deliveries`);
       mount(list, deliveries.length ? h('ul', { class: 'au-log' }, ...deliveries.map((d) => h('li', { class: 'au-delivery' },
         h('div', { class: 'row between' }, h('strong', null, eventLabel(d.event)), statusChip(d)),
         h('div', { class: 'tiny muted' }, [f.dateTime(d.created_at), `${d.attempts} ${t(d.attempts === 1 ? 'attempt' : 'attempts')}`, answerOf(d),
           d.next_at && d.attempts ? `${t('next try')} ${f.dateTime(d.next_at)}` : null].filter(Boolean).join(' · ')),
         d.status === 'ok' || d.status === 'failed' ? asyncButton(t('Retry'), async () => {
-          await send(() => ctx.api.post(`/api/webhooks/deliveries/${d.id}/retry`));
+          await ctx.api.post(`/api/webhooks/deliveries/${d.id}/retry`);
           toast(t('Queued again'), 'good'); await fill();
         }, { ic: 'refresh', size: 'sm' }) : null))) : h('div', { class: 'muted small' }, t('Nothing was sent yet.')));
     };
@@ -109,7 +106,7 @@ export function automationCard(ctx) {
       h('div', { class: 'row' },
         button(t('Edit'), { size: 'sm', onClick: () => editor(hook) }),
         asyncButton(t('Send test'), async () => {
-          const result = await send(() => ctx.api.post(`/api/webhooks/${hook.id}/test`));
+          const result = await ctx.api.post(`/api/webhooks/${hook.id}/test`);
           toast(result.status === 'ok' ? t('The test was delivered.') : `${t('The test failed')}: ${answerOf(result)}`, result.status === 'ok' ? 'good' : 'bad');
           await load();
         }, { ic: 'signal', size: 'sm' }),
@@ -122,7 +119,7 @@ export function automationCard(ctx) {
     return h('div', { class: 'form-row' },
       field(t('Low-battery warning below (%)'), input, t('The “Battery low” event is sent when the charge level falls below this value.')),
       asyncButton(t('Save'), async () => {
-        await send(() => ctx.api.put('/api/webhooks/options', { soc_low_threshold: Number(input.value) }));
+        await ctx.api.put('/api/webhooks/options', { soc_low_threshold: Number(input.value) });
         data.soc_low_threshold = Number(input.value);
         toast(t('Saved'), 'good');
       }, { ic: 'check' }));
