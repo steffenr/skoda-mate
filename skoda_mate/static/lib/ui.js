@@ -98,18 +98,25 @@ export function table(columns, rows, { onRow, emptyNode, label } = {}) {
 }
 
 // ---- modal / confirm / toast
-export function modal(title, body, actions) {
+/** `onClose` runs once when the dialog closes, however it closes (Escape, a click on the scrim, or `close()` from a button). */
+export function modal(title, body, actions, { onClose } = {}) {
   const opener = document.activeElement;  // focus returns here when the dialog closes
   const scrim = h('div', { class: 'scrim', onclick: (e) => { if (e.target === scrim) close(); } });
   const focusables = () => [...m.querySelectorAll('a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])')]
     .filter((el) => el.getClientRects().length > 0);
+  let closed = false;
   const close = () => {
+    if (closed) return;
+    closed = true;
     scrim.remove();
     document.removeEventListener('keydown', onKey);
     if (opener && opener.isConnected) opener.focus();
+    if (onClose) onClose();
   };
   // Escape closes; Tab cycles inside the dialog (aria-modal alone does not stop assistive tech from leaving it).
+  // Only the topmost dialog reacts, so Escape on a confirmation leaves the dialog under it open.
   const onKey = (e) => {
+    if (scrim !== [...document.querySelectorAll('.scrim')].pop()) return;
     if (e.key === 'Escape') return close();
     if (e.key !== 'Tab') return;
     const items = focusables();
@@ -129,11 +136,14 @@ export function modal(title, body, actions) {
 }
 
 export function confirmDialog(title, text, { confirmLabel = t('Confirm'), danger = false } = {}) {
+  // Every way out ends in onClose, which resolves once: Escape, a click on the scrim and Cancel answer false, Confirm true.
+  // `text` is a string (shown as one paragraph) or a prepared node (e.g. a paragraph plus a list of affected rows).
   return new Promise((resolve) => {
-    modal(title, h('p', null, text), (close) => [
-      button(t('Cancel'), { onClick: () => { close(); resolve(false); } }),
-      button(confirmLabel, { kind: danger ? 'danger' : 'primary', onClick: () => { close(); resolve(true); } }),
-    ]);
+    let answer = false;
+    modal(title, text instanceof Node ? text : h('p', null, text), (close) => [
+      button(t('Cancel'), { onClick: close }),
+      button(confirmLabel, { kind: danger ? 'danger' : 'primary', onClick: () => { answer = true; close(); } }),
+    ], { onClose: () => resolve(answer) });
   });
 }
 
