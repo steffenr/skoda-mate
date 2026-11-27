@@ -360,4 +360,4 @@ def test_published_last_charge_cost_uses_the_linked_place_price():
     places.assign_all(conn)
     assert conn.execute("SELECT geofence_id FROM charges").fetchone()[0] is not None   # the charge is linked to Work
     # 10 kWh at the place's 0.50, not at the 0.55 public AC tariff the portal used before
-    assert cloud.Cloud(conn, SecretBox(None), Config())._extras("VIN1")["last_charge_cost"] == 5.0
+    assert cloud.Cloud(conn, SecretBox(None), Config()).values.for_vin("VIN1")["last_charge_cost"] == 5.0

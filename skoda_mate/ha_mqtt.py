@@ -14,6 +14,8 @@ import threading
 import time
 from contextlib import suppress
 
+from . import activity
+
 _LOG = logging.getLogger(__name__)
 
 # key, name, unit, device_class, state_class, icon
@@ -41,6 +43,13 @@ EXTRAS = [
     ("last_trip_consumption", "Last trip consumption", "kWh/100 km", None, None, "mdi:speedometer"),
     ("last_charge_kwh", "Last charge energy", "kWh", "energy", None, None),
     ("last_charge_cost", "Last charge cost", "{currency}", "monetary", None, None),
+    ("last_charge_place", "Last charge place", None, None, None, "mdi:ev-station"),
+    ("place", "Place", None, None, None, "mdi:map-marker"),
+    ("parked_loss_7d_kwh", "Parked loss (7 days)", "kWh", "energy", None, "mdi:battery-arrow-down"),
+    ("parked_loss_7d_cost", "Parked loss cost (7 days)", "{currency}", "monetary", None, None),
+    ("capacity_estimate_kwh", "Capacity estimate (from the wall)", "kWh", "energy_storage", "measurement", None),
+    ("range_at_100_km", "Projected range at 100 %", "km", "distance", "measurement", None),
+    ("quality_issues", "Data quality issues", None, None, "measurement", "mdi:clipboard-alert-outline"),
 ]
 # key, name, device_class
 BINARY = [
@@ -48,6 +57,7 @@ BINARY = [
     ("plug_locked", "Plug locked", None), ("doors_open", "Doors open", "door"), ("windows_open", "Windows open", "window"),
     ("trunk_open", "Trunk open", "opening"), ("bonnet_open", "Bonnet open", "opening"), ("lights_on", "Lights", "light"),
     ("in_motion", "Driving", "moving"),
+    ("climate_on", "Climate running", "running"),  # derived from climate_state, see state_values
 ]
 # No "start_aux_heating": it sends the stored S-PIN, so it is never offered over MQTT (only on the Control page).
 BUTTONS = [("start_charging", "Start charging"), ("stop_charging", "Stop charging"), ("start_climate", "Start climate"),
@@ -87,7 +97,7 @@ def discovery(prefix: str, vin: str, name: str | None, model: str | None = None,
     """Entity configs for one car. Command entities (buttons, charge-limit number) only with `commands`."""
     t = topics(prefix, vin)
     dev = {"identifiers": [f"skoda_mate_{vin}"], "name": name or vin, "manufacturer": "Škoda", "model": model or "Škoda",
-           "sw_version": "skoda-mate"}
+           "sw_version": "skoda-mate", "serial_number": vin}
     common = {"device": dev, "availability_topic": t["avail"]}
     out = []
     for key, label, unit, dc, sc, icon in SENSORS + EXTRAS:
@@ -137,6 +147,8 @@ def state_values(snap: dict, extras: dict | None = None) -> dict:
     for key in [b[0] for b in BINARY] + ["locked"]:
         value = snap.get(key)
         out[key] = None if value is None else bool(value)
+    climate = snap.get("climate_state")
+    out["climate_on"] = None if climate in (None, "UNKNOWN") else climate in activity.heating_states()
     out.update({k[0]: (extras or {}).get(k[0]) for k in EXTRAS})
     return out
 
