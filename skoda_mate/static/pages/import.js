@@ -46,7 +46,7 @@ export default async function importPage(root, ctx) {
         card(null, stat(t('repeated in your files'), f.num(r.duplicates_in_upload), { ic: 'list', sub: t('counted once') }))),
       h('div', { class: 'small muted' }, [
         r.first ? `${t('Period')}: ${f.date(r.first)} – ${f.date(r.last)}` : null,
-        r.skipped_no_distance ? t('{n} without distance (skipped)', { n: r.skipped_no_distance }) : null,
+        r.skipped_no_distance ? tn('{n} without distance (skipped)', '{n} without distance (skipped)', r.skipped_no_distance) : null,
         r.public_charges ? tn('{n} public charging stop found', '{n} public charging stops found', r.public_charges) : null,
         !r.dry_run && r.charges_inferred ? tn('{n} overnight charge derived', '{n} overnight charges derived', r.charges_inferred) : null].filter(Boolean).join(' · ')),
       r.preview.length ? table([

@@ -1419,7 +1419,7 @@
  "{n} requests per hour when idle": "{n} Anfragen pro Stunde im Ruhezustand",
  "{n} reviewed": {"one":"{n} geprüft","other":"{n} geprüft"},
  "{n} trips": {"one":"{n} Fahrt","other":"{n} Fahrten"},
- "{n} without distance (skipped)": "{n} ohne Strecke (übersprungen)",
+ "{n} without distance (skipped)": {"one":"{n} ohne Strecke (übersprungen)","other":"{n} ohne Strecke (übersprungen)"},
  "{price} per kWh": "{price} pro kWh",
  "{reported}/{n} fields reported": {"one":"{reported}/{n} Feld gemeldet","other":"{reported}/{n} Felder gemeldet"},
  "{time} active": "{time} aktiv",

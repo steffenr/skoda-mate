@@ -241,5 +241,25 @@ use('nf', { 'between {lo} and {hi}, {port}, {name}': '{lo} bis {hi}, {port}, {na
 await i18n.setLang('nf', 'de');
 assert.equal(i18n.tm({ message: 'between {lo} and {hi}, {port}, {name}', params: { lo: 15.5, hi: 30, port: 1883, name: '2.5' } }),
   '15,5 bis 30, 1883, 2.5', 'a fraction is written the way the locale writes it; whole numbers and texts stay');
+
+// browsers without AbortSignal.timeout (Safari before 16) still load their translation, and still give up on a hang
+const timeoutFn = AbortSignal.timeout;
+const fetchAsIs = globalThis.fetch, warnAsIs = console.warn;
+delete AbortSignal.timeout;
+try {
+  globalThis.fetch = async () => ({ ok: true, json: async () => ({ Word: 'Wort' }) });
+  i18n.CATALOGS.old = i18n.jsonCatalog('old', 30);
+  console.warn = () => {};
+  await i18n.setLang('old', 'de');
+  assert.equal(i18n.t('Word'), 'Wort', 'the catalog loads without AbortSignal.timeout');
+  globalThis.fetch = (url, options) => new Promise((resolve, reject) => options?.signal?.addEventListener('abort', () => reject(new Error('aborted'))));
+  const done = await Promise.race([i18n.setLang('old', 'de').then(() => true), new Promise((r) => setTimeout(r, 1000, false))]);
+  assert.ok(done && i18n.getLang() === 'en', 'and a hanging request is still given up');
+} finally {
+  AbortSignal.timeout = timeoutFn;
+  globalThis.fetch = fetchAsIs;
+  console.warn = warnAsIs;
+}
+assert.ok(scan((await import('./i18n_lib.mjs')).sources())['{n} without distance (skipped)']?.one, 'the count of skipped rows has plural forms');
 await i18n.setLang('en');
 console.log('frontend unit checks OK');

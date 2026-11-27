@@ -6,9 +6,16 @@
 /** @typedef {Record<string, string | Record<string, string>>} Catalog  an object value holds plural forms */
 const CATALOG_TIMEOUT_MS = 5000;  // the first page waits for the catalog: better English than a blank screen
 export const jsonCatalog = (code, timeout = CATALOG_TIMEOUT_MS) => async () => {
-  const response = await fetch(`/static/i18n/${code}.json`, { signal: AbortSignal.timeout(timeout) });
-  if (!response.ok) throw new Error(`HTTP ${response.status}`);
-  return response.json();
+  // not AbortSignal.timeout(): Safari before 16 lacks it, and its users would never get a translation
+  const giveUp = new AbortController();
+  const timer = setTimeout(() => giveUp.abort(), timeout);
+  try {
+    const response = await fetch(`/static/i18n/${code}.json`, { signal: giveUp.signal });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return await response.json();
+  } finally {
+    clearTimeout(timer);
+  }
 };
 /** @type {Record<string, () => Promise<Catalog>>} */
 export const CATALOGS = { de: jsonCatalog('de') };

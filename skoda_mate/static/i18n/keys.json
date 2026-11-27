@@ -1469,7 +1469,7 @@
   "{n} requests per hour when idle": {"files":["pages/settings.js"]},
   "{n} reviewed": {"files":["pages/system.js"],"one":"{n} reviewed"},
   "{n} trips": {"files":["pages/map.js","pages/stats.js","pages/trips.js"],"one":"{n} trip"},
-  "{n} without distance (skipped)": {"files":["pages/import.js"]},
+  "{n} without distance (skipped)": {"files":["pages/import.js"],"one":"{n} without distance (skipped)"},
   "{price} per kWh": {"files":["pages/charge.js"]},
   "{reported}/{n} fields reported": {"files":["pages/capabilities.js"],"one":"{reported}/{n} field reported"},
   "{time} active": {"files":["pages/system.js"]},
