@@ -4,18 +4,34 @@ import { h, mount, clear } from './lib/dom.js';
 import { icon } from './lib/icons.js';
 import { asyncButton, banner, button, chip, empty, loading, modal, toast } from './lib/ui.js';
 import * as f from './lib/format.js';
+import { disposeAllMaps } from './lib/mapview.js';
 import { getLocale, setLang, t, tm, tx, tn } from './i18n.js';
 
 // ------------------------------------------------------------------ API
+// A request that never answers (laptop woke up on another network, server restarting) must end: otherwise the page waits
+// for ever and, with the tick loop, requests pile up behind it. Reads are quick; a write or an import may take longer.
+const READ_TIMEOUT_MS = 15000, WRITE_TIMEOUT_MS = 60000;
+let signedOut = false;  // the session ended: stop talking to the server while the browser goes to /login
+
 async function request(method, path, body) {
   // Date filters are local days: tell the server our UTC offset (minutes, as JS reports it) so "today" means today here.
   if (method === 'GET' && path.startsWith('/api/vehicles/') && !path.includes('tz_offset=')) {
     path += `${path.includes('?') ? '&' : '?'}tz_offset=${new Date().getTimezoneOffset()}`;
   }
-  const res = await fetch(path, { method, headers: body !== undefined ? { 'content-type': 'application/json' } : {}, body: body !== undefined ? JSON.stringify(body) : undefined, credentials: 'same-origin' });
-  if (res.status === 401) { location.href = '/login'; await new Promise(() => {}); }
-  const ct = res.headers.get('content-type') || '';
-  const data = ct.includes('json') ? await res.json().catch(() => null) : null;
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), method === 'GET' ? READ_TIMEOUT_MS : WRITE_TIMEOUT_MS);
+  let res, data = null;
+  try {
+    res = await fetch(path, { method, headers: body !== undefined ? { 'content-type': 'application/json' } : {}, body: body !== undefined ? JSON.stringify(body) : undefined, credentials: 'same-origin', signal: ctl.signal });
+    if (res.status === 401) { signedOut = true; location.href = '/login'; await new Promise(() => {}); }
+    const ct = res.headers.get('content-type') || '';
+    data = ct.includes('json') ? await res.json().catch(() => null) : null;
+  } catch (e) {
+    if (!ctl.signal.aborted) throw e;
+    const err = new Error(t('The server did not answer in time.'));
+    err.status = 0; err.timeout = true;
+    throw err;
+  } finally { clearTimeout(timer); }
   if (!res.ok) {
     const detail = data && (typeof data.detail === 'string' ? data.detail : data.detail?.map?.((d) => d.msg).join('; '));
     // A bare FastAPI "Not Found" on an /api/ path means the server has no such route: the page is newer than the running
@@ -208,6 +224,10 @@ function daysUntil(iso) { return iso ? Math.floor((new Date(iso) - Date.now()) /
 function paintBanners() {
   const o = S.overview;
   const list = [];
+  // The browser's own problems first: a stale page must say so, whatever the car reports.
+  if (S.offline) list.push(banner('warn', t('This device is offline. The dashboard shows the last data and continues when the connection is back.')));
+  else if (T.failures >= 2) list.push(banner('warn', t('Mate cannot be reached. Last update {ago}. Trying again.', { ago: f.ago(new Date(T.lastOk).toISOString()) })));
+  if (S.newVersion) list.push(banner('info', t('Škoda Mate was updated to version {version}.', { version: S.newVersion }), ' ', h('a', { href: location.pathname, onclick: (e) => { e.preventDefault(); location.reload(); } }, t('Reload the page'))));
   if (o) {
     const p = o.poller || {};
     if (p.blocked || p.error_kind === 'api-key-expired') list.push(banner('bad', h('b', null, t('Škoda is not accepting the API key.')), ' ', tx(p) || '', ' ', h('a', { href: '#/settings' }, t('Update the key'))));
@@ -225,6 +245,7 @@ async function route() {
   const seq = ++S.seq;
   if (typeof S.cleanup === 'function') { try { S.cleanup(); } catch { /* ignore */ } }
   S.cleanup = null; S.ticks.clear();
+  disposeAllMaps();   // the page that is left takes its Leaflet maps (and their window listeners) with it
   const { path, query } = parseHash();
   if (path === 'capabilities') { location.replace('#/system/capabilities'); return; } // old link: Capabilities now lives inside System
   paintShell();
@@ -259,9 +280,50 @@ async function route() {
   }
 }
 
-async function tick() {
-  if (document.hidden || !S.vid) return;
-  try { await loadOverview(); paintHeader(); paintBanners(); S.ticks.forEach((fn) => { try { fn(); } catch (e) { console.error(e); } }); } catch { /* transient */ }
+// ------------------------------------------------------------------ tick
+// A dashboard tab can stay open for days, so the 30 s loop must survive a bad network:
+//  - one tick at a time (a slow answer never queues a second request behind it),
+//  - every request has a timeout (see request()),
+//  - after failures the loop backs off (1, 3, 7 skipped ticks, then every 8th) and a banner says the data is stale,
+//  - it stops asking while the browser is offline and resumes on the `online` event,
+//  - it compares /health's version now and then and offers a reload when the server was updated.
+const VERSION_CHECK_EVERY = 10;  // ticks (about 5 minutes)
+const T = { running: false, failures: 0, skips: 0, count: 0, lastOk: Date.now() };  // the page loads with fresh data
+
+/** What the overview says apart from the poller block, whose countdown and budget change on every call. */
+function overviewKey(o) {
+  if (!o) return '';
+  const { poller, ...rest } = o;  // eslint-disable-line no-unused-vars
+  return JSON.stringify(rest);
+}
+
+async function checkVersion() {
+  try {
+    const health = await fetch('/health', { credentials: 'same-origin', cache: 'no-store' }).then((r) => r.json());
+    if (health.version && S.version && health.version !== S.version) { S.newVersion = health.version; paintBanners(); }
+  } catch { /* the next check tries again */ }
+}
+
+async function tick(force = false) {
+  if (document.hidden || !S.vid || signedOut || T.running) return;
+  if (navigator.onLine === false) { if (!S.offline) { S.offline = true; paintBanners(); } return; }
+  if (!force && T.failures >= 2) {  // back off: 2 failures skip 1 tick, 3 skip 3, 4 or more skip 7
+    const wait = Math.min(2 ** (T.failures - 1) - 1, 7);
+    if (T.skips < wait) { T.skips++; return; }
+  }
+  T.skips = 0; T.running = true;
+  const before = overviewKey(S.overview);
+  try {
+    await loadOverview();
+    const wasStale = T.failures >= 2 || S.offline;
+    T.failures = 0; T.lastOk = Date.now(); S.offline = false;
+    const changed = overviewKey(S.overview) !== before;
+    paintHeader(); if (wasStale || changed) paintBanners();
+    S.ticks.forEach((fn) => { try { fn(changed || wasStale); } catch (e) { console.error(e); } });
+    if (++T.count % VERSION_CHECK_EVERY === 0) checkVersion();
+  } catch {
+    if (++T.failures === 2) paintBanners();  // two in a row: say so; a single hiccup stays quiet
+  } finally { T.running = false; }
 }
 
 async function boot(again = false) {
@@ -287,7 +349,10 @@ export function start(root) {
   mount(root, skip, h('div', { class: 'app' }, els.sidebar,
     h('div', { class: 'main' }, els.topbar, h('main', null, els.banners, els.view))), els.tabbar);
   window.addEventListener('hashchange', route);
-  setInterval(tick, 30000);
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) tick(); });
+  setInterval(() => tick(), 30000);
+  // Coming back to the tab or to the network: ask at once, without waiting out a back-off, and look for a new version.
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) { tick(true); checkVersion(); } });
+  window.addEventListener('online', () => tick(true));
+  window.addEventListener('offline', () => { S.offline = true; paintBanners(); });
   boot();
 }

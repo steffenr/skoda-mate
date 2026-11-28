@@ -19,11 +19,12 @@
   `DEMO=1 DB_PATH=<scratch>/demo.db uv run uvicorn --factory skoda_mate.web:app --port 8766` (add `DEMO_CARS=2` for two cars).
 - Frontend checks, against a demo server, from `scripts/dom-smoke` (`npm install` once; Chromium at
   `/Applications/Chromium.app` or `CHROME=`):
-  `BASE=http://localhost:8766 node browser_e2e.mjs` (phone fit + click-through), `node i18n_coverage.mjs`,
+  `BASE=http://localhost:8766 node browser_e2e.mjs` (phone fit + click-through), `node longrun.mjs` (tick loop, back-off,
+  map disposal; about 45 s), `node i18n_coverage.mjs`,
   `node a11y_axe.mjs http://localhost:8766`, `node a11y_contrast.mjs http://localhost:8766`.
 - Contract check against Škoda's OpenAPI: `.venv/bin/python scripts/check_contract.py`.
 - CI (`.github/workflows/ci.yml`) runs the same four things: `test` (ruff, mypy, pytest with coverage), `frontend`
-  (unit checks, `i18n_extract.mjs --check` and `i18n_coverage.mjs`), `browser` (demo server plus `run.mjs` and
+  (unit checks, `i18n_extract.mjs --check` and `i18n_coverage.mjs`), `browser` (demo server plus `run.mjs`, `longrun.mjs` and
   `browser_e2e.mjs`). The a11y scripts report rather than gate: they run in the on-demand
   `.github/workflows/a11y.yml` (Actions → Accessibility), which files their findings as
   GitHub issues instead of gating.

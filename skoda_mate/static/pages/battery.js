@@ -122,5 +122,5 @@ export default async function battery(root, ctx) {
 
   mount(root, loading());
   await reload();
-  ctx.onTick(() => reload(false));
+  ctx.onTick((changed) => { if (changed) reload(false); });  // nothing new from the car: nothing to refetch or redraw
 }

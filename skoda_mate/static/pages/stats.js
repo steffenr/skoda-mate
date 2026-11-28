@@ -293,8 +293,8 @@ export default async function stats(root, ctx) {
   await show();
   // A stand counts only after six hours, so the Parked tab is not re-asked every tick (changing the period reloads it);
   // Charging and Driving likewise change only with a new trip or charge. The statistics are refreshed on Overview alone.
-  ctx.onTick(async () => {
-    if (tab !== 'overview') return;
+  ctx.onTick(async (changed) => {
+    if (tab !== 'overview' || !changed) return;  // nothing new from the car: nothing to refetch or redraw
     try { data = await ctx.api.get(`${base}/stats`); if (tab === 'overview') draw(); } catch { /* keep the current view */ }
   });
 }

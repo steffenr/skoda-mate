@@ -32,8 +32,12 @@ function timeLabel(ms, spanMs) {
 
 function responsive(root, draw) {
   let last = 0;
-  const run = () => { const w = Math.floor(root.clientWidth); if (w && w !== last) { last = w; draw(w); } };
-  if (typeof ResizeObserver !== 'undefined') new ResizeObserver(run).observe(root);
+  let obs;
+  const run = () => {
+    if (last && !root.isConnected) { obs?.disconnect(); return; }  // the chart left the page: stop watching it
+    const w = Math.floor(root.clientWidth); if (w && w !== last) { last = w; draw(w); }
+  };
+  if (typeof ResizeObserver !== 'undefined') { obs = new ResizeObserver(run); obs.observe(root); }
   queueMicrotask(run);
   setTimeout(run, 60);
 }

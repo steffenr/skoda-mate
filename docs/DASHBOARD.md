@@ -22,6 +22,18 @@ e.g. trip id), `query` (URLSearchParams from the hash), `overview` (latest, refr
 `nav(path)`, `toast(msg, kind)`, `t`, `f` (format.js), `refresh()` (reload overview + header), `onTick(fn)` (called
 every 30 s and after Refresh), `setTitle()`.
 
+**Tabs stay open for days.** The shell is built for that; keep to these rules:
+- `onTick(fn)` calls `fn(changed)`. `changed` is true when the overview (apart from the `poller` block, whose countdown
+  changes on every call) differs from the last tick, or when the connection just came back. A page that refetches or
+  redraws on a tick does so only `if (changed)`, as Battery and Statistics do; Overview also redraws now and then because
+  ages ("reported 5 min ago") move with the clock.
+- Ticks never overlap and back off after failures (2 failures skip 1 tick, 3 skip 3, more skip 7); a banner says the data
+  is stale, and the tick loop stops while the browser is offline. A new `/health` version shows a "reload" banner.
+- Every `api` call has a timeout (15 s for a GET, 60 s otherwise) and throws an Error with `timeout: true`.
+- A Leaflet map keeps listening to window resizes until `map.remove()`. `mapView` registers every map; the router disposes
+  them when a page is left, and a page that redraws (a charge, a trip) lets go of the maps it replaced.
+  `scripts/dom-smoke/longrun.mjs` checks all of this in a real browser with a sped-up clock.
+
 Routes live in one table, `PAGES` in `app.js`: `{ path, name, label?, icon?, section?, sepBefore? }`. The sidebar
 (`label` present), the router, the nav highlight (`section`) and the preloaded modules all derive from it, so a page is
 one entry plus its `pages/<name>.js`. Detail routes reuse a page module with a different pattern and name their section
