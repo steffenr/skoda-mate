@@ -5,20 +5,72 @@ name: CI
 # that hasn't passed here.
 #
 # The frontend has no build step; what runs here are the same scripts a developer runs by hand (docs/DASHBOARD.md).
+#
+# Speed: a pull request only runs the jobs its changed files can affect, and checks the 360 px layout in the languages
+# with the longest words (fi, de, sv). Pushes to main, the nightly run and the release run do everything, in every
+# language. The layout check is sharded over parallel jobs. "CI result" is the one job to require in branch protection:
+# a job skipped on purpose passes it, a failed or cancelled one does not.
 
 on:
   push:
     branches: [main]
   pull_request:
+  schedule:
+    - cron: "17 3 * * *"
   # release.yml runs the same checks before it tags
   workflow_call:
+
+# A new push to a pull request cancels the run that is still going. Never cancels main, the nightly or a release.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
 
 jobs:
+  # What did this pull request touch? Anything that is not a pull request runs everything.
+  changes:
+    name: changed files
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      backend: ${{ steps.diff.outputs.backend }}
+      frontend: ${{ steps.diff.outputs.frontend }}
+      browser: ${{ steps.diff.outputs.browser }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Diff against the base branch
+        id: diff
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if [ "$EVENT" != "pull_request" ]; then
+            echo "backend=true" >> "$GITHUB_OUTPUT"; echo "frontend=true" >> "$GITHUB_OUTPUT"; echo "browser=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          files=$(git diff --name-only "$BASE_SHA...$HEAD_SHA")
+          echo "$files"
+          # Python, its lock files and this workflow: lint, types, pytest
+          backend=false
+          echo "$files" | grep -qE '^(.*\.py|pyproject\.toml|uv\.lock|\.github/workflows/ci\.yml)$' && backend=true
+          # The dashboard code, its checks and the Node version
+          frontend=false
+          echo "$files" | grep -qE '^(skoda_mate/static/|scripts/dom-smoke/|\.nvmrc|\.github/workflows/ci\.yml)' && frontend=true
+          # The browser job runs the real demo server, so backend code reaches it too
+          browser=$frontend
+          echo "$files" | grep -qE '^(skoda_mate/.*\.py|pyproject\.toml|uv\.lock)$' && browser=true
+          echo "backend=$backend" >> "$GITHUB_OUTPUT"; echo "frontend=$frontend" >> "$GITHUB_OUTPUT"; echo "browser=$browser" >> "$GITHUB_OUTPUT"
+
   test:
     name: lint, types, pytest
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -47,6 +99,8 @@ jobs:
 
   frontend:
     name: frontend checks
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -74,10 +128,14 @@ jobs:
         working-directory: scripts/dom-smoke
         run: node i18n_coverage.mjs
 
+  # Renders every route in jsdom, then the click-through in a real browser. Runs alongside the layout shards, but is
+  # its own job: a broken interaction fails here in a few minutes, with its own name in the UI.
   browser:
     name: dashboard in a browser
+    needs: changes
+    if: needs.changes.outputs.browser == 'true'
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    timeout-minutes: 10
     env:
       BASE: http://localhost:8766
       # GitHub's ubuntu image ships Google Chrome stable.
@@ -124,10 +182,86 @@ jobs:
         working-directory: scripts/dom-smoke
         run: node longrun.mjs
 
-      - name: Click-through, phone fit, language
+      - name: Click-through and phone fit
+        working-directory: scripts/dom-smoke
+        env:
+          E2E_PART: click
+        run: node browser_e2e.mjs
+
+      - name: Server log
+        if: always()
+        run: cat "$RUNNER_TEMP/server.log" || true
+
+  # Every offered language at 360 px, split over parallel jobs. A pull request checks the languages with the longest
+  # words only; main, the nightly and the release run check all of them.
+  browser-layout:
+    name: layout in languages (${{ matrix.shard }})
+    needs: changes
+    if: needs.changes.outputs.browser == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(github.event_name == 'pull_request' && '[1,2,3]' || '[1,2,3,4,5]') }}
+    env:
+      BASE: http://localhost:8766
+      # GitHub's ubuntu image ships Google Chrome stable.
+      CHROME: /usr/bin/google-chrome
+      E2E_PART: layout
+      E2E_SHARD: ${{ matrix.shard }}/${{ github.event_name == 'pull_request' && 3 || 5 }}
+      E2E_LANGS: ${{ github.event_name == 'pull_request' && 'fi,de,sv' || '' }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.15"
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: scripts/dom-smoke/package-lock.json
+
+      - name: Install
+        working-directory: scripts/dom-smoke
+        run: npm ci
+
+      # A fictional car: no account, no network. A fresh database per run.
+      - name: Start the demo server
+        run: |
+          DEMO=1 DB_PATH="$RUNNER_TEMP/demo.db" uv run --frozen uvicorn --factory skoda_mate.web:app \
+            --host 127.0.0.1 --port 8766 > "$RUNNER_TEMP/server.log" 2>&1 &
+          for _ in $(seq 1 30); do curl -sf "$BASE/health" > /dev/null && exit 0; sleep 1; done
+          cat "$RUNNER_TEMP/server.log"
+          exit 1
+
+      - name: Phone fit per language
         working-directory: scripts/dom-smoke
         run: node browser_e2e.mjs
 
       - name: Server log
         if: always()
         run: cat "$RUNNER_TEMP/server.log" || true
+
+  # The one check to require. Jobs skipped because no relevant file changed pass; failed or cancelled ones fail.
+  result:
+    name: CI result
+    needs: [changes, test, frontend, browser, browser-layout]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - name: All jobs passed or were skipped on purpose
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "$RESULTS"
+          case " $RESULTS " in *" failure "*|*" cancelled "*) exit 1;; esac

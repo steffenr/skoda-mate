@@ -9,6 +9,12 @@ const BASE = process.env.BASE || 'http://localhost:8765';
 const SHOTS = process.env.SHOTS || '';
 const CHROME = process.env.CHROME || '/Applications/Chromium.app/Contents/MacOS/Chromium';
 const ROUTES = ['', 'trips', 'trips/5', 'charges', 'charges/3', 'prices', 'battery', 'control', 'stats', 'map', 'places', 'places/1', 'events', 'settings', 'system'];
+// Split for CI. E2E_PART=click: phone fit, click-through and the pseudo-language; E2E_PART=layout: only the per-language
+// 360 px pass. E2E_LANGS=fi,de limits that pass; E2E_SHARD=2/4 takes every 4th language, starting with the 2nd. Unset,
+// everything runs.
+const PART = process.env.E2E_PART || 'all';
+const LANGS = (process.env.E2E_LANGS || '').split(',').filter(Boolean);
+const [SHARD, SHARDS] = (process.env.E2E_SHARD || '1/1').split('/').map(Number);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 let failed = 0;
 const check = (name, ok, extra = '') => { if (!ok) failed++; console.log(`${ok ? 'ok  ' : 'FAIL'} ${name}${extra ? '  ' + extra : ''}`); };
@@ -21,6 +27,21 @@ const watch = (page) => {
 };
 const reset = async () => { const p = await browser.newPage(); await p.goto(BASE + '/'); await p.evaluate(() => fetch('/api/settings', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ units: 'km', language: 'en', theme: 'dark' }) })); await p.close(); };
 await reset();
+
+// every real language that is offered must fit a narrow phone too
+const languagePass = async () => {
+  const offered = (await (await fetch(`${BASE}/api/settings`)).json()).languages.filter((l) => l.code !== 'en');
+  const picked = offered.filter((l) => !LANGS.length || LANGS.includes(l.code)).filter((_, i) => i % SHARDS === SHARD - 1);
+  console.log(`--- layout in ${picked.map((l) => l.code).join(', ') || 'no language'}`);
+  for (const language of picked) await layoutPass(browser, BASE, language, check, errors);
+};
+if (PART === 'layout') {
+  await languagePass();
+  check('no JavaScript errors during the whole session', errors.length === 0, errors.slice(0, 3).join(' | '));
+  await browser.close();
+  console.log(failed ? `\n${failed} check(s) FAILED` : '\nlayout OK');
+  process.exit(failed ? 1 : 0);
+}
 
 // ---------------------------------------------------------------- 1. phone
 const phone = await browser.newPage();
@@ -1128,10 +1149,7 @@ if (SHOTS) await d.screenshot({ path: `${SHOTS}/german-trips.png` });
 await d.evaluate(() => fetch('/api/settings', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ units: 'km', language: 'en' }) }));
 // a fake, longer language: text that bypasses t() shows up, and every page must still fit a narrow phone
 await pseudoPass(browser, BASE, check, errors);
-// and every real language that is offered must fit it too
-for (const language of (await (await fetch(`${BASE}/api/settings`)).json()).languages.filter((l) => l.code !== 'en')) {
-  await layoutPass(browser, BASE, language, check, errors);
-}
+if (PART === 'all') await languagePass();
 check('no JavaScript errors during the whole session', errors.length === 0, errors.slice(0, 3).join(' | '));
 await browser.close();
 console.log(failed ? `\n${failed} check(s) FAILED` : '\nend-to-end OK');
