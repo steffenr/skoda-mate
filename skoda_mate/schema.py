@@ -108,6 +108,7 @@ EXTRA_COLUMNS: dict[str, dict[str, str]] = {
         "mileage_km": "REAL", "fuel_pct": "REAL", "fuel_range_km": "REAL", "address": "TEXT",
         "in_motion": "INTEGER", "ignition_on": "INTEGER", "reachable": "INTEGER", "battery_protection": "INTEGER",
         "doors_json": "TEXT", "captured_at": "TEXT",
+        "charge_error_reason": "TEXT",  # API 1.2.0: why the state is CHARGING_ERROR
         "aux_state": "TEXT", "vent_state": "TEXT", "fully_charged_at": "TEXT", "park_captured_at": "TEXT",
         # Part of the base table; repeated here so the place index can be built on a database that predates it.
         "lat": "REAL", "lon": "REAL",

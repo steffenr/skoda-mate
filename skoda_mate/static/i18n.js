@@ -119,6 +119,18 @@ export const ENUM_LABELS = {
   THURSDAY: N_('Thursday'), TIMER: N_('Timer'), TIMER_CHARGING_WITH_CLIMATISATION: N_('Timer charging with climatisation'),
   TRUNK_OPENED: N_('Trunk opened##value'), TUESDAY: N_('Tuesday'), UNKNOWN: N_('Unknown'), UNLOCKED: N_('Unlocked'), UNSUPPORTED: N_('Unsupported'),
   VENTILATION: N_('Ventilation##value'), WEDNESDAY: N_('Wednesday'), YES: N_('Yes'),
+  // API 1.2.0: CHARGING_ERROR and the causes the car can name for it (values added later fall back to a readable form)
+  CHARGING_ERROR: N_('Charging error'), NO_GRID_VOLTAGE: N_('No grid voltage'), ERROR_LOCK: N_('Plug lock error'),
+  ERROR_CHARGING_SYSTEM: N_('Charging system error'), INITIALIZATION_CHARGING_COMMUNICATION: N_('Starting communication with the charger'),
+  EMERGENCY_CHARGING: N_('Emergency charging'), CHARGING_INTERRUPT_BY_USER: N_('Charging interrupted by the user'),
+  PLUG_RELEASABLE: N_('Plug can be released'), IMMEDIATELY_CHARGING_ACTIVE: N_('Immediate charging active'),
+  IMMEDIATELY_CHARGING_FINISHED: N_('Immediate charging finished'), OPTIMISED_CHARGING_ACTIVE: N_('Optimised charging active'),
+  OPTIMISED_CHARGING_FINISHED: N_('Optimised charging finished'), OPTIMISED_CHARGING_WAITING: N_('Optimised charging waiting'),
+  IMMEDIATELY_OPTIMISED_CHARGING_ACTIVE: N_('Immediate optimised charging active'),
+  IMMEDIATELY_OPTIMISED_CHARGING_FINISHED: N_('Immediate optimised charging finished'),
+  CHARGING_TO_DEPARTURE_TIME_ACTIVE: N_('Charging to departure time active'),
+  CHARGING_TO_DEPARTURE_TIME_FINISHED: N_('Charging to departure time finished'),
+  CHARGING_TO_DEPARTURE_TIME_WAITING: N_('Charging to departure time waiting'),
 };
 
 /** A raw Škoda API value (READY_FOR_CHARGING, CLOSED, …) as readable text in the current language. */

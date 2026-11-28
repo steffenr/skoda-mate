@@ -14,7 +14,7 @@ from .store import get_setting
 # Grouped as the Automation card shows them.
 EVENT_GROUPS = (
     ("Driving", ("trip.started", "trip.ended")),
-    ("Charging", ("charge.started", "charge.ended", "charge.completed", "plug.connected", "plug.disconnected", "soc.low")),
+    ("Charging", ("charge.started", "charge.ended", "charge.completed", "charge.error", "plug.connected", "plug.disconnected", "soc.low")),
     ("Climate", ("climate.started", "climate.ended")),
     ("Security", ("doors.opened", "windows.opened")),
     ("Places", ("geofence.entered", "geofence.left")),
@@ -55,6 +55,8 @@ def collect(conn, vid: int, since_event_id: int, prev, snap: dict, snap_id: int)
             out.extend(_climate(row["detail"], at))
         elif kind in ("charge_start", "charge_end"):
             out.extend(_charge(conn, vid, kind, at))
+        elif kind == "charge_error":  # the reason is the detail; None when the car names no cause
+            out.append(_event("charge.error", at, reason=row["detail"]))
         elif kind in ("trip_start", "trip_end"):
             out.extend(_trip(conn, vid, kind, at))
     out.extend(_soc_low(conn, vid, snap, snap_id))

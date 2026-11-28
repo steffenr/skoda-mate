@@ -1,4 +1,4 @@
-"""API responses shaped exactly like the official OpenAPI schema (v1.1.0)."""
+"""API responses shaped exactly like the official OpenAPI schema (v1.2.0)."""
 import copy
 
 VIN = "TMBJB9NY5RF999999"
@@ -38,7 +38,7 @@ BEV = {
                                       "recurringOn": ["MONDAY", "TUESDAY"]}]}],
             "currentVehiclePositionProfile": {"id": 7, "name": "Home", "targetStateOfChargeInPercent": 90,
                                               "nextChargingTime": "22:00"}},
-        "operations": [{"name": n} for n in ("startCharging", "stopCharging", "setChargingLimit", "setChargeMode",
+        "operations": [{"name": n, "vehicleDependentParameters": []} for n in ("startCharging", "stopCharging", "setChargingLimit", "setChargeMode",
                                               "updateChargingProfile", "startAirConditioning", "stopAirConditioning")],
     },
     "errors": [{"type": "FUEL_STATUS_UNSUPPORTED", "description": "Battery-electric vehicle"},
@@ -56,7 +56,9 @@ ICE = {
         "auxiliaryHeating": {"state": "OFF", "startMode": "HEATING", "durationInSeconds": 1800,
                              "targetTemperature": {"value": 21, "unit": "CELSIUS"}},
         "activeVentilation": {"state": "OFF", "durationInSeconds": 600},
-        "operations": [{"name": "startAuxiliaryHeating"}, {"name": "stopAuxiliaryHeating"}],
+        # this heater takes a target temperature but not a start mode (API 1.2.0 `vehicleDependentParameters`)
+        "operations": [{"name": "startAuxiliaryHeating", "vehicleDependentParameters": [{"name": "targetTemperature"}]},
+                       {"name": "stopAuxiliaryHeating", "vehicleDependentParameters": []}],
     },
     "errors": [{"type": "CHARGING_UNSUPPORTED", "description": "No high-voltage battery"}],
 }

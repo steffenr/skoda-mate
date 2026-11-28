@@ -56,7 +56,7 @@ def overview(vid: int, ctx: ContextDep):
         "vehicle": {**v, "capacity_kwh": recorder.battery_kwh(conn, vid)},
         "snapshot": snap_out(snap),
         "sections": {k: val for k, val in sec.items() if k not in HIDDEN_SECTIONS},
-        "operations": ops, "parts": features.parts(part_state), "features": features.features(ops, part_state),
+        "operations": ops, "operation_params": (sec.get("operations") or {}).get("params"), "parts": features.parts(part_state), "features": features.features(ops, part_state),
         "api_errors": (sec.get("api_errors") or {}).get("list", []),
         "poller": poller.status(v["vin"]) if poller else None,
         "last_trip": trip_out(dict(last_trip), tariff) if last_trip else None,
@@ -77,7 +77,8 @@ def capabilities(vid: int, ctx: ContextDep):
     st = p.status(v["vin"]) if p else {}
     return features.capabilities((sec.get("operations") or {}).get("list"), sec.get("part_state"), sec,
                                  snap_out(recorder.last_snapshot(ctx.conn, vid)),
-                                 (st.get("budget") or {}).get("limit"), st.get("key_expires_at"))
+                                 (st.get("budget") or {}).get("limit"), st.get("key_expires_at"),
+                                 (sec.get("operations") or {}).get("params"))
 
 
 @router.post("/api/vehicles/{vid}/refresh")

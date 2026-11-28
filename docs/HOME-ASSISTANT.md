@@ -104,7 +104,7 @@ Add them to a dashboard: *Overview → pencil icon → Add card → Tile / Entit
 | Charging power | kW |
 | Charge limit | % |
 | Time to full | min |
-| Charge state / Charge type | text |
+| Charge state / Charge error reason / Charge type | text |
 | Odometer | km |
 | Climate, Climate target | text, °C |
 | Auxiliary heater, Ventilation | text |

@@ -77,6 +77,26 @@ def test_charge_completed_only_when_the_target_was_reached():
     assert {"charge.ended", "charge.completed"} <= set(names(events))
 
 
+def test_a_charging_error_is_reported_once_with_its_reason():
+    conn, vid = make()
+    err = {"charge_state": "CHARGING_ERROR", "charge_error_reason": "NO_GRID_VOLTAGE", "plug_connected": True}
+    _, first, again, after = feed(
+        conn, vid, charging(t(10), 20), snap(t(10, 20), 25, **err), snap(t(10, 40), 25, **err),
+        snap(t(11), 25, charge_state="READY_FOR_CHARGING", plug_connected=True))
+    e = only(first, "charge.error")  # from CHARGING too: the generic charge_state event leaves that change out
+    assert e["data"] == {"reason": "NO_GRID_VOLTAGE"} and e["at"] == t(10, 20)
+    assert "charge.error" not in names(again) and "charge.error" not in names(after)  # still the same error: once
+    assert conn.execute("SELECT detail FROM events WHERE kind='charge_error'").fetchone()[0] == "NO_GRID_VOLTAGE"
+    assert "charge.error" in automation.EVENT_TYPES
+
+
+def test_a_charging_error_without_a_named_cause_has_no_reason():
+    conn, vid = make()
+    _, events = feed(conn, vid, snap(t(10), 25, charge_state="READY_FOR_CHARGING"),
+                     snap(t(10, 20), 25, charge_state="CHARGING_ERROR"))
+    assert only(events, "charge.error")["data"] == {"reason": None}
+
+
 def test_a_charge_nobody_watched_sends_nothing():
     conn, vid = make()
     events = feed(conn, vid, parked(t(10), 20, 100), parked(t(14), 70, 100))

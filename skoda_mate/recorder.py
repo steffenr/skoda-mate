@@ -143,6 +143,8 @@ def _events(conn, vid, prev, s, snap_id):
     old = _last_known(conn, vid, "charge_state", snap_id) if new is not None else None
     if new is not None and old is not None and new != old and new != "CHARGING" and old != "CHARGING":
         _event(conn, vid, ts, "charge_state", f"{old} -> {new}")
+    if new == "CHARGING_ERROR" and old != new:  # also from CHARGING, which the line above leaves out
+        _event(conn, vid, ts, "charge_error", s.get("charge_error_reason"))
 
 
 # ---------------------------------------------------------------------------------------------- charges

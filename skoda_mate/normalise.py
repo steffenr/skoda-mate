@@ -22,6 +22,9 @@ class Parsed:
     snapshot: dict = field(default_factory=dict)
     sections: dict = field(default_factory=dict)  # key -> JSON-able dict
     operations: list[str] | None = None  # None = could not be determined
+    # operation -> the request body fields this car supports for it (`vehicleDependentParameters`, API 1.2.0).
+    # An operation missing here (or None overall) reported no such list: what it supports is unknown, not "nothing".
+    operation_params: dict[str, list[str]] | None = None
     errors: list[dict] = field(default_factory=list)
     part_state: dict = field(default_factory=dict)  # part -> present | unsupported | disabled | unavailable | missing
     captured_at: str | None = None
@@ -74,7 +77,10 @@ def parse(resp: dict, now_iso: str) -> Parsed:
     errors = [{"type": e.get("type"), "description": e.get("description")} for e in (resp.get("errors") or [])]
     p = Parsed(errors=errors, part_state=part_states(v, errors))
     if "operations" in v:
-        p.operations = [o.get("name") for o in (v.get("operations") or []) if o.get("name")]
+        ops = [o for o in (v.get("operations") or []) if o.get("name")]
+        p.operations = [o["name"] for o in ops]
+        p.operation_params = {o["name"]: [x.get("name") for x in o["vehicleDependentParameters"] if x.get("name")]
+                              for o in ops if isinstance(o.get("vehicleDependentParameters"), list)}
 
     snap: dict = {}
     ch, fuel, st, ac, aux, vent = (v.get(k) for k in ("charging", "fuelStatus", "status", "airConditioning",
@@ -91,6 +97,8 @@ def parse(resp: dict, now_iso: str) -> Parsed:
             "range_km": None if range_m is None else round(range_m / 1000, 1),
             "charging": state == "CHARGING",
             "charge_state": state,  # may be None: unknown, not "unplugged"
+            # Only with state CHARGING_ERROR, and only when the car names a cause. New values appear over time: kept verbatim.
+            "charge_error_reason": cs.get("chargingErrorReason"),
             "charge_power_kw": cs.get("chargePowerInKw"), "charge_type": cs.get("chargeType"),
             "remaining_min": cs.get("remainingTimeToFullyChargedInMinutes"),
             "fully_charged_at": cs.get("fullyChargedAt"), "charging_rate_kmh": cs.get("chargingRateInKilometersPerHour"),
@@ -100,7 +108,7 @@ def parse(resp: dict, now_iso: str) -> Parsed:
         })
         s = ch.get("settings") or {}
         p.sections["charging"] = {
-            "state": state, "type": cs.get("chargeType"), "power_kw": cs.get("chargePowerInKw"),
+            "state": state, "error_reason": cs.get("chargingErrorReason"), "type": cs.get("chargeType"), "power_kw": cs.get("chargePowerInKw"),
             "rate_kmh": cs.get("chargingRateInKilometersPerHour"), "remaining_min": cs.get("remainingTimeToFullyChargedInMinutes"),
             "fully_charged_at": cs.get("fullyChargedAt"), "plug_connection": cs.get("plugConnectionState"),
             "plug_lock": cs.get("plugLockState"), "soc": snap["soc"], "range_km": snap["range_km"],

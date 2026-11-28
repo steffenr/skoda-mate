@@ -131,7 +131,8 @@ def main():
     gaps = sorted(p for p in leaves if p not in listed_fields and p not in {
         "profiles", "settings", "status", "battery", "overall", "detail", "doorsLocked", "id", "name", "enabled", "type", "time", "oneOffDay",
         "recurringOn", "preferredChargingTimes", "timers", "minBatteryStateOfCharge", "maxChargingCurrent", "minimumBatteryStateOfChargeInPercent",
-        "startTime", "endTime", "unit", "value", "latitude", "longitude", "vehicle", "errors", "operations", "description", "state_"})
+        "startTime", "endTime", "unit", "value", "latitude", "longitude", "vehicle", "errors", "operations",
+        "vehicleDependentParameters", "description", "state_"})  # vehicleDependentParameters: shown on its operation's row (`accepts`)
     print(f"capabilities page: {len(listed_ops)} operations listed; unlisted response fields: {gaps or 'none'}")
     for p in gaps:
         problems.append(f"Capabilities page does not list field {p}")

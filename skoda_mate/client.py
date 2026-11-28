@@ -88,7 +88,7 @@ class ApiError(Exception):
             "api-key-expired": messages.API_KEY_EXPIRED,
             "api-key-not-authorized": messages.API_KEY_NOT_AUTHORIZED,
             "operation-not-authorized": messages.API_OPERATION_NOT_AUTHORIZED,
-            "operation-not-supported": messages.CMD_NOT_SUPPORTED,
+            "operation-not-supported": messages.API_OPERATION_NOT_SUPPORTED,
             "operation-disabled": messages.API_OPERATION_DISABLED,
             "rate-limit-exceeded": messages.API_RATE_LIMIT,
             "vehicle-not-accepting-requests": messages.API_VEHICLE_BUSY,

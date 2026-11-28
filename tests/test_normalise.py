@@ -67,6 +67,29 @@ def test_operations_unknown_vs_empty():
     assert n.parse({"vehicle": {"vin": "X", "operations": []}}, NOW).operations == []
 
 
+def test_a_charging_error_carries_its_reason():
+    p = n.parse(bev(**{"charging.status.state": "CHARGING_ERROR", "charging.status.chargingErrorReason": "NO_GRID_VOLTAGE"}), NOW)
+    s = p.snapshot
+    assert s["charge_state"] == "CHARGING_ERROR" and s["charge_error_reason"] == "NO_GRID_VOLTAGE" and s["charging"] is False
+    assert p.sections["charging"]["error_reason"] == "NO_GRID_VOLTAGE"
+    assert p.sections["charging"]["state"] == "CHARGING_ERROR"
+    # an unknown cause (new values appear over time) is kept as it is; no cause stays unknown
+    assert n.parse(bev(**{"charging.status.state": "CHARGING_ERROR", "charging.status.chargingErrorReason": "SOMETHING_NEW"}),
+                   NOW).snapshot["charge_error_reason"] == "SOMETHING_NEW"
+    assert n.parse(bev(**{"charging.status.state": "CHARGING_ERROR"}), NOW).snapshot["charge_error_reason"] is None
+    assert n.parse(BEV, NOW).snapshot["charge_error_reason"] is None
+
+
+def test_vehicle_dependent_parameters_per_operation():
+    p = n.parse(ICE, NOW)
+    assert p.operation_params == {"startAuxiliaryHeating": ["targetTemperature"], "stopAuxiliaryHeating": []}
+    assert n.parse(BEV, NOW).operation_params["startCharging"] == []
+    # no list reported (older data, API before 1.2.0): unknown, which is not the same as "supports none"
+    old = n.parse({"vehicle": {"vin": "X", "operations": [{"name": "startAuxiliaryHeating"}]}}, NOW)
+    assert old.operations == ["startAuxiliaryHeating"] and old.operation_params == {}
+    assert n.parse({"vehicle": {"vin": "X"}}, NOW).operation_params is None
+
+
 def test_lock_values():
     for raw, exp in (("YES", True), ("NO", False), ("UNKNOWN", None)):
         d = bev()

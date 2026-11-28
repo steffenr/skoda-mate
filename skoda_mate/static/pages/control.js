@@ -4,12 +4,13 @@ import { h, mount } from '../lib/dom.js';
 import { icon } from '../lib/icons.js';
 import { asyncButton, banner, button, card, chip, empty, field, loading, table, toast } from '../lib/ui.js';
 import * as f from '../lib/format.js';
-import { t, tx, N_ } from '../i18n.js';
+import { t, tx, tEnum, N_ } from '../i18n.js';
 import { estimateNote, liveSoc } from '../lib/livesoc.js';
 
 const CHARGE_STATE = {
   CHARGING: [N_('Charging##state'), 'good'], READY_FOR_CHARGING: [N_('Plugged in, not charging'), 'info'], CONNECT_CABLE: [N_('Cable not connected'), ''],
   CONSERVING: [N_('Conserving (battery care)'), 'info'], DISCHARGING: ['Discharging', 'warn'], CHARGING_INTERRUPTED: ['Charging interrupted', 'warn'],
+  CHARGING_ERROR: [N_('Charging error'), 'bad'],
 };
 const MODE_LABEL = {
   MANUAL: 'Manual', TIMER: 'Timer', TIMER_CHARGING_WITH_CLIMATISATION: N_('Timer with climate'), PREFERRED_CHARGING_TIMES: 'Preferred charging times',
@@ -145,6 +146,7 @@ export default async function control(root, ctx) {
     const live = liveSoc(s, o.vehicle?.capacity_kwh);
     const status = h('div', { class: 'stack' }, h('div', { class: 'row' },
       cs ? chip(t(cs[0]), cs[1], s.charging ? 'bolt' : 'plug') : chip(t('Unknown'), '', 'plug'),
+      s.charge_state === 'CHARGING_ERROR' && s.charge_error_reason ? chip(tEnum(s.charge_error_reason), 'bad') : null,
       s.charging && s.charge_power_kw != null ? chip(f.kw(s.charge_power_kw), 'good') : null,
       s.charging && s.remaining_min != null ? chip(t('{duration} remaining', { duration: f.duration(s.remaining_min) }), '') : null,
       s.soc != null ? chip(`${live ? '≈ ' : ''}${Math.round(live ? live.soc : s.soc)} %`, '', 'battery') : null,
@@ -194,11 +196,15 @@ export default async function control(root, ctx) {
     if (st.auxDur == null) st.auxDur = 30;
     if (st.auxMode == null) st.auxMode = 'HEATING';
     const g = gate('start_aux_heating');
+    // API 1.2.0: the car lists the fields it can take; without a list (older data) offer them all, as before
+    const listed = o.operation_params?.startAuxiliaryHeating;
+    const canTemp = !listed || listed.includes('targetTemperature'), canMode = !listed || listed.includes('startMode');
     const validate = () => {
-      const tt = toNum(st.auxTemp), d = toNum(st.auxDur);
-      if (st.auxTemp !== '' && (tt == null || tt < 15.5 || tt > 30)) return { error: t('Choose a temperature between 15.5 and 30 °C.') };
+      const tt = canTemp ? toNum(st.auxTemp) : null, d = toNum(st.auxDur);
+      if (canTemp && st.auxTemp !== '' && (tt == null || tt < 15.5 || tt > 30)) return { error: t('Choose a temperature between 15.5 and 30 °C.') };
       if (d == null || d < 5 || d > 60) return { error: t('Choose a duration between 5 and 60 minutes.') };
-      const p = { duration_min: Math.round(d), mode: st.auxMode };
+      const p = { duration_min: Math.round(d) };
+      if (canMode) p.mode = st.auxMode;
       if (tt != null) p.temperature = Math.round(tt * 2) / 2;
       return p;
     };
@@ -210,10 +216,10 @@ export default async function control(root, ctx) {
       h('div', { class: 'small muted' }, t('The auxiliary heater needs your S-PIN.')),
       noSpin ? banner('warn', t('No S-PIN is stored.'), ' ', h('a', { href: '#/settings' }, t('Add it under Settings.'))) : null,
       h('div', { class: 'grid g2' },
-        field(t('Target temperature'), h('input', { type: 'number', min: 15.5, max: 30, step: 0.5, placeholder: '—', value: st.auxTemp, disabled: !g.ok, inputmode: 'decimal',
-          oninput: (e) => { st.auxTemp = e.target.value; } })),
+        canTemp ? field(t('Target temperature'), h('input', { type: 'number', min: 15.5, max: 30, step: 0.5, placeholder: '—', value: st.auxTemp, disabled: !g.ok, inputmode: 'decimal',
+          oninput: (e) => { st.auxTemp = e.target.value; } })) : null,
         field(t('Duration (minutes)'), h('input', { type: 'number', min: 5, max: 60, step: 1, value: st.auxDur, disabled: !g.ok, inputmode: 'numeric', oninput: (e) => { st.auxDur = e.target.value; } }))),
-      selectField(t('Mode'), [['HEATING', t('Heating')], ['VENTILATION', t('Ventilation only')]], st.auxMode, (v) => { st.auxMode = v; }, { disabled: !g.ok }),
+      canMode ? selectField(t('Mode'), [['HEATING', t('Heating')], ['VENTILATION', t('Ventilation only')]], st.auxMode, (v) => { st.auxMode = v; }, { disabled: !g.ok }) : null,
       toggle({ key: 'aux', on: auxOn, start: 'start_aux_heating', stop: 'stop_aux_heating', getStart: validate, ic: ['flame', 'x'],
         blocked: noSpin ? t('Add your S-PIN under Settings first.') : null }));
     return card(t('Auxiliary heater'), auxGoing ? h('div', { class: 'stack' }, chip(t('Running'), 'good', 'flame'), body.lastChild) : body, { ic: 'flame' });

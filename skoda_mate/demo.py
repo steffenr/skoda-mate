@@ -81,7 +81,7 @@ def vehicle_response(now: datetime, soc: float, charging: bool, parked_at=HOME, 
                                        "minBatteryStateOfCharge": {"enabled": False, "minimumBatteryStateOfChargeInPercent": 20}},
                           "preferredChargingTimes": [], "timers": []}],
             "currentVehiclePositionProfile": {"id": 1, "name": "Home", "targetStateOfChargeInPercent": 80, "nextChargingTime": "22:00"}},
-        "operations": [{"name": n} for n in ("startCharging", "stopCharging", "setChargingLimit", "setChargeMode", "updateChargingProfile",
+        "operations": [{"name": n, "vehicleDependentParameters": []} for n in ("startCharging", "stopCharging", "setChargingLimit", "setChargeMode", "updateChargingProfile",
                                               "startAirConditioning", "stopAirConditioning")],
     }
     return {"vehicle": veh, "errors": [dict(error) for error in API_ERRORS]}

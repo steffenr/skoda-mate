@@ -542,6 +542,9 @@ def test_ice_vehicle_overview_hides_battery_features():
     assert o["parts"]["charging"]["state"] == "unsupported" and o["parts"]["fuelStatus"]["available"]
     assert o["features"]["charge_control"]["available"] is False and o["features"]["aux_heating"]["available"] is True
     assert o["snapshot"]["fuel_pct"] == 62 and o["snapshot"]["charging"] == 0
+    assert o["operation_params"]["startAuxiliaryHeating"] == ["targetTemperature"]  # what this heater takes besides the basics
+    ops = {x["id"]: x for x in c.get(f"/api/vehicles/{vid}/capabilities").json()["operations"]}
+    assert ops["startAuxiliaryHeating"]["accepts"] == ["targetTemperature"] and "accepts" not in ops["startCharging"]
 
 
 def test_capabilities_lists_every_operation_and_field_with_this_cars_state():
@@ -556,7 +559,7 @@ def test_capabilities_lists_every_operation_and_field_with_this_cars_state():
     soc = [r for r in parts["charging"]["fields"] if r["api"] == "charging.status.battery.stateOfChargeInPercent"][0]
     assert soc["value"] == 55
     assert [r["value"] for r in parts["odometer"]["fields"]][0] == 12345
-    assert cap["contract"]["version"] == "1.1.0" and cap["derived"] and cap["unavailable"]
+    assert cap["contract"]["version"] == "1.2.0" and cap["derived"] and cap["unavailable"]
 
 
 def test_api_calls_are_paged_newest_first_and_can_be_filtered_to_failures():

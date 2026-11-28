@@ -1,6 +1,6 @@
 """Remote commands the official API offers, with parameter validation and request-body building.
 
-Only what the contract (v1.1.0) defines exists here. In particular there is NO lock/unlock, honk or wake-up:
+Only what the contract (v1.2.0) defines exists here. In particular there is NO lock/unlock, honk or wake-up:
 the dashboard must not pretend otherwise. A car may support only a subset; `vehicle.operations` says which,
 and `check_supported()` enforces it before a request (and a quota slot) is spent.
 """
@@ -64,12 +64,28 @@ def _opt_num(params: dict, key: str, lo: float, hi: float) -> float | None:
     return None if params.get(key) in (None, "") else _num(params, key, lo, hi)
 
 
-def check_supported(name: str, operations: list[str] | None) -> None:
+# command parameter -> the request body field whose support depends on the car (API 1.2.0 `vehicleDependentParameters`)
+VEHICLE_DEPENDENT = {"start_aux_heating": {"temperature": ("targetTemperature", messages.CMD_AUX_TEMPERATURE_UNSUPPORTED),
+                                           "mode": ("startMode", messages.CMD_AUX_MODE_UNSUPPORTED)}}
+
+
+def check_supported(name: str, operations: list[str] | None, params: dict | None = None,
+                    operation_params: dict[str, list[str]] | None = None) -> None:
+    """Refuse before a request is spent: an operation the car lacks, or a vehicle-dependent field it does not list.
+
+    Škoda answers the second with 422 `operation-not-supported`. A car that reported no list for the operation (older
+    data, or an API before 1.2.0) is not refused: its support is unknown, not absent."""
     spec = COMMANDS.get(name)
     if spec is None:
         raise CommandError(messages.CMD_UNKNOWN(name=name))
     if operations is not None and spec["op"] not in operations:
         raise CommandError(messages.CMD_NOT_SUPPORTED)
+    listed = (operation_params or {}).get(spec["op"])
+    if listed is None:
+        return
+    for param, (field, message) in VEHICLE_DEPENDENT.get(name, {}).items():
+        if (params or {}).get(param) not in (None, "") and field not in listed:
+            raise CommandError(message)
 
 
 def build(name: str, params: dict | None, *, spin: str = "", raw_profiles: dict | None = None

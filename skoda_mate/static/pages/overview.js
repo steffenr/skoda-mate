@@ -6,7 +6,7 @@ import { carView } from '../lib/car.js';
 import { lineChart } from '../lib/charts.js';
 import { mapView } from '../lib/mapview.js';
 import * as f from '../lib/format.js';
-import { t, tx, tn, N_ } from '../i18n.js';
+import { t, tx, tn, tEnum, N_ } from '../i18n.js';
 import { estimateNote, liveSoc } from '../lib/livesoc.js';
 import { kwhOrFloor, medianLossStat } from '../lib/floor.js';
 
@@ -15,6 +15,7 @@ const isoDay = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2,
 const CHARGE_STATE = {
   CHARGING: [N_('Charging##state'), 'good'], READY_FOR_CHARGING: [N_('Plugged in, not charging'), 'info'], CONNECT_CABLE: [N_('Cable not connected'), ''],
   CONSERVING: [N_('Conserving (battery care)'), 'info'], DISCHARGING: ['Discharging', 'warn'], CHARGING_INTERRUPTED: ['Charging interrupted', 'warn'],
+  CHARGING_ERROR: [N_('Charging error'), 'bad'],
 };
 
 const CLIMATE_STATE = { COOLING: 'Cooling', HEATING: 'Heating', HEATING_AUXILIARY: N_('Heating (auxiliary heater)'), VENTILATION: 'Ventilation' };
@@ -81,7 +82,8 @@ export default async function overview(root, ctx) {
         showLimit ? h('div', { class: 'limit-lbl' }, h('span', { class: s.target_soc > 88 ? 'end' : '', style: s.target_soc > 88 ? null : { left: `${s.target_soc}%` } }, `${t('Charge limit')} ${Math.round(s.target_soc)} %`)) : null) : null,
       fuel ? h('div', null, stat(t('Fuel'), s.fuel_pct != null ? `${Math.round(s.fuel_pct)}` : '–', { unit: '%', ic: 'gauge', sub: s.fuel_range_km != null ? t('{distance} range', { distance: f.km(s.fuel_range_km) }) : null })) : null,
       hasBattery && cs && s.charging ? h('div', { class: 'status-line' }, icon('bolt', { size: 16 }), t(cs[0]), typeLabel ? [h('span', { class: 'sep' }, '·'), h('span', { class: 'meta' }, typeLabel)] : null)
-        : hasBattery && cs ? h('div', { class: 'row' }, chip(t(cs[0]), cs[1], 'plug'), typeLabel ? chip(typeLabel, '') : null) : null,
+        : hasBattery && cs ? h('div', { class: 'row' }, chip(t(cs[0]), cs[1], 'plug'), typeLabel ? chip(typeLabel, '') : null,
+          s.charge_state === 'CHARGING_ERROR' && s.charge_error_reason ? chip(tEnum(s.charge_error_reason), 'bad') : null) : null,
       figs.length ? h('div', { class: 'figs', style: { gridTemplateColumns: `repeat(${figs.length}, minmax(0, 1fr))` } },
         ...figs.map(([n, l, lead]) => h('div', { class: ['fig', lead ? 'lead' : ''] }, h('span', { class: 'n' }, n), h('span', { class: 'l' }, l)))) : null,
       !hasBattery && !fuel ? h('div', { class: 'muted' }, t('No battery or fuel data reported by this car.')) : null);

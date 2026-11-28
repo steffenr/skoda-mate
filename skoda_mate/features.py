@@ -3,6 +3,8 @@ state of each data part (present / unsupported / disabled / unavailable). The da
 page on this, so it never offers something the cloud would refuse."""
 from __future__ import annotations
 
+from typing import Any
+
 # feature -> operationId(s), any one suffices
 OPERATION_FEATURES = {
     "charge_control": ("startCharging", "stopCharging"),
@@ -43,13 +45,13 @@ UNAVAILABLE = [
 
 
 # ----------------------------------------------------------------------------------------------------------------
-# The complete picture of the official API (contract v1.1.0), for the "Capabilities" page. scripts/check_contract.py
+# The complete picture of the official API (contract v1.2.0), for the "Capabilities" page. scripts/check_contract.py
 # fails if the live contract has an operation or a data field that is not listed here, so this cannot silently rot.
 
-CONTRACT_VERSION = "1.1.0"
+CONTRACT_VERSION = "1.2.0"
 
 # operationId -> what it does, how Mate exposes it
-OPERATIONS_CATALOGUE = [
+OPERATIONS_CATALOGUE: list[dict[str, Any]] = [
     {"id": "getVehicle", "method": "GET", "path": "/api/v1/vehicles/{vin}", "label": "Read the vehicle", "group": "read",
      "what": "One request returns every data part below, in one go. Mate asks for all of them each time, because the request limit is per request, not per part.",
      "mate": "Overview and every page; polled on the intervals set under Settings → Polling", "page": "overview", "params": "include = which parts (Mate always asks for all)"},
@@ -68,7 +70,7 @@ OPERATIONS_CATALOGUE = [
     {"id": "stopAirConditioning", "method": "POST", "path": "/api/v1/vehicles/{vin}/air-conditioning/stop", "label": "Stop the climate control", "group": "climate",
      "what": "Stops a running air-conditioning process.", "mate": "Control → Climate", "page": "control", "command": "stop_climate", "params": "none"},
     {"id": "startAuxiliaryHeating", "method": "POST", "path": "/api/v1/vehicles/{vin}/auxiliary-heating/start", "label": "Start the auxiliary heater", "group": "climate",
-     "what": "Starts the fuel or electric auxiliary heater (cars that have one). Needs your S-PIN.", "mate": "Control → Auxiliary heater (S-PIN in Settings)", "page": "control", "command": "start_aux_heating", "params": "spin, targetTemperature, durationInSeconds, startMode (heating or ventilation)"},
+     "what": "Starts the fuel or electric auxiliary heater (cars that have one). Needs your S-PIN.", "mate": "Control → Auxiliary heater (S-PIN in Settings)", "page": "control", "command": "start_aux_heating", "dependent": ["targetTemperature", "startMode"], "params": "spin, durationInSeconds, and only if the car lists them in vehicleDependentParameters: targetTemperature, startMode (heating or ventilation)"},
     {"id": "stopAuxiliaryHeating", "method": "POST", "path": "/api/v1/vehicles/{vin}/auxiliary-heating/stop", "label": "Stop the auxiliary heater", "group": "climate",
      "what": "Stops the auxiliary heater.", "mate": "Control → Auxiliary heater", "page": "control", "command": "stop_aux_heating", "params": "none"},
     {"id": "startActiveVentilation", "method": "POST", "path": "/api/v1/vehicles/{vin}/active-ventilation/start", "label": "Start the ventilation", "group": "climate",
@@ -112,7 +114,8 @@ PART_FIELDS = {
         ("activeVentilation.state", "State", "ventilation", "state", ""), ("activeVentilation.durationInSeconds", "Run time", "ventilation", "duration_s", "s"),
         ("activeVentilation.carCapturedTimestamp", "Reported by the car at", "ventilation", "captured_at", "time")]),
     "charging": ("Charging & battery", [
-        ("charging.status.state", "Charging state", "charging", "state", ""), ("charging.status.chargeType", "Charge type", "charging", "type", ""),
+        ("charging.status.state", "Charging state", "charging", "state", ""), ("charging.status.chargingErrorReason", "Cause of the charging error", "charging", "error_reason", ""),
+        ("charging.status.chargeType", "Charge type", "charging", "type", ""),
         ("charging.status.chargePowerInKw", "Charging power", "charging", "power_kw", "kW"), ("charging.status.chargingRateInKilometersPerHour", "Charging rate", "charging", "rate_kmh", "km/h"),
         ("charging.status.remainingTimeToFullyChargedInMinutes", "Time to fully charged", "charging", "remaining_min", "min"),
         ("charging.status.fullyChargedAt", "Fully charged at", "charging", "fully_charged_at", "time"),
@@ -171,8 +174,13 @@ def _dig(obj, path: str):
 
 
 def capabilities(operations: list[str] | None, part_state: dict | None, sections: dict, snapshot: dict | None,
-                 rate_limit: int | None = None, key_expires_at: str | None = None) -> dict:
-    """Everything the API offers, with what THIS car supports and reports right now."""
+                 rate_limit: int | None = None, key_expires_at: str | None = None,
+                 operation_params: dict[str, list[str]] | None = None) -> dict:
+    """Everything the API offers, with what THIS car supports and reports right now.
+
+    `operation_params` is each operation's `vehicleDependentParameters`: an operation that has such fields gets `accepts`,
+    the ones this car lists (None while it reported no list)."""
+    listed = operation_params or {}
     ops = None if operations is None else set(operations)
     op_rows = []
     for o in OPERATIONS_CATALOGUE:
@@ -182,7 +190,7 @@ def capabilities(operations: list[str] | None, part_state: dict | None, sections
             supported = None
         else:
             supported = o["id"] in ops
-        op_rows.append({**o, "supported": supported})
+        op_rows.append({**o, "supported": supported, **({"accepts": listed.get(o["id"])} if o.get("dependent") else {})})
     parts = []
     for key, (label, fields) in PART_FIELDS.items():
         st = "present" if key == "info" else (part_state or {}).get(key, "unknown")

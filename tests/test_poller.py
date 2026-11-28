@@ -169,6 +169,22 @@ def test_unsupported_and_invalid_commands_never_reach_the_api():
     assert len(api.calls) == n and p.rt[VIN].budget.used() == 1
 
 
+def test_aux_fields_the_car_does_not_list_never_reach_the_api():
+    d = bev()
+    d["vehicle"]["operations"] = [{"name": "startAuxiliaryHeating", "vehicleDependentParameters": [{"name": "targetTemperature"}]}]
+    p, api, conn, clock, vid = setup([d], spin="4711")
+    run(p.poll(VIN))
+    assert p.rt[VIN].operation_params == {"startAuxiliaryHeating": ["targetTemperature"]}
+    n = len(api.calls)
+    with pytest.raises(commands.CommandError, match="choose between heating and ventilation"):
+        run(p.run_command(VIN, "start_aux_heating", {"temperature": 22, "mode": "VENTILATION"}))
+    assert len(api.calls) == n and p.rt[VIN].budget.used() == 1  # refused before a request was spent
+    run(p.run_command(VIN, "start_aux_heating", {"temperature": 22, "duration_min": 30}))
+    assert api.calls[-1][3]["targetTemperature"]["value"] == 22.0 and "startMode" not in api.calls[-1][3]
+    # the list survives a restart: it is stored with the operations
+    assert store.load_sections(conn, vid)["operations"]["params"] == {"startAuxiliaryHeating": ["targetTemperature"]}
+
+
 def test_spin_is_used_but_never_logged():
     d = bev()
     d["vehicle"]["operations"] = [{"name": "startAuxiliaryHeating"}]
