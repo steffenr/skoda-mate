@@ -1,12 +1,12 @@
 // Landing-page i18n: the HTML carries English as the fallback; these JSON catalogs add the other
-// 13 languages the app ships (same wording where the app already translates a term).
+// 14 languages the app ships (same wording where the app already translates a term).
 // The language comes from a stored choice, else the browser, else English; switched with the
 // selector in the header, without a reload. Translations are machine-drafted like the app's newer
 // catalogs and marked for a native-speaker pass (docs/TRANSLATIONS.md).
 (function () {
   'use strict';
   var NATIVE = {
-    en: 'English', ca: 'Català', da: 'Dansk', de: 'Deutsch', nl: 'Nederlands', fi: 'Suomi',
+    en: 'English', ca: 'Català', cs: 'Čeština', da: 'Dansk', de: 'Deutsch', nl: 'Nederlands', fi: 'Suomi',
     fr: 'Français', hu: 'Magyar', it: 'Italiano', nb: 'Norsk bokmål', es: 'Español',
     sv: 'Svenska', tr: 'Türkçe', uk: 'Українська',
   };
