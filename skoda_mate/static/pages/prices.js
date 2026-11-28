@@ -62,7 +62,7 @@ export default async function prices(root, ctx) {
     document.querySelectorAll('.pr-sym').forEach((e) => { e.textContent = sym(); });
   };
   const priceRow = (r) => {
-    els[r.key] = h('input', { type: 'number', min: 0, max: 10, step: 0.01, inputmode: 'decimal', placeholder: f.num(DEFAULTS[r.key], 2), value: d[r.key], 'aria-label': `${t(r.title)} — ${t('Prices per kWh')}`,
+    els[r.key] = h('input', { type: 'number', min: 0, max: 1000, step: 0.01, inputmode: 'decimal', placeholder: f.num(DEFAULTS[r.key], 2), value: d[r.key], 'aria-label': `${t(r.title)} — ${t('Prices per kWh')}`,
       oninput: (e) => { d[r.key] = e.target.value; syncExamples(); syncBar(); } });
     examples[r.key] = h('div', { class: 'tiny muted pr-example' });
     return h('div', { class: `pr-row ${r.tone}` },
@@ -112,7 +112,7 @@ export default async function prices(root, ctx) {
   // ---- save / discard
   async function save() {
     if (!/^[A-Za-z]{1,4}$/.test(String(d.currency).trim())) fail(t('Currency must be a short code such as EUR.'));
-    for (const k of ['home', 'ac', 'dc']) if (d[k] !== '' && !(num(d[k]) >= 0 && num(d[k]) <= 10)) fail(t('Prices must be between 0 and 10 per kWh.'));
+    for (const k of ['home', 'ac', 'dc']) if (d[k] !== '' && !(num(d[k]) >= 0 && num(d[k]) <= 1000)) fail(t('Prices must be between 0 and 1000 per kWh.'));
     // No home keys: the home place belongs to the Places page, and a prices save must leave it untouched.
     const res = await ctx.api.put('/api/settings', { tariff: { currency: String(d.currency).trim().toUpperCase(), home_kwh: d.home, public_ac_kwh: d.ac, public_dc_kwh: d.dc } });
     saved = fromTariff(res.tariff || {}); Object.assign(d, saved);
