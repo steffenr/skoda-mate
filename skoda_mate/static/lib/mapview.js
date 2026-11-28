@@ -142,7 +142,7 @@ export function mapView(opts) {
       if (m.draggable && m.onDrag) mk.on('dragend', () => { const p = mk.getLatLng(); m.onDrag(p.lat, p.lng); });
       mk.on('click', stopClick);
       (m.noCluster || m.draggable ? plainLayer : markerLayer).addLayer(mk);  // dragged pins never disappear into a cluster
-      bounds.push([m.lat, m.lon]);
+      if (!m.noFit) bounds.push([m.lat, m.lon]);  // noFit: drawn, but never widens the fitted view
     }
     if (o.fit !== false && bounds.length) {
       if (bounds.length === 1) map.setView(bounds[0], o.zoom || 15);

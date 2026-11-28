@@ -64,7 +64,9 @@ viewer's local day. The pages are `pages/places.js` (map, list, detected cluster
 `current` and `tariff`. Parked clusters carry `place_id`; charges and trips carry their geofence ids. The map page asks
 for 1000; **Show all** asks for 2000, each layer newest first. `mapView({...})` draws one circle per place, and only a
 circle with an `id` is clickable — the legacy ownerless `circle` stays passive. Focusing an item in the list paints
-only that item's place circle (none when it has no place); **Show everything** restores all of them. Pins cluster by
+only that item's place circle (none when it has no place) and fits the view to that item alone (the "Car now" pin stays
+drawn but carries `noFit`, so a car parked far away does not zoom the view out); **Show everything** restores all of
+them. Pins cluster by
 default through leaflet.markercluster 1.5.3 (cdnjs, SRI): markers are drawn immediately, the cluster group replaces
 them only once the plugin loads, and a failed load leaves the plain pins in place. Markers with `noCluster` (trip
 endpoints) or `draggable` stay in a separate plain layer above the clusters. Circles and lines sit in their own layer
