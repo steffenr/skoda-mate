@@ -6,7 +6,7 @@ import { banner, button, card, chip, empty, field, loading, seg } from '../lib/u
 import * as f from '../lib/format.js';
 import { barBox, clockAt, dayStartMs } from '../lib/dates.js';
 import { actionLabel, checkLabel } from '../lib/quality.js';
-import { t, tn, N_ } from '../i18n.js';
+import { t, tn, tEnum, N_ } from '../i18n.js';
 
 const KINDS = {
   locked: ['Locked', 'lock', 'good'], unlocked: ['Unlocked', 'unlock', 'warn'],
@@ -16,6 +16,7 @@ const KINDS = {
   plugged_in: [N_('Plugged in'), 'plug', 'info'], unplugged: [N_('Unplugged'), 'plug', ''], plug_locked: [N_('Plug locked'), 'lock', ''], plug_unlocked: [N_('Plug unlocked'), 'unlock', ''],
   climate: ['Climate', 'thermo', 'info'], aux_heating: [N_('Auxiliary heating'), 'flame', 'info'], ventilation: ['Ventilation', 'fan', 'info'],
   charge_start: [N_('Charging started'), 'bolt', 'good'], charge_end: [N_('Charging finished'), 'bolt', 'good'], charge_state: [N_('Charging status'), 'battery', ''],
+  charge_error: [N_('Charging error'), 'alert', 'bad'],
   trip_start: [N_('Trip started'), 'route', 'info'], trip_end: [N_('Trip finished'), 'route', 'info'], command: ['Command', 'sliders', ''],
   quality_fix: [N_('Data fixed'), 'shield', 'good'], quality_review: [N_('Data reviewed'), 'shield', ''],
 };
@@ -44,6 +45,7 @@ function detail(e) {
   const reviewed = e.kind === 'quality_review' && /^(\w+):(on|off)$/.exec(d || '');
   if (reviewed) return `${checkLabel(reviewed[1])}: ${reviewed[2] === 'on' ? t('marked as reviewed') : t('review undone')}`;
   if (!d) return null;
+  if (e.kind === 'charge_error') return tEnum(d);
   const km = /^([\d.]+) km$/.exec(d);
   if (e.kind === 'trip_end' && km) return f.km(+km[1], 1);
   return d.replace(/_/g, ' ').replace(/ -> /g, ' → ');

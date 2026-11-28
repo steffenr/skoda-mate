@@ -42,6 +42,20 @@ def test_aux_heating_needs_spin_and_validates():
             c.build("start_aux_heating", bad, spin="1234")
 
 
+def test_aux_heating_fields_the_car_does_not_list_are_refused_before_sending():
+    ops = ["startAuxiliaryHeating"]
+    listed = {"startAuxiliaryHeating": ["targetTemperature"]}
+    c.check_supported("start_aux_heating", ops, {"temperature": 22, "duration_min": 30}, listed)
+    with pytest.raises(c.CommandError, match="choose between heating and ventilation"):
+        c.check_supported("start_aux_heating", ops, {"mode": "HEATING"}, listed)
+    with pytest.raises(c.CommandError, match="target temperature"):
+        c.check_supported("start_aux_heating", ops, {"temperature": 22}, {"startAuxiliaryHeating": []})
+    c.check_supported("start_aux_heating", ops, {"temperature": "", "mode": None}, {"startAuxiliaryHeating": []})  # left out
+    # no list reported for the operation: unknown, so the API decides
+    c.check_supported("start_aux_heating", ops, {"temperature": 22, "mode": "HEATING"}, {})
+    c.check_supported("start_aux_heating", ops, {"temperature": 22, "mode": "HEATING"}, None)
+
+
 def test_support_check_uses_the_cars_operation_list():
     ops = ["startCharging", "stopCharging"]
     c.check_supported("start_charging", ops)

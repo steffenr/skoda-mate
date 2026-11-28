@@ -26,6 +26,7 @@ SENSORS = [
     ("target_soc", "Charge limit", "%", None, None, "mdi:battery-charging-high"),
     ("remaining_min", "Time to full", "min", "duration", "measurement", None),
     ("charge_state", "Charge state", None, None, None, "mdi:ev-station"),
+    ("charge_error_reason", "Charge error reason", None, None, None, "mdi:alert-circle-outline"),
     ("charge_type", "Charge type", None, None, None, "mdi:current-ac"),
     ("mileage_km", "Odometer", "km", "distance", "total_increasing", None),
     ("fuel_pct", "Fuel level", "%", None, "measurement", "mdi:gas-station"),

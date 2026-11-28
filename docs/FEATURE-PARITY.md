@@ -1,6 +1,6 @@
 # Feature parity with leapmotor-mate
 
-Status per leapmotor-mate feature (from its README), checked against the official MyŠkoda API (contract 1.1.0, 12 operations).
+Status per leapmotor-mate feature (from its README), checked against the official MyŠkoda API (contract 1.2.0, 12 operations).
 **Done** = in Škoda Mate. **Adapted** = in Škoda Mate, but derived or estimated because the API gives no such data.
 **Not possible** = the API offers nothing for it (verified against the live OpenAPI spec; `scripts/check_contract.py`).
 **Not built** = possible with the data we have, deliberately left out so far.

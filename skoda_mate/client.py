@@ -1,4 +1,4 @@
-"""Client for the official MyŠkoda Public API (https://public.api.connect.skoda-auto.cz/docs).
+"""Client for the official MyŠkoda Public API (https://public.api.connect.skoda-auto.cz/docs/swagger-ui/index.html).
 
 Authentication is an API key (header `X-API-Key`) created in the MyŠkoda app. There is no vehicle
 listing endpoint: the VINs are supplied by the user. Every response carries the rate-limit headers,
@@ -88,7 +88,7 @@ class ApiError(Exception):
             "api-key-expired": messages.API_KEY_EXPIRED,
             "api-key-not-authorized": messages.API_KEY_NOT_AUTHORIZED,
             "operation-not-authorized": messages.API_OPERATION_NOT_AUTHORIZED,
-            "operation-not-supported": messages.CMD_NOT_SUPPORTED,
+            "operation-not-supported": messages.API_OPERATION_NOT_SUPPORTED,
             "operation-disabled": messages.API_OPERATION_DISABLED,
             "rate-limit-exceeded": messages.API_RATE_LIMIT,
             "vehicle-not-accepting-requests": messages.API_VEHICLE_BUSY,

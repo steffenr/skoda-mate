@@ -41,6 +41,7 @@ class Runtime:
     blocked: bool = False  # key rejected (401/403): polling stops until the key is replaced
     backoff: int = 60
     active: bool = False
+    operation_params: dict[str, list[str]] | None = None  # see normalise.Parsed.operation_params
     operations: list[str] | None = None
     key_expires_at: str | None = None
     part_state: dict = field(default_factory=dict)
@@ -77,6 +78,7 @@ class Poller:
         saved = store.load_sections(self.conn, vid)
         if "operations" in saved:
             r.operations = saved["operations"].get("list")
+            r.operation_params = saved["operations"].get("params")
         return r
 
     def remove_vehicle(self, vin: str) -> None:
@@ -116,13 +118,14 @@ class Poller:
         events = recorder.ingest(self.conn, r.vid, parsed.snapshot)
         store.save_sections(self.conn, r.vid, parsed.sections, parsed.snapshot["ts"])
         store.save_sections(self.conn, r.vid, {
-            "operations": {"list": parsed.operations}, "part_state": parsed.part_state, "api_errors": {"list": parsed.errors},
+            "operations": {"list": parsed.operations, "params": parsed.operation_params}, "part_state": parsed.part_state, "api_errors": {"list": parsed.errors},
             "raw": res.data}, parsed.snapshot["ts"])
         info = parsed.sections.get("info") or {}
         if info.get("name"):
             recorder.upsert_vehicle(self.conn, vin, info["name"])
         self.conn.commit()
         r.operations, r.part_state, r.api_errors = parsed.operations, parsed.part_state, parsed.errors
+        r.operation_params = parsed.operation_params
         r.captured_at, r.last_ok, r.last_poll_at = parsed.captured_at, parsed.snapshot["ts"], now
         r.last_error = r.last_error_i18n = r.error_kind = None
         r.backoff, r.polls, r.failures = 60, r.polls + 1, 0
@@ -204,7 +207,7 @@ class Poller:
         r = self.rt.get(vin)
         if r is None:
             raise commands.CommandError(messages.CMD_UNKNOWN_VEHICLE)
-        commands.check_supported(name, r.operations)
+        commands.check_supported(name, r.operations, params, r.operation_params)
         raw = (store.load_sections(self.conn, r.vid).get("profiles") or None)
         op, body, path_args = commands.build(name, params, spin=self.spin_getter(), raw_profiles=raw)
         wait = r.budget.wait_s(command=True)

@@ -37,7 +37,11 @@ export default async function capabilities(root, ctx) {
     h('div', { style: { flex: 1, minWidth: 0 } },
       h('div', { class: 'row tight' }, h('strong', null, t(o.label)), h('code', { class: 'tiny muted' }, `${o.method} ${o.path}`)),
       h('div', { class: 'small' }, t(o.what)),
-      h('div', { class: 'tiny muted' }, `${t("Parameters")}: ${t(o.params)} · ${t("In Mate")}: ${t(o.mate)}`)),
+      h('div', { class: 'tiny muted' }, `${t("Parameters")}: ${t(o.params)} · ${t("In Mate")}: ${t(o.mate)}`),
+      // API 1.2.0: of these fields the car lists the ones it supports (nothing shown until it has reported a list)
+      o.accepts == null ? null : h('div', { class: 'tiny muted' }, o.accepts.length
+        ? t('Optional fields this car accepts: {fields}', { fields: o.accepts.join(', ') })
+        : t('This car accepts none of the optional fields: {fields}', { fields: o.dependent.join(', ') }))),
     h('div', { class: 'row tight' }, chip(o.supported === null ? t('unknown yet') : o.supported ? t('supported') : t('not supported'), o.supported ? 'good' : o.supported === false ? 'warn' : ''),
       o.supported === false ? null : h('a', { class: 'btn sm', href: `#/${o.page === 'overview' ? '' : o.page}` }, t('Open##action'))));
   const ops = card(t('Commands'), h('div', { class: 'stack' }, ...Object.entries(GROUPS).map(([g, label]) =>

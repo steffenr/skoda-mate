@@ -23,6 +23,7 @@ than the change, and something that starts and ends between two readings is not 
 | `charge.started` | Mate saw the car charging | `charge_id`, `charge_type`, `start_soc`, `target_soc`, `place` |
 | `charge.ended` | that charge ended | the same, and `end_soc`, `energy_kwh`, `cost` |
 | `charge.completed` | it ended **at or above the charge limit** (sent with `charge.ended`) | as `charge.ended` |
+| `charge.error` | the car reported a charging error while the cable was connected (API 1.2.0), for example when a phase of the charging station was switched off; sent once when the error starts | `reason`: why, as the car names it (for example `NO_GRID_VOLTAGE`, `ERROR_LOCK`, `ERROR_CHARGING_SYSTEM`), or `null` when it names none. Values can be added by Škoda, so accept ones you do not know |
 | `plug.connected`, `plug.disconnected` | the cable | – |
 | `soc.low` | the charge level fell below your threshold (default 20 %), once per crossing | `soc`, `threshold` |
 | `climate.started`, `climate.ended` | air conditioning, heating or ventilation | `state` |

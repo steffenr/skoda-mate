@@ -162,7 +162,7 @@ export default async function settings(root, ctx) {
         h('a', { class: 'btn sm', href: '/setup' }, icon('key', { size: 15 }), t('Replace the API key'))),
       h('div', { class: 'tiny muted' }, t('The key is entered on the setup page, not here, so it never passes through this dashboard.')),
       h('div', { class: 'row tight small' },
-        h('a', { href: 'https://public.api.connect.skoda-auto.cz/docs', target: '_blank', rel: 'noopener' }, icon('external', { size: 14 }), ' ', t('Official Škoda API documentation')),
+        h('a', { href: 'https://public.api.connect.skoda-auto.cz/docs/swagger-ui/index.html', target: '_blank', rel: 'noopener' }, icon('external', { size: 14 }), ' ', t('Official Škoda API documentation')),
         h('a', { href: 'https://go.skoda.eu/api-keys', target: '_blank', rel: 'noopener' }, icon('external', { size: 14 }), ' ', t('Create or manage API keys'))),
       status.key_readable === false ? banner('bad', t('Could not read the stored key. The data key may have changed; enter the key again.')) : null,
       worst != null && worst < 0 ? banner('bad', t('The key has expired.'), ' ', h('a', { href: '/setup' }, t('Replace the API key')))

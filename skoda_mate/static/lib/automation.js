@@ -7,7 +7,7 @@ import * as f from './format.js';
 import { t, tn, N_ } from '../i18n.js';
 
 const EVENT_LABEL = {
-  'trip.started': N_('Trip started'), 'trip.ended': N_('Trip ended'), 'charge.started': N_('Charging started'), 'charge.ended': N_('Charging ended'), 'charge.completed': N_('Charge limit reached'),
+  'trip.started': N_('Trip started'), 'trip.ended': N_('Trip ended'), 'charge.started': N_('Charging started'), 'charge.ended': N_('Charging ended'), 'charge.completed': N_('Charge limit reached'), 'charge.error': N_('Charging error'),
   'plug.connected': N_('Cable plugged in'), 'plug.disconnected': N_('Cable unplugged'), 'soc.low': N_('Battery low'), 'climate.started': N_('Climate started'), 'climate.ended': N_('Climate stopped'),
   'doors.opened': N_('Doors opened'), 'windows.opened': N_('Windows opened'), 'geofence.entered': N_('Arrived at a place'), 'geofence.left': N_('Left a place'), 'poll.failed': N_('Car data cannot be read'), test: N_('Test'),
 };
