@@ -123,7 +123,8 @@ export default async function mapPage(root, ctx) {
       }
     }
     const cur = data.current && ok(data.current.lat, data.current.lon) ? data.current : null;
-    if (cur) m.push({ lat: cur.lat, lon: cur.lon, kind: 'd', label: `${t('Car now')}: ${cur.address || ''}`.trim() });
+    // While an item is focused the car stays on the map, but the view fits the item, not the car's distant position.
+    if (cur) m.push({ lat: cur.lat, lon: cur.lon, kind: 'd', label: `${t('Car now')}: ${cur.address || ''}`.trim(), noFit: !!focus });
     return { markers: m, lines };
   }
 
