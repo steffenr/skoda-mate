@@ -12,9 +12,14 @@
   var dark = function () {
     return (root.dataset.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')) === 'dark';
   };
+  var labels = function () {
+    // English until i18n.js loads a catalog, then the translated titles
+    var l = window.__i18nLabels || {};
+    return { light: l.light || 'Switch to light theme', dark: l.dark || 'Switch to dark theme' };
+  };
   var paint = function () {
     btn.innerHTML = dark() ? sun : moon;
-    var label = dark() ? 'Switch to light theme' : 'Switch to dark theme';
+    var label = dark() ? labels().light : labels().dark;
     btn.title = label;
     btn.setAttribute('aria-label', label);
   };
@@ -25,5 +30,6 @@
     paint();
   });
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', paint);
+  window.__paintTheme = paint;  // i18n.js re-calls this after loading a language
   paint();
 })();

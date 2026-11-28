@@ -220,3 +220,11 @@ a.ico, button.ico { border: 0; background: none; padding: 0; font: inherit; curs
 .doc th { color: var(--muted); font-weight: 600; }
 .doc img { max-width: 100%; height: auto; border-radius: var(--radius); border: 1px solid var(--line); }
 .doc hr { border: 0; border-top: 1px solid var(--line); margin: 24px 0; }
+
+/* ---- language selector in the footer ---- */
+.langsel { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); margin-top: 8px; }
+.langsel select {
+  font: inherit; color: var(--fg); background: var(--surface);
+  border: 1px solid var(--control-line); border-radius: 8px; padding: 6px 10px; cursor: pointer;
+}
+.langsel select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
