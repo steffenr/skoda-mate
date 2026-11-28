@@ -25,7 +25,9 @@
 - Contract check against Škoda's OpenAPI: `.venv/bin/python scripts/check_contract.py`.
 - CI (`.github/workflows/ci.yml`) runs the same four things: `test` (ruff, mypy, pytest with coverage), `frontend`
   (unit checks, `i18n_extract.mjs --check` and `i18n_coverage.mjs`), `browser` (demo server plus `run.mjs`, `longrun.mjs` and
-  `browser_e2e.mjs`). The a11y scripts report rather than gate: they run in the on-demand
+  `browser_e2e.mjs` with `E2E_PART=click`) and `browser-layout` (the per-language 360 px pass, sharded: `E2E_PART=layout`,
+  `E2E_LANGS`, `E2E_SHARD=i/n`; pull requests check fi, de, sv, main and the nightly run check all). Pull requests skip jobs
+  their changed files cannot affect; require the `CI result` job in branch protection. The a11y scripts report rather than gate: they run in the on-demand
   `.github/workflows/a11y.yml` (Actions → Accessibility), which files their findings as
   GitHub issues instead of gating.
 
