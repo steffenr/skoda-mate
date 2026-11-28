@@ -1,12 +1,16 @@
 // Landing-page i18n: the HTML carries English as the fallback; these JSON catalogs add the other
 // 13 languages the app ships (same wording where the app already translates a term).
-// The language comes from a stored choice, else the browser, else English; switched in the footer,
-// without a reload. Translations are machine-drafted like the app's newer catalogs and marked for
-// a native-speaker pass (docs/TRANSLATIONS.md).
+// The language comes from a stored choice, else the browser, else English; switched with the
+// selector in the header, without a reload. Translations are machine-drafted like the app's newer
+// catalogs and marked for a native-speaker pass (docs/TRANSLATIONS.md).
 (function () {
   'use strict';
-  var NAMES = null;
-  var CODES = ['en', 'ca', 'da', 'de', 'nl', 'fi', 'fr', 'hu', 'it', 'nb', 'es', 'sv', 'tr', 'uk'];
+  var NATIVE = {
+    en: 'English', ca: 'Català', da: 'Dansk', de: 'Deutsch', nl: 'Nederlands', fi: 'Suomi',
+    fr: 'Français', hu: 'Magyar', it: 'Italiano', nb: 'Norsk bokmål', es: 'Español',
+    sv: 'Svenska', tr: 'Türkçe', uk: 'Українська',
+  };
+  var CODES = Object.keys(NATIVE);
 
   function stored() {
     try { return localStorage.getItem('skoda-mate-lang'); } catch (e) { return null; }
@@ -24,7 +28,7 @@
   }
   function wanted() {
     var s = stored();
-    return s && CODES.indexOf(s) >= 0 ? s : browserLang();
+    return s && NATIVE[s] ? s : browserLang();
   }
 
   var dicts = { en: null };
@@ -33,7 +37,7 @@
   function apply(lang, dict) {
     current = lang;
     dicts[lang] = dict;
-    document.documentElement.lang = lang === 'nb' ? 'nb' : lang;
+    document.documentElement.lang = lang;
     document.querySelectorAll('[data-i18n]').forEach(function (el) {
       var v = dict[el.dataset.i18n];
       if (typeof v === 'string') el.textContent = v;
@@ -41,6 +45,10 @@
     document.querySelectorAll('[data-i18n-html]').forEach(function (el) {
       var v = dict[el.dataset.i18nHtml];
       if (typeof v === 'string') el.innerHTML = v;
+    });
+    document.querySelectorAll('[data-i18n-aria]').forEach(function (el) {
+      var v = dict[el.dataset.i18nAria];
+      if (typeof v === 'string') el.setAttribute('aria-label', v);
     });
     window.__i18nLabels = {
       light: dict.theme_to_light || 'Switch to light theme',
@@ -61,14 +69,13 @@
   }
 
   document.addEventListener('DOMContentLoaded', function () {
-    fetch('i18n/languages.json').then(function (r) { return r.json(); }).then(function (n) { NAMES = n; });
     var sel = document.getElementById('lang-select');
     if (sel) {
       sel.innerHTML = '';
       CODES.forEach(function (code) {
         var o = document.createElement('option');
         o.value = code;
-        o.textContent = (NAMES && NAMES[code]) || code;
+        o.textContent = NATIVE[code]; // always the full native name
         sel.appendChild(o);
       });
       sel.addEventListener('change', function () { set(sel.value); });
