@@ -1,4 +1,4 @@
-"""Client for the official MyŠkoda Public API (https://public.api.connect.skoda-auto.cz/docs).
+"""Client for the official MyŠkoda Public API (https://public.api.connect.skoda-auto.cz/docs/swagger-ui/index.html).
 
 Authentication is an API key (header `X-API-Key`) created in the MyŠkoda app. There is no vehicle
 listing endpoint: the VINs are supplied by the user. Every response carries the rate-limit headers,

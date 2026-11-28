@@ -204,7 +204,7 @@ def capabilities(operations: list[str] | None, part_state: dict | None, sections
         parts.append({"key": key, "label": label, "state": st, "reason": PART_REASONS.get(st) if st not in ("present", "unknown") else None,
                       "fields": rows, "reported": sum(1 for r in rows if r["value"] is not None)})
     return {"contract": {"version": CONTRACT_VERSION, "rate_limit_per_hour": rate_limit or 20, "key_expires_at": key_expires_at,
-                         "docs": "https://public.api.connect.skoda-auto.cz/docs"},
+                         "docs": "https://public.api.connect.skoda-auto.cz/docs/swagger-ui/index.html"},
             "operations": op_rows, "parts": parts, "derived": DERIVED, "unavailable": UNAVAILABLE,
             "summary": {"operations_supported": sum(1 for o in op_rows if o["supported"] and o["id"] != "getVehicle"),
                         "operations_total": len(op_rows) - 1, "parts_available": sum(1 for p in parts if p["state"] == "present"),
