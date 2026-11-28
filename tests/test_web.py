@@ -358,15 +358,34 @@ def test_place_validation_messages():
         ({"name": "X", "lat": 50, "lon": 181}, "Longitude must be between -180 and 180."),
         ({"name": "X", "lat": 50, "lon": 8, "radius_m": 5}, "Radius must be between 20 and 5000 metres."),
         ({"name": "X", "lat": 50, "lon": 8, "color": "red"}, "Colour must be a hex colour such as #0b7a52."),
-        ({"name": "X", "lat": 50, "lon": 8, "price_kwh": 11}, "Price per kWh must be between 0 and 10."),
-        ({"name": "X", "lat": 50, "lon": 8, "price_minute": -1}, "Price per minute must be between 0 and 10."),
-        ({"name": "X", "lat": 50, "lon": 8, "session_fee": 1001}, "Session fee must be between 0 and 1000."),
+        ({"name": "X", "lat": 50, "lon": 8, "price_kwh": 1001}, "Price per kWh must be between 0 and 1000."),
+        ({"name": "X", "lat": 50, "lon": 8, "price_minute": -1}, "Price per minute must be between 0 and 1000."),
+        ({"name": "X", "lat": 50, "lon": 8, "session_fee": 10001}, "Session fee must be between 0 and 10000."),
         ({"name": "X", "lat": 50, "lon": 8, "free": True, "price_kwh": 0.5}, "A free place cannot have a price."),
     )
     for body, message in cases:
         r = c.post("/api/places", json=body)
         assert r.status_code == 400 and r.json()["detail"] == message
     assert c.get("/api/places/9999").json()["detail"] == "Place not found."
+
+
+def test_price_caps_cover_every_supported_currency():
+    """Issue 46: per-unit caps sit above every supported currency (HUF DC ~300/kWh), totals at 10000."""
+    c, conn, api, vid = connected()
+    # CZK/HUF-scale prices are accepted: 20 CZK DC, 300 Ft DC, 150 Ft public AC.
+    r = c.post("/api/places", json={"name": "DC CZ", "lat": 50, "lon": 8, "price_kwh": 20, "price_minute": 5})
+    assert r.status_code == 200 and r.json()["price_kwh"] == 20
+    r = c.post("/api/places", json={"name": "DC HU", "lat": 50, "lon": 8, "price_kwh": 300, "session_fee": 9500})
+    assert r.status_code == 200 and r.json()["price_kwh"] == 300
+    r = c.put("/api/settings", json={"tariff": {"currency": "CZK", "home_kwh": 5, "public_ac_kwh": 12, "public_dc_kwh": 20}})
+    assert r.status_code == 200
+    tariff = c.get("/api/settings").json()["tariff"]
+    assert (tariff["home_kwh"], tariff["public_ac_kwh"], tariff["public_dc_kwh"]) == (5, 12, 20)
+    r = c.put("/api/settings", json={"tariff": {"currency": "HUF", "public_dc_kwh": 300}})
+    assert r.status_code == 200
+    # And the caps still stop magnitude typos.
+    r = c.put("/api/settings", json={"tariff": {"home_kwh": 1001}})
+    assert r.status_code == 400 and r.json()["detail"] == "home_kwh must be between 0 and 1000 per kWh"
 
 
 def test_place_day_count_uses_the_browser_offset():
