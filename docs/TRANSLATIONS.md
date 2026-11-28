@@ -75,6 +75,7 @@ in the repository, a project settings file, a script or CI. Check placeholders w
 | English (source) | — | — |
 | German | `de.json` | reference translation |
 | Catalan | `ca.json` | machine translation, not reviewed by a speaker |
+| Czech | `cs.json` | machine translation, not reviewed by a speaker |
 | Danish | `da.json` | machine translation, not reviewed by a speaker |
 | Spanish | `es.json` | machine translation, not reviewed by a speaker |
 | French | `fr.json` | machine translation, not reviewed by a speaker |

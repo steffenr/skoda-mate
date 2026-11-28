@@ -17,6 +17,7 @@ LANGUAGES = (
     Language("en", "English", "en"),
     Language("de", "Deutsch", "de"),
     Language("ca", "Català", "ca"),
+    Language("cs", "Čeština", "cs"),
     Language("da", "Dansk", "da"),
     Language("es", "Español", "es"),
     Language("fr", "Français", "fr"),

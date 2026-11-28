@@ -21,6 +21,7 @@ export const jsonCatalog = (code, timeout = CATALOG_TIMEOUT_MS) => async () => {
 export const CATALOGS = {
   de: jsonCatalog('de'),
   ca: jsonCatalog('ca'),
+  cs: jsonCatalog('cs'),
   da: jsonCatalog('da'),
   es: jsonCatalog('es'),
   fr: jsonCatalog('fr'),
