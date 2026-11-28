@@ -45,9 +45,9 @@ def _payload(body: PlaceIn) -> dict:
     if color is not None and not _HEX.fullmatch(color):
         raise messages.UserError(400, messages.PLACE_COLOUR)
     for value, maximum, message in (
-            (body.price_kwh, 10, messages.PLACE_PRICE_KWH),
-            (body.price_minute, 10, messages.PLACE_PRICE_MINUTE),
-            (body.session_fee, 1000, messages.PLACE_SESSION_FEE)):
+            (body.price_kwh, 1000, messages.PLACE_PRICE_KWH),
+            (body.price_minute, 1000, messages.PLACE_PRICE_MINUTE),
+            (body.session_fee, 10000, messages.PLACE_SESSION_FEE)):
         if value is not None and not (math.isfinite(value) and 0 <= value <= maximum):
             raise messages.UserError(400, message)
     if body.free and any(v is not None for v in (body.price_kwh, body.price_minute, body.session_fee)):

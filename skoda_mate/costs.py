@@ -33,7 +33,7 @@ def clean_tariff(raw: dict) -> dict:
     for k in ("home_kwh", "public_ac_kwh", "public_dc_kwh"):
         if k in raw and raw[k] not in (None, ""):
             v = float(raw[k])
-            if not 0 <= v <= 10:
+            if not 0 <= v <= 1000:  # cap covers every supported currency (HUF DC ~300/kWh)
                 raise ValueError(messages.TARIFF_PRICE_RANGE(key=k))
             out[k] = v
     if raw.get("currency"):

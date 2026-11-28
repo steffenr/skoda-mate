@@ -16,9 +16,9 @@ const COLOURS = [
   ['#7a3fa8', N_('Purple')], ['#b3261e', N_('Red')], ['#0e7a7a', N_('Teal')],
 ];
 const PRICE_FIELDS = [
-  ['price_kwh', 10, 'Price per kWh must be between 0 and 10.'],
-  ['price_minute', 10, 'Price per minute must be between 0 and 10.'],
-  ['session_fee', 1000, 'Session fee must be between 0 and 1000.'],
+  ['price_kwh', 1000, 'Price per kWh must be between 0 and 1000.'],
+  ['price_minute', 1000, 'Price per minute must be between 0 and 1000.'],
+  ['session_fee', 10000, 'Session fee must be between 0 and 10000.'],
 ];
 
 const displayName = (p) => (p.kind === 'home' && p.name === 'Home' ? t('Home') : p.name);
