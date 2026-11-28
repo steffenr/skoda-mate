@@ -166,5 +166,12 @@ export default async function overview(root, ctx) {
   }
 
   await draw();
-  ctx.onTick(draw);
+  // The car reports about every 20 minutes, so most ticks bring nothing new. Then the history and the parked-loss answer
+  // are not asked again; the page only redraws now and then (every 4th tick, every tick while charging) because ages
+  // ("reported 5 min ago") and the live charge estimate move with the clock.
+  let quiet = 0;
+  ctx.onTick(async (changed) => {
+    if (changed) { quiet = 0; await draw(); return; }
+    if (++quiet >= 4 || ctx.overview?.snapshot?.charging) { quiet = 0; render(); }
+  });
 }

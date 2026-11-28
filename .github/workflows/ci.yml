@@ -119,6 +119,11 @@ jobs:
         working-directory: scripts/dom-smoke
         run: node run.mjs
 
+      # A tab left open for days: tick loop, back-off, stale banner and map disposal, with a sped-up clock (about 45 s).
+      - name: Long-running dashboard
+        working-directory: scripts/dom-smoke
+        run: node longrun.mjs
+
       - name: Click-through, phone fit, language
         working-directory: scripts/dom-smoke
         run: node browser_e2e.mjs

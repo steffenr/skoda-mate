@@ -88,6 +88,25 @@ const pinIcon = (L, kind = '', scale = 1) => {
 };
 const cssColor = (name, fallback) => getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
 
+// Every Leaflet map keeps listening to the window's resize events (and holds its tiles) until map.remove(). A dashboard
+// tab that stays open for days must not collect them, so maps are registered and let go once their page is gone.
+const live = new Set();
+const seen = new WeakSet();   // boxes that have been on the page at least once (a box is built before it is mounted)
+
+/** Dispose the maps whose element was on the page and no longer is. */
+export function disposeGone() {
+  for (const box of [...live]) {
+    if (box.isConnected) seen.add(box);
+    else if (seen.has(box)) box.dispose();
+  }
+}
+
+/** Dispose every map: the router calls this when it leaves a page. */
+export function disposeAllMaps() { for (const box of [...live]) box.dispose(); }
+
+/** Number of maps still alive (for tests and diagnostics). */
+export const liveMaps = () => live.size;
+
 /**
  * mapView({height:'short'|''|'tall', markers:[{lat,lon,kind?,label?,scale?,draggable?,noCluster?,onDrag?}],
  *   lines:[[ [lat,lon], [lat,lon] ]], circles:[{lat,lon,radius,color?,label?,id?}], circle?:{...}, cluster?:false,
@@ -98,7 +117,7 @@ const cssColor = (name, fallback) => getComputedStyle(document.documentElement).
  */
 export function mapView(opts) {
   const box = h('div', { class: ['map', opts.height || ''] });
-  let map, lineLayer, markerLayer, plainLayer, L;
+  let map, lineLayer, markerLayer, plainLayer, L, resizeObs, disposed = false;
   const fallback = (why) => {
     clear(box);
     const pts = (opts.markers || []).slice(0, 6);
@@ -180,11 +199,17 @@ export function mapView(opts) {
         paint(opts);
       }).catch(() => {});
     }
-    new ResizeObserver(() => map.invalidateSize()).observe(box);
-    setTimeout(() => map.invalidateSize(), 120);
+    if (disposed) { map.remove(); map = null; return; }  // the page was left before Leaflet arrived
+    disposeGone();   // pages that redraw (a charge, a trip) build a new map each time: let go of the ones that left the page
+    resizeObs = new ResizeObserver(() => map?.invalidateSize());
+    resizeObs.observe(box);
+    setTimeout(() => map?.invalidateSize(), 120);
     box.map = map;  // the Leaflet map, e.g. box.map.flyTo([lat, lon], 15) to focus an item
     box.update = (o) => { opts = { ...opts, ...o }; paint(opts); };
   }).catch((e) => fallback(e.message));
   box.update = (o) => { opts = { ...opts, ...o }; };
+  // Leaflet listens to the window's resize events until map.remove(): a page that is left must let go of its map.
+  box.dispose = () => { disposed = true; resizeObs?.disconnect(); if (map) { map.remove(); map = null; } live.delete(box); };
+  live.add(box);
   return box;
 }
