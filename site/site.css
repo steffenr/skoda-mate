@@ -109,7 +109,9 @@
     background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
     padding: 20px; box-shadow: 0 1px 2px rgba(10, 30, 20, .04);
   }
-  .card h3 { font-size: 15px; color: var(--fg); margin-bottom: 6px; }
+  .card h3 { font-size: 15px; color: var(--fg); margin-bottom: 6px; display: flex; align-items: center; gap: 8px; }
+  /* the app's own stroke icons; same size and muted role everywhere, so titles align */
+  .card h3 .icon { flex: none; color: var(--muted); width: 18px; height: 18px; }
   .card p { font-size: 13px; color: var(--muted); margin: 0; }
   .also {
     margin-top: 24px; padding: 16px 20px;
